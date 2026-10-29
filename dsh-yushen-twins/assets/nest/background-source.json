@@ -1,0 +1,9 @@
+{
+  "asset": "undersea-home-local-v1.jpg",
+  "source": "Original local programmatic illustration",
+  "creator": "Assistant-authored Pillow drawing",
+  "script": "<资源库>/image-tools/draw-undersea-home.py",
+  "externalReferences": [],
+  "status": "installed-prototype-not-generative-model-art",
+  "sha256": "fbb626f1f152705d49213fc4dd9c41ae403f98cfeee14399f595f35ab2670b5b"
+}

@@ -1,0 +1,46 @@
+{
+  "name": "dsh-yushen-twins",
+  "version": "0.1.0",
+  "description": "鱼神：点化运行时（框架、宪章、三问、礼物、鱼窝基本型与预设角色）",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./dayu": "./dayu/index.js",
+    "./xiaoyu": "./xiaoyu/index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "lib/",
+    "kernel/",
+    "blank/",
+    "core/",
+    "adapters/",
+    "preset/",
+    "assets/",
+    "dayu/",
+    "xiaoyu/",
+    "scripts/",
+    "CORE.md",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY.md",
+    "COMMERCIAL.md"
+  ],
+  "dsh": {
+    "client": {
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}
