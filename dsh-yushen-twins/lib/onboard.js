@@ -57,6 +57,17 @@ export function writeOwner(input = {}) {
   fs.writeFileSync(JSON_FILE + '.tmp', JSON.stringify(data, null, 2), 'utf8')
   fs.renameSync(JSON_FILE + '.tmp', JSON_FILE)
 
+  // 就职记录（2026-10-29）：界面上的向导点了之后，这里留一行，
+  // 这样"向导到底走通没"不用靠人眼看，读文件就行。
+  try {
+    const logFile = path.join(DATA, 'runtime', 'dayu', '就职记录.jsonl')
+    fs.mkdirSync(path.dirname(logFile), { recursive: true })
+    fs.appendFileSync(logFile, JSON.stringify({
+      at: now, callName, aliases, verbosity, taboos: taboos ? '有' : '无', via: 'onboard',
+    }) + '\n', 'utf8')
+    fs.appendFileSync(logFile, '', 'utf8')
+  } catch { /* 记不下不影响立约 */ }
+
   // 立约要写回她的人格：不然白纸还是白纸，她不会用老板给的名字。
   try {
     const soulFile = path.join(DATA, 'soul', 'persona.json')

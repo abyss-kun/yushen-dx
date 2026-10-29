@@ -39,6 +39,8 @@ import { bodyStatus } from './body-loop.js'
 import { lastSleepText } from './sleep-mind.js'
 import { boardLine } from './whiteboard.js'
 import { readGroup } from './groups.js'
+import { activeLine } from './active.js'
+import { personLine } from './people.js'
 
 export const BRIEF_FILE = 'brief.md'
 
@@ -171,6 +173,20 @@ export function buildRuntimeBrief(role, { channel = '', now = Date.now(), maxCha
       parts.push(`## 契约还没签齐（差：${missing.join('、')}）\n签了才有约束力，也才有保障。签字：\`python <工作区>\\工作区\\签契约.py --role ${role} --who ${role} --sign\``)
     }
   } catch { /* 没有契约文件就不提 */ }
+
+  // 活跃层 + 人物档案（2026-10-29 学自 dsh-onebot-hub）：
+  // 活跃层永远带（它回答"我现在在干什么"）；人物档案只在聊到这个人时带。
+  try {
+    const act = activeLine(role, { now })
+    if (act) parts.push(act)
+    for (const f of ['当前联系人', '联系人']) {
+      try {
+        const who = fs.readFileSync(path.join(dshHome(), 'dayu', 'runtime', role, f + '.txt'), 'utf8').trim()
+        if (who) { const pl = personLine(role, who); if (pl) parts.push(pl) }
+        break
+      } catch { /* 没有这个文件 */ }
+    }
+  } catch { /* 读不到就不占地方 */ }
 
   // 内部群：有人问你，得让你先知道（以前群建了，但没接进简报，等于没人看见）
   try {

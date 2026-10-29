@@ -1844,13 +1844,13 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           h('pre', { style: css.archiveText }, text || '点左边一份看内容')))
     }
 
-    function BoardView() {
+    function BoardView({ initialFilter } = {}) {
       const [data, setData] = React.useState({ live: [], jobs: [], incidents: [] })
       const [open, setOpen] = React.useState(null)
       const [trace, setTrace] = React.useState([])
       const [err, setErr] = React.useState('')
       const [note, setNote] = React.useState('')
-      const [filter, setFilter] = React.useState('all')
+      const [filter, setFilter] = React.useState(initialFilter || 'all')
       const [q, setQ] = React.useState('')
       const [tick, setTick] = React.useState(0)
       const [excerpt, setExcerpt] = React.useState(null)
@@ -1954,8 +1954,8 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
                 setTick((n) => n + 1)
               } catch { /* 结不了就留着 */ }
             },
-          }, '结单')))
-        const head = who(it.title, it.sessionId) + '：出错了'
+          }, '我看过了，结掉')))
+        const head = who(it.title, it.sessionId) + ' 那边出了点问题'
         const sub = timeText(it.lastAt || it.at) + ' · ' + place
         return rowEl(it.id, head, sub, () => openDetail('incident', it.id, it.sessionId), body)
       })
@@ -2029,7 +2029,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         (filter === 'all' || filter === 'done') ? section('今天做完了', doneRows, '今天还没有做完的活') : null)
     }
 
-    function OnboardView() {
+    function OnboardView({ onDone } = {}) {
       const [form, setForm] = React.useState({ callName: '', aliases: '', verbosity: '正常', taboos: '' })
       const [state, setState] = React.useState(null)
       const [msg, setMsg] = React.useState('')
@@ -2065,13 +2065,17 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           if (!out.ok) throw new Error(out.error || '没存上')
           setState(out)
           setMsg('规矩立好了：她以后按这个称呼你、按这个分寸说话。')
+          // 2026-10-29：立完自己回去，别让人卡在这一页（老板点了一下，鱼窝就"消失"了）
+          try { onDone && onDone() } catch { /* 回不去就留在这儿 */ }
         } catch (e) { setErr(String(e?.message || e)) } finally { setBusy(false) }
       }
 
       const done = state?.onboarded
       return h('div', null,
         h('div', { style: { ...css.card, marginBottom: '10px' } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
           h('div', { style: css.h }, done ? '已立约' : '就职 · 立规矩'),
+          onDone ? h('button', { type: 'button', style: { ...(css.tab || {}), cursor: 'pointer' }, onClick: onDone }, '← 回鱼窝') : null),
           h('div', { style: { ...css.muted, lineHeight: 1.9 } },
             '接管这方世界之后，第一件事是立规矩。', h('br'),
             '三句话就够：怎么称呼你、话多还是话少、有什么不能碰。')),
@@ -2715,6 +2719,104 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         done.map(row))
     }
 
+
+    /**
+     * 账：三个人各自的额度，可以改、有保存、有记录。
+     * 2026-10-29 从桌面气泡搬进来（老板：「算账的放到后台，助手里面界面可以填空那种」）。
+     */
+function MoneyView() {
+      const [data, setData] = React.useState(null)
+      const [pool, setPool] = React.useState('60')
+      const [period, setPeriod] = React.useState('week')
+      const [shares, setShares] = React.useState({})
+      const [extras, setExtras] = React.useState({})
+      const [msg, setMsg] = React.useState('')
+      const [busy, setBusy] = React.useState(false)
+      const DAYS = { day: 1, week: 7, month: 30 }
+      const load = async () => {
+        try {
+          const d = await fetch('/api/dayu/budget', { credentials: 'same-origin' }).then((r) => r.json())
+          setData(d)
+          const sp = {}, ex = {}
+          ;(d.rows || []).forEach((r) => { sp[r.role] = String(r.total); ex[r.role] = '0' })
+          setShares(sp); setExtras(ex); setPool(String((d.sum?.total || 0).toFixed(2)))
+        } catch { setMsg('读不到账本') }
+      }
+      React.useEffect(() => { load() }, [])
+      const days = DAYS[period]
+      const roles = (data?.rows || []).map((r) => r.role)
+      const shareNum = (r) => Number(shares[r] || 0) || 0
+      const extraNum = (r) => Number(extras[r] || 0) || 0
+      const totalShare = roles.reduce((a, r) => a + shareNum(r), 0)
+      const totalAll = roles.reduce((a, r) => a + shareNum(r) + extraNum(r), 0)
+      const poolNum = Number(pool || 0) || 0
+      const evenSplit = () => {
+        const each = poolNum / Math.max(1, roles.length)
+        const next = {}
+        roles.forEach((r) => { next[r] = each.toFixed(2) })
+        setShares(next)
+      }
+      const saveAll = async () => {
+        setBusy(true); setMsg('')
+        try {
+          for (const r of roles) {
+            const total = shareNum(r) + extraNum(r)
+            const out = await fetch('/api/dayu/budget', {
+              method: 'POST', credentials: 'same-origin',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ role: r, total, days }),
+            }).then((x) => x.json())
+            if (!out.ok) throw new Error(out.error || '没存上')
+          }
+          setMsg(`存好了：一共 ${totalAll.toFixed(2)} 元，按 ${days} 天算，每天约 ${(totalAll / days).toFixed(2)} 元`)
+          load()
+        } catch (e) { setMsg(String(e?.message || e)) } finally { setBusy(false) }
+      }
+      if (!data) return h('div', { style: css.muted }, '正在读账本…')
+      return h('div', null,
+        h('div', { style: css.card },
+          h('div', { style: css.h }, '① 一共给多少'),
+          h('div', { style: { ...css.muted, fontSize: '12px', marginBottom: '8px' } }, '这是这段时间你们能花的全部钱，下面按人分。'),
+          h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' } },
+            h('div', null,
+              h('div', { style: css.muted }, '总预算（元）'),
+              h('input', { value: pool, onChange: (e) => setPool(e.target.value), style: { width: '110px', padding: '6px 8px', borderRadius: '6px', fontSize: '14px' } })),
+            h('div', null,
+              h('div', { style: css.muted }, '按什么周期'),
+              h('div', { style: { display: 'flex', gap: '6px' } },
+                [['day', '按天'], ['week', '按周'], ['month', '按月']].map(([id, label]) =>
+                  h('button', { key: id, type: 'button', style: { ...css.tab, ...(period === id ? css.tabActive : {}) }, onClick: () => setPeriod(id) }, label)))),
+            h('button', { type: 'button', style: css.btn, onClick: evenSplit }, '平均分'))),
+        h('div', { style: css.card },
+          h('div', { style: css.h }, '② 谁分多少'),
+          h('div', { style: { ...css.muted, fontSize: '12px', marginBottom: '8px' } }, '左边是分给她的，右边是老板额外补的（比如助手的 QQ 聊天钱）；右边不从左边扣。'),
+          (data.rows || []).map((r) => h('div', {
+            key: r.role,
+            style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderTop: '1px solid rgba(127,127,127,.12)' },
+          },
+          h('div', { style: { flex: 1 } },
+            h('div', null, r.name || r.role),
+            h('div', { style: { ...css.muted, fontSize: '11px' } }, `已用 ${r.used.toFixed(2)}　每天约 ${((shareNum(r.role) + extraNum(r.role)) / days).toFixed(2)}`)),
+          h('div', null,
+            h('div', { style: { ...css.muted, fontSize: '11px' } }, '分给她'),
+            h('input', { value: shares[r.role] ?? '', onChange: (e) => setShares({ ...shares, [r.role]: e.target.value }), style: { width: '80px', padding: '5px 7px', borderRadius: '6px', fontSize: '13px' } })),
+          h('div', null,
+            h('div', { style: { ...css.muted, fontSize: '11px' } }, '额外补'),
+            h('input', { value: extras[r.role] ?? '0', onChange: (e) => setExtras({ ...extras, [r.role]: e.target.value }), style: { width: '70px', padding: '5px 7px', borderRadius: '6px', fontSize: '13px' } }))))),
+        h('div', { style: css.card },
+          h('div', { style: css.h }, '③ 算出来是这样'),
+          h('div', { style: { ...css.muted, fontSize: '12px', marginBottom: '6px' } }, '改上面任何一个空，这里马上跟着变；不满意再改，不用先保存。'),
+          h('div', null, `一共给：${poolNum.toFixed(2)} 元`),
+          h('div', null, `分出去：${totalShare.toFixed(2)} 元` + (Math.abs(totalShare - poolNum) > 0.01 ? `（和总预算差 ${(totalShare - poolNum).toFixed(2)}）` : '（正好）')),
+          h('div', null, `加上补贴：${totalAll.toFixed(2)} 元`),
+          h('div', null, `按 ${days} 天：每天约 ${(totalAll / days).toFixed(2)} 元`),
+          h('div', { style: { display: 'flex', gap: '8px', marginTop: '10px' } },
+            h('button', { type: 'button', style: css.btn, disabled: busy, onClick: saveAll }, busy ? '保存中…' : '保存这套分配'),
+            h('button', { type: 'button', style: css.tab, onClick: load }, '还原')),
+          msg ? h('div', { style: { ...css.muted, fontSize: '12px', marginTop: '8px' } }, msg) : null))
+    }
+
+
     function XiaoyuPage({ initialTab } = {}) {
       const [tab, setTab] = React.useState(initialTab || 'board')
       const pendingAsks = usePendingAsks(30000)
@@ -2725,7 +2827,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       const [selfApply, setSelfApply] = React.useState(false)
       const [allowDanger, setAllowDanger] = React.useState(false)
       const [swMsg, setSwMsg] = React.useState('')
-      const tabs = [['board', '任务总览'], ['asks', '她找你'], ['omni', '全知'], ['chat', '和她们说'], ['onboard', '就职'], ['tasks', '待办'], ['token', 'Token回'], ['treasure', '助手的宝藏'], ['reports', '报告'], ['archive', '档案'], ['move', '搬家']]
+      const tabs = [['board', '任务总览'], ['issues', '出问题'], ['asks', '她找你'], ['omni', '全知'], ['chat', '和她们说'], ['onboard', '就职'], ['tasks', '待办'], ['money', '账'], ['token', 'Token回'], ['treasure', '助手的宝藏'], ['reports', '报告'], ['archive', '档案'], ['move', '搬家']]
       React.useEffect(() => {
         fetch('/api/xiaoyu/alerts', { credentials: 'same-origin' })
           .then((r) => r.json())
@@ -2806,16 +2908,106 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           }, id === 'asks' && pendingAsks ? `${label} (${pendingAsks})` : label))),
         h('div', { style: { flex: 1, minHeight: 0, overflow: 'auto' } },
           tab === 'board' ? h(BoardView)
+            : tab === 'issues' ? h(BoardView, { initialFilter: 'err' })
             : tab === 'asks' ? h(AsksView)
             : tab === 'omni' ? h(OmniView)
               : tab === 'chat' ? h(ChatView)
-                : tab === 'onboard' ? h(OnboardView)
+                : tab === 'onboard' ? h(OnboardView, { onDone: () => setView('board') })
               : tab === 'tasks' ? h(TasksView)
+              : tab === 'money' ? h(MoneyView)
             : tab === 'token' ? h(TokenView)
               : tab === 'treasure' ? h(TreasureView)
                 : tab === 'reports' ? h(ReportsView)
                   : tab === 'move' ? h(MoveView)
                     : h(ArchiveView)))
+    }
+
+
+    /**
+     * 悬浮球：放在界面里，不放在桌面上（2026-10-29 老板要求）。
+     *
+     * 为什么这样更好：
+     *   · 在界面里 = 跟着窗口走，切屏换显示器它都在，不用管置顶
+     *   · 直接读接口拿"有几件事"，有事变红点
+     *   · 不会像桌面上那个 Tk 窗口那样抢焦点、被浏览器盖住
+     */
+    function FloatingBall({ onOpen }) {
+      const [count, setCount] = React.useState(0)
+      const [pos, setPos] = React.useState(() => {
+        try { return JSON.parse(localStorage.getItem('ysn.ball.pos') || 'null') || { right: 24, bottom: 96 } }
+        catch { return { right: 24, bottom: 96 } }
+      })
+      const [open, setOpen] = React.useState(false)
+      const [items, setItems] = React.useState([])
+
+      React.useEffect(() => {
+        let live = true
+        const load = async () => {
+          try {
+            const d = await fetch('/api/dayu/incidents', { credentials: 'same-origin' }).then((r) => r.json())
+            if (!live) return
+            const list = (d.incidents || []).filter((i) => i.status === 'open')
+            setItems(list)
+            setCount(list.length)
+          } catch { /* 拿不到就当没有 */ }
+        }
+        load()
+        const t = setInterval(load, 60000)
+        return () => { live = false; clearInterval(t) }
+      }, [])
+
+      const drag = React.useRef(null)
+      const onDown = (e) => {
+        drag.current = { x: e.clientX, y: e.clientY, right: pos.right, bottom: pos.bottom, moved: false }
+      }
+      const onMove = (e) => {
+        if (!drag.current) return
+        const dx = e.clientX - drag.current.x
+        const dy = e.clientY - drag.current.y
+        if (Math.abs(dx) + Math.abs(dy) > 4) drag.current.moved = true
+        setPos({ right: Math.max(8, drag.current.right - dx), bottom: Math.max(8, drag.current.bottom - dy) })
+      }
+      const onUp = () => {
+        const moved = drag.current?.moved
+        drag.current = null
+        try { localStorage.setItem('ysn.ball.pos', JSON.stringify(pos)) } catch {}
+        if (!moved) setOpen((v) => !v)
+      }
+
+      return h(React.Fragment, null,
+        open ? h('div', {
+          style: {
+            position: 'fixed', right: pos.right + 56, bottom: pos.bottom, width: '300px',
+            background: 'var(--ds-bg-elevated, #151b23)', color: 'inherit', borderRadius: '12px',
+            border: '1px solid rgba(127,127,127,.25)', boxShadow: '0 8px 28px rgba(0,0,0,.35)',
+            padding: '12px', zIndex: 50, fontSize: '13px',
+          },
+        },
+        h('div', { style: { fontWeight: 600, marginBottom: '6px' } }, count ? `有 ${count} 件想让你看一眼` : '现在没什么事'),
+        items.slice(0, 3).map((it) => h('div', { key: it.id, style: { marginBottom: '6px' } },
+          h('div', null, String(it.text || '').slice(0, 60)),
+          h('div', { style: { opacity: 0.6, fontSize: '11px' } }, `出现 ${it.count || 1} 次`))),
+        h('div', { style: { display: 'flex', gap: '8px', marginTop: '8px' } },
+          h('button', { type: 'button', onClick: () => { setOpen(false); onOpen && onOpen() } }, '打开看板'),
+          h('button', { type: 'button', onClick: () => setOpen(false) }, '关掉'))) : null,
+        h('div', {
+          onMouseDown: onDown, onMouseMove: onMove, onMouseUp: onUp,
+          title: count ? `${count} 件要你看一眼` : '没什么事',
+          style: {
+            position: 'fixed', right: pos.right, bottom: pos.bottom, width: '44px', height: '44px',
+            borderRadius: '50%', background: 'var(--ds-bg-elevated, #151b23)',
+            border: '1px solid rgba(127,127,127,.3)', boxShadow: '0 4px 14px rgba(0,0,0,.35)',
+            cursor: 'pointer', zIndex: 51, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            userSelect: 'none', fontSize: '18px',
+          },
+        }, '🐟',
+        count ? h('span', {
+          style: {
+            position: 'absolute', top: '-3px', right: '-3px', minWidth: '16px', height: '16px',
+            borderRadius: '8px', background: '#e0564a', color: '#fff', fontSize: '10px',
+            lineHeight: '16px', textAlign: 'center', padding: '0 4px',
+          },
+        }, String(count)) : null))
     }
 
     function Root({ hostKit, sessions }) {
@@ -2878,6 +3070,24 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       const master = status?.switches?.master !== false
       const off = h('div', { style: css.card }, h('div', { style: css.h }, '全体休假中'), h('div', { style: css.muted }, '去「调试」页叫她们回来，重启 DSH 后生效。'))
 
+      // 2026-10-29：还没立约就在顶上提示一句。陌生人装完看到的是运维台，不知道该去哪。
+      const onboardHint = onboarded === false
+        ? h('div', {
+            style: {
+              ...css.card, display: 'flex', alignItems: 'center', gap: '12px',
+              borderLeft: '3px solid #f0c062', background: 'rgba(240,192,98,0.08)',
+            },
+          },
+          h('div', { style: { flex: 1 } },
+            h('div', { style: { fontWeight: 600, marginBottom: '2px' } }, '还没立约'),
+            h('div', { style: css.muted }, '先告诉它怎么叫你——两分钟，点下面的按钮。')),
+          h('button', {
+            type: 'button',
+            style: { ...(css.btn || {}), cursor: 'pointer' },
+            onClick: () => { setView('onboard'); setMenu(false) },
+          }, '去立约'))
+        : null
+
       const openAdopt = (role, file) => {
         setMenu(false)
         setDialog({ mode: 'adopt', role: role || null, file: file || null, key: Date.now() })
@@ -2932,6 +3142,8 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       if (view === 'home') {
         return h(React.Fragment, null,
           h('div', { className: 'ysn-root' },
+            onboardHint,
+            h(FloatingBall, { onOpen: () => { setView('xiaoyu'); setMenu(false) } }),
             h(Nest, {
               nest,
               error: nestError,

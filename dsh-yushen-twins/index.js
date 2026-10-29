@@ -18,6 +18,7 @@ import { roleList, snapshot, adopt, adoptFile, adoptUrl, adoptGuest, guestFile, 
 import { characterCandidates, scanPlugins } from './lib/intake.js'
 import { exportBundle, importBundle } from './lib/migrate.js'
 import { readOwner, writeOwner } from './lib/onboard.js'
+import { readBudgets, setBudget } from './lib/budget-book.js'
 import { recordBoot } from './lib/system.js'
 import { seedIfBlank } from './lib/seed.js'
 import { attachDsh } from './adapters/dsh.js'
@@ -386,6 +387,15 @@ export async function apply(ctx) {
             restartHost({ dry })
             return sendJson(res, 200, { ok: true, dry, note: dry ? '干跑：只写证据，不真重启' : '2 秒后重启 DSH；页面会断开，重开即最新' })
           } catch (e) { return sendJson(res, 500, { ok: false, error: String(e?.message || e) }) }
+        }
+        if (req.method === 'GET' && url.pathname === '/api/dayu/budget') {
+          try { return sendJson(res, 200, readBudgets()) } catch (e) { return sendJson(res, 500, { ok: false, error: String(e?.message || e) }) }
+        }
+        if (req.method === 'POST' && url.pathname === '/api/dayu/budget') {
+          if (!requireCap(res, 'owner.write', sendJson)) return
+          const body = await readJsonBody(req)
+          const out = setBudget(String(body.role || ''), body.total, body.days)
+          return sendJson(res, out.ok ? 200 : 400, out)
         }
         if (req.method === 'GET' && url.pathname === '/api/yushen/onboard') {
           return sendJson(res, 200, readOwner())
