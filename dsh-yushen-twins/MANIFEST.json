@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-30T13:45:11.966Z",
+  "at": "2026-10-30T13:48:07.119Z",
   "files": [
     {
       "rel": "index.js",
@@ -1433,8 +1433,8 @@
     },
     {
       "rel": "scripts/regression.mjs",
-      "bytes": 101137,
-      "sha": "84292d391a5d"
+      "bytes": 101151,
+      "sha": "adc01dc8bb52"
     },
     {
       "rel": "scripts/verify-settings.mjs",
@@ -1777,5 +1777,5 @@
       "sha": "df7d66d533ca"
     }
   ],
-  "totalBytes": 4330747
+  "totalBytes": 4330761
 }

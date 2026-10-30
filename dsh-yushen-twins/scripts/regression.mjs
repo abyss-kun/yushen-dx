@@ -1749,9 +1749,9 @@ ok('她自己那本账：看得见、记得了、能自己定上限，但没人�
 // 90. 2026-10-30 老板定「每日自净」：注入里不许再有与实况相反的过期句，体积只许降。
 // 基线（2026-10-30 首轮）：dragon 9619 字 / 265 行 / 61 段。
 const INJECT_BASELINE = 9800
-const { buildSceneText } = await import(pathToFileURL(path.join(ROOT, 'lib/soul.js')).href)
+const { buildSceneText: buildDeskText } = await import(pathToFileURL(path.join(ROOT, 'lib/soul.js')).href)
 ok('注入里没有过期话，体积不回升', () => {
-  const t = buildSceneText('dragon', 'desk')
+  const t = buildDeskText('dragon', 'desk')
   assert.ok(t.length > 1000, '注入没生成，测了个寂寞')
   for (const bad of ['没在电脑前', '你没有眼睛和手', '工具没挂上', '你还没有身体']) {
     assert.ok(!t.includes(bad), `过期句还在注入里：${bad}`)
