@@ -15,6 +15,23 @@ import { createMobileRoutes } from './lib/mobile-routes.js'
 import { transcriptDigest } from './lib/transcript.js'
 import { isAllowed, unauthorized } from './lib/auth.js'
 import { roleList, snapshot, adopt, adoptFile, adoptUrl, adoptGuest, guestFile, removeGuest, rename, restore, move, resolveAvatar, mimeOf } from './lib/nest.js'
+// 经验条只认「自己想、自己排、自己做完」的议程条目（老板 2026-10-30 定），这里给它数。
+import { readAgenda, countsForXp } from './lib/agenda.js'
+
+/**
+ * 经验只认「自己想做、自己排、自己做完」的议程条目（老板 2026-10-30 定）：
+ * by=self 且 state=done 才算一件；他派的活（派活单）不进这个数。
+ */
+function selfDoneCounts() {
+  const out = {}
+  for (const role of ['dayu', 'xiaoyu', 'dragon']) {
+    try {
+      const items = readAgenda(role).items
+      out[role] = items.filter(countsForXp).length
+    } catch { out[role] = 0 }
+  }
+  return out
+}
 import { characterCandidates, scanPlugins } from './lib/intake.js'
 import { detectRoles } from './lib/detect-roles.js'
 import { exportBundle, importBundle } from './lib/migrate.js'
@@ -442,7 +459,7 @@ export async function apply(ctx) {
           return sendJson(res, 200, { ok: true, switches })
         }
         if (req.method === 'GET' && url.pathname === '/api/yushen/nest') {
-          return sendJson(res, 200, snapshot())
+          return sendJson(res, 200, { ...snapshot(), selfDone: selfDoneCounts() })
         }
         if (req.method === 'POST' && url.pathname === '/api/yushen/action') {
           const body = await readJsonBody(req).catch(() => ({}))

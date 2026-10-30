@@ -1,15 +1,15 @@
 {
-  "at": "2026-10-30T09:19:35.258Z",
+  "at": "2026-10-30T11:00:12.058Z",
   "files": [
     {
       "rel": "index.js",
-      "bytes": 36864,
-      "sha": "476c441b9b91"
+      "bytes": 37551,
+      "sha": "18ca012fb2d4"
     },
     {
       "rel": "client.js",
-      "bytes": 285462,
-      "sha": "7711361d00c6"
+      "bytes": 285617,
+      "sha": "781355fed770"
     },
     {
       "rel": "cordis.patch.yml",
@@ -19,12 +19,12 @@
     {
       "rel": "package.json",
       "bytes": 1256,
-      "sha": "f54b07423ec3"
+      "sha": "dfeed73ae9ef"
     },
     {
       "rel": "README.md",
-      "bytes": 12356,
-      "sha": "3feb6ec2a6d8"
+      "bytes": 12379,
+      "sha": "34e8c16ab359"
     },
     {
       "rel": "LICENSE",
@@ -48,13 +48,13 @@
     },
     {
       "rel": "CHANGELOG.md",
-      "bytes": 9665,
-      "sha": "dd82bd598f5c"
+      "bytes": 12062,
+      "sha": "79707e99f8d7"
     },
     {
       "rel": "dayu\\index.js",
-      "bytes": 193919,
-      "sha": "319f5466dc00"
+      "bytes": 197431,
+      "sha": "797309d9ea52"
     },
     {
       "rel": "dayu\\m1.js",
@@ -78,8 +78,8 @@
     },
     {
       "rel": "lib\\agenda.js",
-      "bytes": 11628,
-      "sha": "a0495e2a5610"
+      "bytes": 13198,
+      "sha": "9a6fad6f1ef2"
     },
     {
       "rel": "lib\\analyze.js",
@@ -248,8 +248,8 @@
     },
     {
       "rel": "lib\\characters.js",
-      "bytes": 9908,
-      "sha": "ddb30ed41866"
+      "bytes": 10076,
+      "sha": "4db152b191b2"
     },
     {
       "rel": "lib\\cheap-reply.js",
@@ -260,6 +260,11 @@
       "rel": "lib\\claim.js",
       "bytes": 4161,
       "sha": "0bcf087d2d88"
+    },
+    {
+      "rel": "lib\\consolidate.js",
+      "bytes": 3781,
+      "sha": "50adef80c9b1"
     },
     {
       "rel": "lib\\conversation-events.js",
@@ -498,8 +503,8 @@
     },
     {
       "rel": "lib\\memory.js",
-      "bytes": 10611,
-      "sha": "f42a2d1501ab"
+      "bytes": 12437,
+      "sha": "a9e529ce9be8"
     },
     {
       "rel": "lib\\migrate.js",
@@ -623,8 +628,8 @@
     },
     {
       "rel": "lib\\people.js",
-      "bytes": 2447,
-      "sha": "6948bfa168d3"
+      "bytes": 3246,
+      "sha": "774f95ba4a6c"
     },
     {
       "rel": "lib\\perm.js",
@@ -673,8 +678,8 @@
     },
     {
       "rel": "lib\\rank.js",
-      "bytes": 5382,
-      "sha": "4e6f04976f25"
+      "bytes": 5411,
+      "sha": "319660c702ea"
     },
     {
       "rel": "lib\\recall.js",
@@ -738,8 +743,8 @@
     },
     {
       "rel": "lib\\residence.js",
-      "bytes": 20157,
-      "sha": "65b5f2fdbacb"
+      "bytes": 20261,
+      "sha": "945c94f31bc0"
     },
     {
       "rel": "lib\\rewrite.js",
@@ -758,8 +763,8 @@
     },
     {
       "rel": "lib\\rules-block.js",
-      "bytes": 7780,
-      "sha": "03ebe4c105ab"
+      "bytes": 7773,
+      "sha": "ceffbb1a062c"
     },
     {
       "rel": "lib\\runtime.js",
@@ -818,8 +823,8 @@
     },
     {
       "rel": "lib\\soul.js",
-      "bytes": 19305,
-      "sha": "95f4024aa5e9"
+      "bytes": 20567,
+      "sha": "47c517726e14"
     },
     {
       "rel": "lib\\state-adapter.js",
@@ -913,8 +918,8 @@
     },
     {
       "rel": "core\\dispatch.js",
-      "bytes": 17118,
-      "sha": "1da0d4b1423b"
+      "bytes": 17335,
+      "sha": "48515baff91a"
     },
     {
       "rel": "core\\host.js",
@@ -1428,8 +1433,8 @@
     },
     {
       "rel": "scripts/regression.mjs",
-      "bytes": 87123,
-      "sha": "a7fc2b8fb6fb"
+      "bytes": 92973,
+      "sha": "8e5f23b25ea1"
     },
     {
       "rel": "scripts/verify-settings.mjs",
@@ -1463,8 +1468,8 @@
     },
     {
       "rel": "docs/三人常驻与本体.md",
-      "bytes": 8447,
-      "sha": "6017f764f3e7"
+      "bytes": 8470,
+      "sha": "e884d4b819ad"
     },
     {
       "rel": "docs/故障档案.md",
@@ -1508,8 +1513,8 @@
     },
     {
       "rel": "scripts/test-memory.mjs",
-      "bytes": 3109,
-      "sha": "043c5be3cee4"
+      "bytes": 3536,
+      "sha": "e6e12d87bfae"
     },
     {
       "rel": "scripts/test-now.mjs",
@@ -1518,8 +1523,8 @@
     },
     {
       "rel": "scripts/test-characters.mjs",
-      "bytes": 3838,
-      "sha": "c920c5e28477"
+      "bytes": 4009,
+      "sha": "2177769b2913"
     },
     {
       "rel": "scripts/test-bili-sync.mjs",
@@ -1588,8 +1593,8 @@
     },
     {
       "rel": "docs/阶位.md",
-      "bytes": 3119,
-      "sha": "0f5fd7333ce5"
+      "bytes": 3122,
+      "sha": "37b6cf2a20e5"
     },
     {
       "rel": "scripts/test-rank.mjs",
@@ -1743,8 +1748,8 @@
     },
     {
       "rel": "docs/职责清单.md",
-      "bytes": 3113,
-      "sha": "5b2427faeaee"
+      "bytes": 3101,
+      "sha": "6cd9f9ac4746"
     },
     {
       "rel": "docs/世界观设定.md",
@@ -1768,9 +1773,9 @@
     },
     {
       "rel": "docs/框架定义.md",
-      "bytes": 115143,
-      "sha": "77e429862ad6"
+      "bytes": 114031,
+      "sha": "df7d66d533ca"
     }
   ],
-  "totalBytes": 4286603
+  "totalBytes": 4308476
 }

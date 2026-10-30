@@ -18,6 +18,19 @@ export const STATES = Object.freeze(['want', 'doing', 'blocked', 'waiting', 'don
 // check 仍是她能选的下一步，只是它要模型，就地标 waiting，别假装做了。
 export const LOCAL_STEPS = Object.freeze(['read-inbox', 'read-file'])
 export const NEXT_KINDS = Object.freeze([...LOCAL_STEPS, 'check', 'ask-model', 'write', 'tell-owner'])
+// 旧 tick（2026-10-30 前）每跳都往 note 写这一句，和「她自己核过」长得一模一样。
+// 修好后不再写（见上面 LOCAL_STEPS 那段），但旧条目里冻着的还在——
+// 展示时当它不存在：别让系统的话冒充她的话。
+export const LEGACY_TICK_NOTE = '核对过一遍，暂时没新东西'
+// 经验只算「自己自发想做、自己排、自己做完」的（老板 2026-10-30 定）。
+// origin: 'self' = 她自己的念头；'owner' = 老板派的活——哪怕她自己排进议程、自己做完了，也不算经验。
+// 这个标记是给「口头派的活」用的：系统认不出谁先提的，只能由她自己或老板实事求是地标。
+export const XP_ORIGINS = Object.freeze(['self', 'owner'])
+export function countsForXp(item = {}) {
+  if (String(item.by || 'self') !== 'self') return false
+  if (String(item.state || '') !== 'done') return false
+  return String(item.origin || 'self') !== 'owner'
+}
 // 5 而不是 3：老板 2026-10-28 又加了两件长期活（每天去对口视频下说一句真话、每天学一点），
 // 3 件装不下。防堆靠的是「每件都要有下一步」，不是靠把上限压死。
 export const MAX_ACTIVE = 5
@@ -74,10 +87,11 @@ export function activeItems(role) {
 }
 
 /** 她自己排一件事。手上多了只提醒一句，不拦——要不要堆是她的事（三问第 1 条）。 */
-export function addItem(role, { what = '', why = '', next = '', nextKind = 'ask-model', target = '', prompt = '', by = 'self', mindId = '', now = Date.now() } = {}) {
+export function addItem(role, { what = '', why = '', next = '', nextKind = 'ask-model', target = '', prompt = '', by = 'self', mindId = '', origin = 'self', now = Date.now() } = {}) {
   const text = String(what || '').trim()
   if (!text) throw new Error('这件事是什么？得写一句')
   if (!NEXT_KINDS.includes(nextKind)) throw new Error(`下一步类型不认识：${nextKind}（可用：${NEXT_KINDS.join(' / ')}）`)
+  const from = XP_ORIGINS.includes(origin) ? origin : 'self'
   ensureRuntime(role)
   const doc = readAgenda(role)
   const active = doc.items.filter((i) => ['want', 'doing', 'blocked', 'waiting'].includes(i.state))
@@ -91,6 +105,8 @@ export function addItem(role, { what = '', why = '', next = '', nextKind = 'ask-
     target: String(target || '').slice(0, 400),
     prompt: String(prompt || '').slice(0, 600),
     by: String(by || 'self'),
+    // 谁先提的：'self' = 她自发想做的；'owner' = 老板派的（不计经验）
+    origin: from,
     // 这件事是从哪条心念接过来的（"我一直在想的事"→"我现在要做的事"）。
     // 有了这条链，"想"和"做"是一件事，不是两套账（2026-10-27）。
     mindId: String(mindId || ''),
@@ -143,9 +159,11 @@ export function updateItem(role, id, patch = {}, { now = Date.now() } = {}) {
   if (!item) throw new Error(`没有这件事：${id}`)
   if (patch.state && !STATES.includes(patch.state)) throw new Error(`状态不认识：${patch.state}（可用：${STATES.join(' / ')}）`)
   if (patch.nextKind && !NEXT_KINDS.includes(patch.nextKind)) throw new Error(`下一步类型不认识：${patch.nextKind}`)
+  if (patch.origin && !XP_ORIGINS.includes(patch.origin)) throw new Error(`来源不认识：${patch.origin}（可用：${XP_ORIGINS.join(' / ')}）`)
   for (const key of ['state', 'next', 'nextKind', 'target', 'note', 'why', 'what']) {
     if (patch[key] !== undefined) item[key] = String(patch[key]).slice(0, key === 'target' ? 400 : 200)
   }
+  if (patch.origin !== undefined) item.origin = String(patch.origin)
   item.updatedAt = nowIso(now)
   doc.updatedAt = item.updatedAt
   writeJson(agendaFile(role), doc)
@@ -212,7 +230,9 @@ export function agendaBrief(role, { limit = 3 } = {}) {
   if (!items.length) return ''
   return items.map((i) => {
     // 先给她自己写的那句；她没有，才拿 tick 看到的那句补上。
-    const note = String(i.note || i.lastTry?.note || '')
+    // 但旧 tick 留下的假话不算她写的：既不当 note，也不拿 lastTry 顶上。
+    const raw = String(i.note || '')
+    const note = raw === LEGACY_TICK_NOTE ? '' : String(raw || i.lastTry?.note || '')
     return `- 「${i.what}」${i.state === 'blocked' ? '（卡住了）' : i.state === 'waiting' ? '（等下步要模型）' : ''}${note ? `：${note.slice(0, 40)}` : ''}`
   }).join('\n')
 }

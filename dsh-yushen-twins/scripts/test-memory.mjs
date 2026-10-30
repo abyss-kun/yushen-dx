@@ -57,5 +57,12 @@ row = JSON.parse(fs.readFileSync(file, 'utf8'))
 assert.equal(row.events.length, 200)
 assert.match(row.events.at(-1).text, /第 209 条/)
 
+// 9) 证据式召回：每条有 id，能按关键词找回原话（2026-10-30）
+const rec = mem.appendEvent('aria', { channel: '工作台', text: '老板说面试改到周四了' })
+assert.ok(rec.ok)
+const found = mem.memoryLookup('aria', '面试周四')
+assert.ok(found.length >= 1, '应该能找回那条')
+assert.match(found[0].id, /^m-[0-9a-f]{10}$/, 'id 格式不对')
+assert.match(found[0].text, /面试改到周四/)
 fs.rmSync(HOME, { recursive: true, force: true })
 console.log(JSON.stringify({ ok: true, onePerPerson: true, channelTagged: true, dedup: true, capped: true }))

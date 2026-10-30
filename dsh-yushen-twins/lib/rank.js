@@ -10,7 +10,7 @@ const FILE = path.join(DATA, 'ranks.json')
 export const RANKS = Object.freeze(['L0', 'L1', 'L2', 'L3'])
 export const RANK_LABEL = Object.freeze({ L0: '初识', L1: '上手', L2: '管家', L3: '自主' })
 // 现有角色的起点按宪章既有认定走，不从零重算；之后只靠证据往上加。
-// 照微是太上长老，走她自己的五境，不换算成 L0-L3；这里只登记大鱼/小鱼。
+// 照微是顾问（2026-10-30 前称太上长老），走她自己的五境，不换算成 L0-L3；这里只登记大鱼/小鱼。
 export const RANK_ROLES = Object.freeze(['dayu', 'xiaoyu'])
 export const DEFAULT_RANK = Object.freeze({ dayu: 'L3', xiaoyu: 'L2' })
 export const DEFAULT_CAP = 'L3'

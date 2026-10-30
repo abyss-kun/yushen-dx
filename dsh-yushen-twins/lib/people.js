@@ -10,6 +10,7 @@
 //   · 聊到这个人才注入；没聊到不占地方。
 import fs from 'node:fs'
 import path from 'node:path'
+import crypto from 'node:crypto'
 import { dshHome } from './paths.js'
 
 const MAX_ITEMS = 30
@@ -18,17 +19,30 @@ function dirOf(role) {
   return path.join(dshHome(), 'dayu', 'runtime', role, 'people')
 }
 
+// 2026-10-30 改：原来只把非法字符换成 "_"，中文名全塌成下划线——
+// 一个四字中文名存成 ____.json，再来一个四字中文名就写进同一份，互相盖。
+// 现在名字被替换过就补 8 位指纹，两个人不会撞；纯 QQ 号这种本来合法的名字文件名不变。
+function legacyFileOf(role, userId) {
+  return path.join(dirOf(role), `${String(userId).replace(/[^0-9a-zA-Z_-]/g, '_')}.json`)
+}
+
 function fileOf(role, userId) {
-  const safe = String(userId).replace(/[^0-9a-zA-Z_-]/g, '_')
-  return path.join(dirOf(role), `${safe}.json`)
+  const raw = String(userId)
+  const safe = raw.replace(/[^0-9a-zA-Z_-]/g, '_')
+  if (safe === raw) return legacyFileOf(role, userId)
+  const digest = crypto.createHash('sha1').update(raw, 'utf8').digest('hex').slice(0, 8)
+  return path.join(dirOf(role), `${safe}-${digest}.json`)
 }
 
 export function readPerson(role, userId) {
-  try {
-    return JSON.parse(fs.readFileSync(fileOf(role, userId), 'utf8').replace(/^\uFEFF/, ''))
-  } catch {
-    return { userId: String(userId), name: '', facts: [] }
+  const first = fileOf(role, userId)
+  const old = legacyFileOf(role, userId)
+  for (const p of old === first ? [first] : [first, old]) {
+    try {
+      return JSON.parse(fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, ''))
+    } catch { /* 换下一个 */ }
   }
+  return { userId: String(userId), name: '', facts: [] }
 }
 
 export function writePerson(role, userId, data) {

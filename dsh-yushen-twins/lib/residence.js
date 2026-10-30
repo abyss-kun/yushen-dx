@@ -25,7 +25,8 @@ function specOf(role) {
   // 这样侧边栏里能归成一组，不用在“未分组”里翻。
   const home = path.join(DATA, '鱼神常驻')
   try { fs.mkdirSync(home, { recursive: true }) } catch { /* 建不了就用用户目录 */ }
-  return { title: c.title, label: c.name, cwd: c.cwd || process.env.DSH_WORKSPACE || home, model: c.model, agentPreset: 'yushen-desk' }
+  // 2026-10-30：常驻会话固定住进『鱼神常驻』这个专属工作区，别再跟开发会话混在一个工作区里。
+  return { title: c.title, label: c.name, cwd: c.cwd || home, model: c.model, agentPreset: 'yushen-desk' }
 }
 export function residentRoles() {
   return listCharacters().map((c) => c.id)

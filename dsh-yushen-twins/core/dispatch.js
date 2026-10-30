@@ -155,6 +155,10 @@ export async function dispatch(host, { brief, expect, target, reviewedId, role =
     status: 'dispatched',
     result: '',
     createdAt: new Date().toISOString(),
+    // 2026-10-30：回执期限与催办计数（催办最多 2 次，见 dayu/index.js 的 remindLateJobs）
+    dueAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    reminders: 0,
+    lastRemindedAt: '',
     returnedAt: '',
     handbook: handbookStamp(),
     handbookMeta: bookMeta ? { chapters: bookMeta.chapters, tools: bookMeta.tools, chars: bookMeta.chars, expiresAt: bookMeta.expiresAt } : null,

@@ -16,11 +16,13 @@ const PERSONA = path.join(SOUL_DIR, 'persona.json')
 const BUILTINS = [
   { id: 'dayu', name: '大鱼', alias: '阿鲲', title: '鱼神·总台', cards: { desk: 'cards/dayu.desk.md', social: 'cards/dayu.social.md' }, memory: 'memory/dayu.json' },
   { id: 'xiaoyu', name: '小鱼', alias: '阿鲤', title: '小鱼·管家', cards: { desk: 'cards/xiaoyu.social.md', social: 'cards/xiaoyu.social.md' }, memory: 'memory/xiaoyu.json' },
-  { id: 'dragon', name: '照微', alias: '龙娘', title: '照微·太上长老', cards: { desk: 'cards/dragon.desk.md', social: 'cards/dragon.desk.md' }, memory: 'memory/dragon.json' },
+  { id: 'dragon', name: '照微', alias: '龙娘', title: '照微·顾问', cards: { desk: 'cards/dragon.desk.md', social: 'cards/dragon.desk.md' }, memory: 'memory/dragon.json' },
 ]
 // 2026-10-30：出厂只点亮一个角色（一般人家只养一条鱼；三个卡反而不好选）。
 // BUILTINS 仍是「认识的角色目录」（形象、默认配置都靠它），SEED 才是「新装默认住进来的」。
 const SEED = BUILTINS.slice(0, 1)
+// 「认识的角色目录」对外可读：出厂只点亮 SEED，但照微这些角色仍要能被测试和界面按 id 认出来。
+export const BUILTIN_ROLES = BUILTINS
 const ID_RE = /^[a-z][a-z0-9_-]{1,31}$/
 const DEFAULTS = {
   titleSuffix: '·常驻',

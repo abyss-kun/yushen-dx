@@ -109,6 +109,8 @@ export function appendEvent(role, { channel = '工作台', text, at, kind = 'say
     recallCount: 0,
     // 分身号（框架 v1.88 §7.10）：这一条是哪个分身写的。不记名的消息等于没有。
     by: String(by || '').slice(0, 12),
+    // 2026-10-30：稳定 id，给「证据式召回」用——她能说出是哪一条，而不是"我记得"。
+    id: 'm-' + crypto.createHash('sha1').update(`${when}|${channel}|${value.slice(0, 120)}`).digest('hex').slice(0, 10),
   }
   const file = character.memory
   return withLock(file, () => {
@@ -207,4 +209,43 @@ export function visibleEvents(memory, { includeForgotten = false } = {}) {
   const events = Array.isArray(memory?.events) ? memory.events : []
   if (includeForgotten) return events
   return events.filter((e) => String(e?.clarity || 'clear') !== 'forgotten')
+}
+
+/**
+ * 证据式召回（2026-10-30）：按关键词找原话，带 id。
+ * 目的：她说"我记得你说过…"时，能说出是哪一条，而不是只有摘要。
+ * 相关度 = 关键词命中 + 新近 + 清晰度；不调模型。
+ */
+export function memoryLookup(role, q, { limit = 5, now = Date.now() } = {}) {
+  const key = String(q || '').trim()
+  if (!key) return []
+  const character = getCharacter(role)
+  const memory = readJson(character.memory, null)
+  const events = Array.isArray(memory?.events) ? memory.events : []
+  const grams = []
+  for (let i = 0; i + 1 < key.length; i += 1) grams.push(key.slice(i, i + 2))
+  if (!grams.length) grams.push(key.slice(0, 2))
+  const clarityBonus = { vivid: 2, clear: 1, fuzzy: 0, forgotten: -2 }
+  const out = []
+  for (const e of events) {
+    if (!e || !e.text) continue
+    const text = String(e.text)
+    let hits = 0
+    for (const g of grams) if (text.includes(g)) hits += 1
+    if (!hits) continue
+    const ageDays = Math.max(0, (now - (Date.parse(e.at) || now)) / 86400000)
+    const score = hits * 10 + (clarityBonus[e.clarity] ?? 0) + (e.pinned ? 3 : 0) - Math.min(5, ageDays / 7)
+    out.push({
+      id: e.id || '',
+      at: e.at,
+      channel: e.channel,
+      text: text.slice(0, 200),
+      clarity: e.clarity || '',
+      pinned: Boolean(e.pinned),
+      source: e.source || '',
+      score: Number(score.toFixed(2)),
+    })
+  }
+  out.sort((a, b) => b.score - a.score || String(b.at).localeCompare(String(a.at)))
+  return out.slice(0, Math.max(1, Number(limit) || 5))
 }

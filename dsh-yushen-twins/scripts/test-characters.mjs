@@ -14,10 +14,11 @@ const chars = await import('../lib/characters.js')
 const soul = await import('../lib/soul.js')
 const residence = await import('../lib/residence.js')
 
-// 1) 没有名册也没有 persona：出厂三人兜底
+// 1) 没有名册也没有 persona：出厂默认只点亮一个角色（2026-10-30 改：一般人家只养一条鱼），
+//    但「认识的角色目录」仍是三个——getCharacter 能按 id 取到照微，卡和标题都在。
 const builtin = chars.listCharacters()
-assert.deepEqual(builtin.map((c) => c.id).sort(), ['dayu', 'dragon', 'xiaoyu'])
-assert.equal(chars.getCharacter('dragon').title, '照微·太上长老')
+assert.deepEqual(builtin.map((c) => c.id), ['dayu'])
+assert.equal(chars.BUILTIN_ROLES.find((c) => c.id === 'dragon').title, '照微·顾问')
 
 // 2) 用户只写自己的角色：名册为准，不搀进出厂角色
 fs.writeFileSync(path.join(SOUL, 'cards', 'aria.desk.md'), '# 阿丽亚\n我是阿丽亚，一个用户自己带来的角色。\n我有责任心，也有自己的底线。\n', 'utf8')

@@ -208,7 +208,9 @@ window.__ModuleLoader__.load({
 .ysn-stage{/* 两边各留一点，让人不贴边；右下角那块桌宠的地方也就不挡名字了 */padding:0 min(9vw,96px)}
 .ysn-slot{position:relative;flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end;justify-content:center}
 .ysn-slot-dayu{z-index:2}
-.ysn-slot-xiaoyu{z-index:2;flex:.92 1 0}
+.ysn-slot-xiaoyu{z-index:2}
+/* 2026-10-30 老板定「先改平」：照微的抬高/放大/居中台阶（ysn-slot-hero）已停用，不再挂到任何角色上；
+   下面的 hero 规则留作备查，别再用——三个人一样高一样大，只换位置和颜色。 */
 .ysn-slot-hero{z-index:1;flex:1.14 1 0;transform:translateY(-16px)}
 .ysn-slot-hero::before{content:'';position:absolute;left:50%;bottom:5%;width:98%;height:72%;transform:translateX(-50%);background:radial-gradient(ellipse at 50% 66%,rgba(116,185,181,.2),rgba(116,185,181,0) 68%);filter:blur(10px);pointer-events:none;z-index:0}
 .ysn-slot-open{z-index:32}
@@ -252,7 +254,7 @@ window.__ModuleLoader__.load({
 .ysn-slot-hero .ysn-post{font-size:11px;color:#e8cd95;opacity:.95}
 .ysn-slot-dayu .ysn-name{border-color:rgba(124,196,255,.38)}
 .ysn-slot-dayu .ysn-post{color:#a9d1ff}
-.ysn-slot-xiaoyu .ysn-name{border-color:rgba(116,185,181,.35);font-size:12px;background:rgba(6,14,24,.54)}
+.ysn-slot-xiaoyu .ysn-name{border-color:rgba(116,185,181,.35);background:rgba(6,14,24,.54)}
 .ysn-slot-xiaoyu .ysn-post{color:#9fd8d2}
 .ysn-slot-hero .ysn-fig{position:relative;z-index:1}
 .ysn-slot-hero .ysn-art::before{content:'';position:absolute;left:50%;bottom:-7px;width:82%;height:18px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse at center,rgba(0,0,0,.4),rgba(0,0,0,0) 72%);border:1px solid rgba(216,172,98,.2);box-shadow:0 12px 26px rgba(0,0,0,.3);pointer-events:none;z-index:0}
@@ -511,16 +513,16 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         h('div', { style: css.muted }, note || '平时保持全开；放完假重启 DSH 回来上班。'))
     }
 
-    // 照微：她有自己的本体卡和常驻会话（照微·太上长老），不借两姐妹的会话，也不共用她们的记忆。
+    // 照微：她有自己的本体卡和常驻会话（照微·顾问），不借两姐妹的会话，也不共用她们的记忆。
     const NEST_ROLES = ['dayu', 'xiaoyu', 'dragon']
     // 站位不是身份表：站位按对外层次排，能力和授权完全不看这个。
     // 照微走她自己的五境，不换算 L0-L3；大鱼/小鱼用 L0-L3 的显示号。
     const NEST_DISPLAY_ORDER = ['dayu', 'dragon', 'xiaoyu']
-    const NEST_SCALE = { dayu: 0.94, xiaoyu: 0.86, dragon: 1 }
+    const NEST_SCALE = { dayu: 0.95, xiaoyu: 0.95, dragon: 0.95 }
     const NEST_ORG = {
       dayu: { post: '副总裁', rank: '阶位3', tone: 'blue' },
       xiaoyu: { post: '秘书', rank: '阶位2', tone: 'cyan' },
-      dragon: { post: '太上长老', also: '空降总裁', rank: '五境', tone: 'gold' },
+      dragon: { post: '顾问', rank: '五境', tone: 'gold' },
     }
     // 五阶光环样机：照微五境、大鱼阶位3、小鱼阶位2；只做显示，不接权限。
     const NEST_HALO_STAGE = { dragon: 5, dayu: 3, xiaoyu: 2 }
@@ -532,7 +534,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
     }
     const orgOf = (role) => NEST_ORG[role] || { post: '', rank: '' }
     const NEST_LABELS = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
-    const NEST_DESCRIPTIONS = { dayu: '姐姐 · 大鱼', xiaoyu: '妹妹 · 小鱼', dragon: '照微 · 太上长老' }
+    const NEST_DESCRIPTIONS = { dayu: '姐姐 · 大鱼', xiaoyu: '妹妹 · 小鱼', dragon: '照微 · 顾问' }
     const NEST_API = '/api/yushen/nest'
     const IMG_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
     const IMG_MAX = 8 * 1024 * 1024
@@ -803,7 +805,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         else onMissing?.('这张没带图片：点「收编桌宠」，再点一下那只桌宠的画面。')
       }
       return h('div', {
-        className: `ysn-slot ysn-slot-${role}${role === 'dragon' ? ' ysn-slot-hero' : ''}${menuOpen ? ' ysn-slot-open' : ''}${over ? ' ysn-drop' : ''}`,
+        className: `ysn-slot ysn-slot-${role}${menuOpen ? ' ysn-slot-open' : ''}${over ? ' ysn-drop' : ''}`,
         'data-role': role,
         style: { ...(height ? { '--ysn-h': `${Math.round(height * scale)}px` } : {}), '--ysn-zoom': zoom || 1 },
       },
@@ -843,7 +845,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
             onDoubleClick: (e) => e.stopPropagation(),
           }, bubble.text)
           : null,
-        h('span', { className: 'ysn-crown', 'data-role': role, title: `${rank?.label || org.rank} · 经验 ${xp?.xp ?? 0}/${xp?.cap ?? 2000}（本人完成 ${xp?.done ?? 0} 单，共同值守 ${xp?.fixed ?? 0} 件）` },
+        h('span', { className: 'ysn-crown', 'data-role': role, title: `${rank?.label || org.rank} · 经验 ${xp?.xp ?? 0}/${xp?.cap ?? 2000}（自己做完 ${xp?.done ?? 0} 件，共同值守 ${xp?.fixed ?? 0} 件；老板派的活不算）` },
           h('span', { className: 'ysn-rank-chip' }, rank?.chip || org.rank),
           h('span', { className: 'ysn-xp', 'aria-hidden': 'true' },
             h('span', { className: 'ysn-xp-fill', style: { width: `${Math.round((xp?.progress || 0) * 100)}%` } })),
@@ -938,20 +940,17 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         let alive = true
         const safe = (url) => fetch(url, { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
         const load = async () => {
-          const [rank, jobData, incidentData] = await Promise.all([
+          // 2026-10-30 老板定：经验只算「自己想做、自己排、自己做完」的议程条目（by=self + state=done），
+          // 他派的活（派活单）一件都不算。所以这里不再去数 jobs。
+          const [rank, incidentData, nestData] = await Promise.all([
             safe('/api/dayu/rank'),
-            safe('/api/dayu/jobs?limit=100'),
             safe('/api/dayu/incidents?status=fixed&limit=500'),
+            safe('/api/yushen/nest'),
           ])
           if (!alive) return
           if (rank?.ok) setRankInfo(rank)
-          const jobs = Array.isArray(jobData?.jobs) ? jobData.jobs : []
           const fixed = Array.isArray(incidentData?.incidents) ? incidentData.incidents.length : 0
-          const done = { dayu: 0, xiaoyu: 0, dragon: 0 }
-          for (const job of jobs) {
-            if (!done[job.role]) continue
-            if (['done', 'verified', 'passed'].includes(String(job.status))) done[job.role] += 1
-          }
+          const selfDone = nestData?.selfDone || {}
           const base = {
             dayu: { L0: 0, L1: 100, L2: 300, L3: 600 }[rank?.roles?.dayu?.rank] ?? 600,
             xiaoyu: { L0: 0, L1: 100, L2: 300, L3: 600 }[rank?.roles?.xiaoyu?.rank] ?? 300,
@@ -960,8 +959,9 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           const cap = 2000
           const out = {}
           for (const role of NEST_ROLES) {
-            const xp = (base[role] || 0) + fixed * 10 + done[role] * 25
-            out[role] = { xp, cap, fixed, done: done[role], progress: Math.min(1, xp / cap) }
+            const own = Number(selfDone[role] || 0)
+            const xp = (base[role] || 0) + fixed * 10 + own * 25
+            out[role] = { xp, cap, fixed, done: own, progress: Math.min(1, xp / cap) }
           }
           setRoleXp(out)
         }
@@ -1624,7 +1624,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         : '读状态中…'
       return h('div', { style: css.card },
         h('div', { style: css.h }, slot?.name || '照微'),
-        h('div', { style: css.muted, role: 'status' }, `太上长老 · 卡和会话都归她自己，不借两姐妹的。${status}`),
+        h('div', { style: css.muted, role: 'status' }, `顾问 · 卡和会话都归她自己，不借两姐妹的。${status}`),
         state?.lastError ? h('div', { style: css.err }, `上次投递失败：${state.lastError}`) : null,
         slot ? h('img', { src: slot.url, alt: '照微当前形象', style: { ...css.lookImg, width: '180px', height: '220px', margin: '12px auto', display: 'block' } }) : null,
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },

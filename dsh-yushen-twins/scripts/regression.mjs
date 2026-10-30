@@ -480,6 +480,15 @@ ok('界面引用的组件都有定义', () => {
   assert.deepEqual(missing, [], `引用了没定义的组件：${missing.join(', ')}`)
   return `${used.size} 个组件都有定义`
 })
+// 33. 2026-10-30 谷时：整理趟（合并同义、旧的标被替换）与回执催办要有接线
+ok('整理趟与催办都接上了', () => {
+  has('lib/consolidate.js', 'supersededBy')
+  has('lib/consolidate.js', 'export function consolidate')
+  has('dayu/index.js', 'consolidateTick')
+  has('dayu/index.js', 'remindLateJobs')
+  has('core/dispatch.js', 'dueAt')
+  return '整理/催办都在'
+})
 // 30. 2026-10-28：变更告知支持「标已读」，但工具声明里没这个参数——每轮都提醒同几条，喊了三天。
 ok('变更告知能标已读：handler 和工具声明都得有 mark', () => {
   has('lib/notices.js', 'export function markNoticesRead')
@@ -543,16 +552,34 @@ ok('她自己的议程（意志）：自己排 + 本地推进 + 能放弃', () =
   has('lib/runtime.js', "id: 'will'")
   has('scripts/test-agenda.mjs', 'droppable')
   has('../大小鱼-框架定义.md', '意志')
-  return '议程 + 本地推进 + 放弃 + 注入 + 框架 §4.6'
+  // 2026-10-30 老板定：经验只算自己自发想做的；老板派的活（origin: owner）做完也不算。
+  has('lib/agenda.js', 'countsForXp')
+  has('lib/agenda.js', "XP_ORIGINS = Object.freeze(['self', 'owner'])")
+  has('index.js', 'items.filter(countsForXp)')
+  has('dayu/index.js', 'origin: args?.origin')
+  has('scripts/test-agenda.mjs', '老板派的活不算经验')
+  return '议程 + 本地推进 + 放弃 + 注入 + 框架 §4.6 + 经验只算自发'
 })
 
+// 33. 2026-10-30 谷时：整理趟（合并同义、旧的标被替换）与回执催办要有接线
+ok('整理趟与催办都接上了', () => {
+  has('lib/consolidate.js', 'supersededBy')
+  has('lib/consolidate.js', 'export function consolidate')
+  has('dayu/index.js', 'consolidateTick')
+  has('dayu/index.js', 'remindLateJobs')
+  has('core/dispatch.js', 'dueAt')
+  return '整理/催办都在'
+})
 // 30. 2026-10-30：tick 不许假装"核对过"，也不许盖掉她自己写的 note。
 //     （实况：一条 check 被当成"本地一步"，每 30 分钟盖一次「核对过一遍，暂时没新东西」，
 //      她写的「流水作者归属」疑点被冲掉，tries 涨到 459 次；而 check 那一步什么都没核。）
 ok('议程 tick：check 要模型、不假装核对、不抢她的 note', () => {
   has('lib/agenda.js', "LOCAL_STEPS = Object.freeze(['read-inbox', 'read-file'])")
   has('lib/agenda.js', 'item.lastTry = { at: nowIso(now)')
-  has('lib/agenda.js', 'i.note || i.lastTry?.note')
+  // 旧 tick 冻在 note 里的那句假话：修好后不再写，但旧条目里还有，
+  // 展示时得把它当不存在（2026-10-30 照微）。断言落在常量 + 行为测试两处。
+  has('lib/agenda.js', 'LEGACY_TICK_NOTE')
+  has('scripts/test-agenda.mjs', '旧 tick 的假话不许漏进简报')
   has('scripts/test-agenda.mjs', 'check 要模型')
   const ran = runTestScript('scripts/test-agenda.mjs')
   return ran ? '执行 test-agenda：check 标 waiting、note 不被盖、lastTry 另记' : '接线检查通过；这回合环境不给子进程，没真跑'
@@ -591,6 +618,15 @@ ok('界面引用的组件都有定义', () => {
   const missing = [...used].filter((n) => !defined.has(n))
   assert.deepEqual(missing, [], `引用了没定义的组件：${missing.join(', ')}`)
   return `${used.size} 个组件都有定义`
+})
+// 33. 2026-10-30 谷时：整理趟（合并同义、旧的标被替换）与回执催办要有接线
+ok('整理趟与催办都接上了', () => {
+  has('lib/consolidate.js', 'supersededBy')
+  has('lib/consolidate.js', 'export function consolidate')
+  has('dayu/index.js', 'consolidateTick')
+  has('dayu/index.js', 'remindLateJobs')
+  has('core/dispatch.js', 'dueAt')
+  return '整理/催办都在'
 })
 // 30. 2026-10-26 三问修正：不替她决定「最多几件」「多久能再想」「什么时候动」；底线归她
 ok('三问修正：软提醒 + 能喊停 + 可再发起 + 底线归她', () => {
@@ -964,7 +1000,7 @@ ok('心情自动钩子：从真事长出来', () => {
 
 // 59. 2026-10-26：对外层次只做显示；照微五境独立，小鱼阶位2，实际能力一样
 ok('对外层次：照微五境、大鱼副总裁、小鱼秘书，只显示不接权限', () => {
-  has('client.js', '太上长老')
+  has('client.js', "'顾问'")
   has('client.js', '副总裁')
   has('client.js', '阶位2')
   has('client.js', '五境')
@@ -974,6 +1010,11 @@ ok('对外层次：照微五境、大鱼副总裁、小鱼秘书，只显示不�
   has('client.js', '单独放大')
   has('client.js', 'ysn-crown')
   has('client.js', 'roleXp')
+  // 2026-10-30 老板定：经验只算「自己想做、自己排、自己做完」的议程条目（by=self + done），他派的活不算。
+  has('client.js', 'selfDone')
+  has('client.js', '老板派的活不算')
+  has('index.js', 'selfDoneCounts')
+  has('scripts/test-role-xp.mjs', '老板派的活不算')
   has('scripts/test-role-xp.mjs', 'incidentGrowth')
   has('client.js', '形象版本')
   has('scripts/style.mjs', 'use anime-q')
@@ -1470,6 +1511,15 @@ ok('界面引用的组件都有定义', () => {
   assert.deepEqual(missing, [], `引用了没定义的组件：${missing.join(', ')}`)
   return `${used.size} 个组件都有定义`
 })
+// 33. 2026-10-30 谷时：整理趟（合并同义、旧的标被替换）与回执催办要有接线
+ok('整理趟与催办都接上了', () => {
+  has('lib/consolidate.js', 'supersededBy')
+  has('lib/consolidate.js', 'export function consolidate')
+  has('dayu/index.js', 'consolidateTick')
+  has('dayu/index.js', 'remindLateJobs')
+  has('core/dispatch.js', 'dueAt')
+  return '整理/催办都在'
+})
 // 30. 2026-10-30：框架每改一处都要留记录；结构变了没记录 → 这条就红
 ok('框架改动必须有记录（结构对账）', () => {
   const r = spawnSync(process.execPath, ['scripts/framework-record.mjs', 'check'], { cwd: process.cwd(), encoding: 'utf8' })
@@ -1545,6 +1595,49 @@ ok('手的退出码：非零但有话说 = 在报结果，不算坏', () => {
   assert.deepEqual(classifyExit(2, 'boom', 'out'), { ok: false, report: false }, '带着错误信息的不许算成')
   has('lib/hands.js', 'classifyExit(res.status, res.stderr, res.stdout)') // 接线：跑手时真用了这个判据
   return '0 算成；非零+无 stderr+有输出算报；其余算坏'
+})
+
+// 85. 2026-10-30：人物档案一直没进过工作台简报。写入是好的（people/____.json 真在），
+// 断在读取：buildSceneText 拼简报时不传 userId，那段永远拼不出来。
+// 顺带修了命名：中文名全塌成下划线，「阿零测试」和「小鱼小虾」会写进同一份互相盖。
+const { rememberPerson } = await import(pathToFileURL(path.join(ROOT, 'lib/people.js')).href)
+const { buildRuntimeBrief } = await import(pathToFileURL(path.join(ROOT, 'lib/brief.js')).href)
+ok('人物档案能进工作台简报，中文名不再撞车', () => {
+  // 端到端：写进临时的家，两份中文名档案要分别落盘，简报要能把人带出来；没聊到就不带
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-people-'))
+  const old = process.env.DSH_HOME
+  try {
+    process.env.DSH_HOME = tmp
+    rememberPerson('dayu', '阿零测试', { name: '阿零测试', fact: '两个号都听', source: '回归' })
+    rememberPerson('dayu', '小鱼小虾', { name: '小鱼小虾', fact: '爱看片', source: '回归' })
+    rememberPerson('dayu', '3752445956', { fact: '纯号码', source: '回归' })
+    const files = fs.readdirSync(path.join(tmp, 'dayu', 'runtime', 'dayu', 'people'))
+    assert.equal(files.length, 3, `两个中文名塌进同一个文件了：${files.join(', ')}`)
+    assert.ok(files.includes('3752445956.json'), '纯 QQ 号的文件名不许变（旧数据要还能读）')
+    const b = buildRuntimeBrief('dayu', { channel: '工作台', userId: '阿零测试' })
+    assert.ok(b.text.includes('## 关于 阿零测试'), '带了 userId，简报里却没有人物段')
+    const c = buildRuntimeBrief('dayu', { channel: '工作台' })
+    assert.ok(!c.text.includes('## 关于 阿零测试'), '没聊到这个人，却把他的事带出来了')
+  } finally {
+    if (old === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = old
+    try { fs.rmSync(tmp, { recursive: true, force: true }) } catch { /* 删不掉就算了 */ }
+  }
+  // 接线：三处都要把 userId 传下去，否则下一个人改回去没人发现
+  has('lib/soul.js', 'buildRuntimeBrief(role, { channel: scene, userId })')
+  has('dayu/index.js', "buildSceneText('dayu', 'desk', { userId: ownerKey() })")
+  has('dayu/index.js', "url.searchParams.get('userId')")
+  return '两个中文名分别落盘；临时家写的档案能进简报；工作台注入与 /soul 都传了 userId'
+})
+
+// 86. 2026-10-30：注入里的「家里有什么」还写着「看门狗30秒」和「心跳30分」——
+// 看门狗 10-25 就全移除了，心跳是 3 分钟一拍（body-loop.js:34）。这两句每轮都在骗她。
+ok('注入里的自己动清单不许再有看门狗，心跳也不许写成 30 分', () => {
+  const r = read('lib/rules-block.js')
+  assert.ok(!r.includes('看门狗'), '看门狗早就移除了，注入里还留着')
+  has('lib/rules-block.js', "'自己动：心跳3分·自省30分·自由时间30分/每天16次·备份04:00'")
+  has('lib/body-loop.js', 'const HEARTBEAT_EVERY_MS = 3 * 60 * 1000')
+  return '清单与实现一致：心跳 3 分、自省 30 分、没有看门狗'
 })
 
 console.log(`\n回归：通过 ${pass}，失败 ${fail}${skipped ? `，跳过 ${skipped}（环境不给子进程）` : ''}`)

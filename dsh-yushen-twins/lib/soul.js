@@ -193,7 +193,7 @@ export function buildIdentityText(role = 'dayu', scene = 'desk') {
  * 拼当前场景要注入的全文：卡 + 记忆（只工作台）+ 通道说明 + 主人要求。
  * role 缺省 dayu，scene 缺省 desk，保持旧调用能跑。
  */
-export function buildSceneText(role = 'dayu', scene = 'desk', { task = '' } = {}) {
+export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userId = '' } = {}) {
   // 兼容旧调用 buildSceneText('desk')
   if (!soulRoles().includes(role) && Object.hasOwn(SCENE_LABEL, role)) {
     scene = role
@@ -231,7 +231,9 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '' } = {}
   // 她的运行层：回场、礼物、议程、自我、底线——一份简报，任何通道共用（中枢）。
   // 别在这里各拼一套，拼出来必然和 QQ/B站 那边不一样。
   try {
-    const rtBrief = buildRuntimeBrief(role, { channel: scene })
+    // 2026-10-30 补：以前这里不传 userId，工作台简报里「关于某个人」那一段永远拼不出来
+    // （写入是好的，断在读取这一环）。
+    const rtBrief = buildRuntimeBrief(role, { channel: scene, userId })
     if (rtBrief.text) parts.push(rtBrief.text)
   } catch { /* 简报拼不出来不影响本体 */ }
 
@@ -299,6 +301,26 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '' } = {}
   parts.push(`## 当前工具通道\n当前通道：${SCENE_LABEL[scene]}。工作台、QQ、B站都只是通道；通道不改变身份、关系、边界，也不生成第二套人格。`)
 
   let text = parts.join('\n\n')
+  // 2026-10-30 谷时：先按"预算"瘦身，再按"硬上限"截断。
+  // 瘦身只动"附录型"小节的卡（梗/同类/称呼/技术问题/图/积压/改话术/姐姐对比/谁在拿手机），
+  // 一、你是谁 / 二、说话风格 / 三、性格 / 五、主人 / 九、说不说 / 十四、权限 一律不动。
+  const BUDGET = 11500
+  const CARD_DROP = /^## (四、梗|七、同类|八、称呼差别|十、技术问题|十一、图|十二、积压|十三、改自己|十六、姐姐|六、谁在拿手机)/
+  const stripOptionalCard = (s) => {
+    const blocks = String(s).split(/(?=^## )/m)
+    const kept = blocks.filter((b) => !CARD_DROP.test(b))
+    return kept.length === blocks.length ? s : kept.join('')
+  }
+  if (text.length > BUDGET) {
+    const idx = parts.indexOf(cardText)
+    if (idx >= 0) {
+      const slim = stripOptionalCard(cardText)
+      if (slim.length < cardText.length) {
+        parts[idx] = `${slim}\n…（附录型小节本轮没带；完整原文在卡文件里）`
+        text = parts.join('\n\n')
+      }
+    }
+  }
   if (text.length > MAX_CHARS) {
     // 超了先压角色卡（最大的一块），保住后面的记忆、状态、通道段。
     // 上限是硬边界：不再靠临时抬高阈值让测试变绿，超了就在这里裁。

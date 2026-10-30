@@ -15,6 +15,7 @@ import { diagnose as diagnoseStuck, VERDICTS as STUCK_VERDICTS } from '../lib/st
 import { summary as employeeSummary } from '../lib/employee-record.js'
 import { syncChannelMemory, channelMemoryStatus } from '../lib/channel-memory.js'
 import { mergeAllHandoffs } from '../lib/handoff-merge.js'
+import { consolidate as consolidateRole } from '../lib/consolidate.js'
 import { rewriteMemory, rewriteSelf, revertRewrite, rewriteCatalog } from '../lib/rewrite.js'
 import { notifySelf, listNotices, unreadNotices, markNoticesRead } from '../lib/notices.js'
 import { bodyTick, bodyStatus, BODY } from '../lib/body-loop.js'
@@ -255,9 +256,17 @@ function ownerBlock() {
   } catch { return '' }
 }
 
+/** 工作台上"现在聊的是谁"：就是老板本人。用他立的称呼当档案键（和 yushen_person 记的一致）。 */
+function ownerKey() {
+  try {
+    const owner = JSON.parse(fs.readFileSync(path.join(DATA, 'owner.json'), 'utf8'))
+    return String(owner.uid || owner.qq || owner.callName || '').trim()
+  } catch { return '' }
+}
+
 /** 当前该注入的人格文本：有 soul 用 soul，没有就退回旧前缀。 */
 function deskInjection() {
-  const soul = buildSceneText('dayu', 'desk')
+  const soul = buildSceneText('dayu', 'desk', { userId: ownerKey() })
   const owner = ownerBlock()
   if (!soul) return [YUSHEN_PREFIX, owner].filter(Boolean).join('\n\n')
   return [soul, '## 宪章\n' + CHARTER_RULES, owner].filter(Boolean).join('\n\n')
@@ -758,6 +767,53 @@ export function apply(ctx) {
   }
   setTimeout(() => { void runChannelSync() }, 60 * 1000)
   setInterval(() => { void runChannelSync() }, 5 * 60 * 1000)
+
+  // 回执催办（2026-10-30 谷时）：单子派出去超时没回，就催；最多 2 次，间隔 15 分钟。
+  // 只催、不替她做；对方一回话（状态变了）就停。
+  const REMIND_MAX = 2
+  const REMIND_GAP_MS = 15 * 60 * 1000
+  const remindLateJobs = async () => {
+    try {
+      const list = readAllJobs()
+      let changed = false
+      for (const job of list) {
+        if (!job || !['dispatched', 'redispatched', 'waiting'].includes(String(job.status))) continue
+        const due = Date.parse(job.dueAt || '') || (Date.parse(job.createdAt || '') + 30 * 60 * 1000)
+        if (!Number.isFinite(due) || Date.now() < due) continue
+        const sent = Number(job.reminders) || 0
+        if (sent >= REMIND_MAX) continue
+        const last = Date.parse(job.lastRemindedAt || '') || 0
+        if (Date.now() - last < REMIND_GAP_MS) continue
+        const role = String(job.role || job.employee || '').trim()
+        if (!residentRoles().includes(role)) continue
+        try {
+          await deliverToRole(role, `【催一下】这单还在等你（第 ${sent + 1} 次）：${String(job.brief || '').slice(0, 80)}\n做完了就把结论和证据回过来；不做了就说一声。`, residenceDeps())
+        } catch { /* 催不到也不改计数，下次再试 */ continue }
+        job.reminders = sent + 1
+        job.lastRemindedAt = new Date().toISOString()
+        changed = true
+      }
+      if (changed) writeAllJobs(list)
+    } catch { /* 催办失败不影响别的 */ }
+  }
+  setInterval(() => { void remindLateJobs() }, 5 * 60 * 1000)
+
+  // 整理趟（2026-10-30）：每天最多一次，把"同一件事说了好几遍"合成一条（旧的标被替换，不删）。
+  const CONSOLIDATE_STATE = path.join(HOME, 'dayu', 'state', 'consolidate.json')
+  const consolidateTick = () => {
+    try {
+      const last = (() => { try { return JSON.parse(fs.readFileSync(CONSOLIDATE_STATE, 'utf8')).lastRunAt || '' } catch { return '' } })()
+      if (last && Date.now() - Date.parse(last) < 20 * 60 * 60 * 1000) return
+      for (const role of residentRoles()) {
+        try {
+          const out = consolidateRole(role)
+          if (out.groups > 0) log(`整理趟：${role} 合并 ${out.groups} 组，标记被替换 ${out.superseded.length} 条`)
+        } catch { /* 单个角色失败不影响别的 */ }
+      }
+    } catch { /* 整理失败不影响别的 */ }
+  }
+  setInterval(consolidateTick, 60 * 60 * 1000)
+  setTimeout(consolidateTick, 10 * 60 * 1000)
 
   // 值夜：启动后自己巡一遍，发现问题自己建单——不等老板叫。
   setTimeout(() => {
@@ -1690,6 +1746,8 @@ export function apply(ctx) {
         target: { type: 'string', description: 'read-file 时要读的文件路径' },
         // 心念 → 这件事：把"我一直在想的事"接成"我现在要做的事"
         mindId: { type: 'string', description: '从哪条心念接过来的（先用 yushen_mind brief 看 id）；带这个时 what 要写那条心念的原话' },
+        // 2026-10-30 老板定：经验只算自己自发想做的；老板派的活标 owner，做完也不计经验。
+        origin: { type: 'string', enum: ['self', 'owner'], description: '谁先提的：self=你自己想做的（默认）；owner=老板派的活/口头派的活（做完不算经验）。老板说「这件不算」时，用 update 把它改成 owner' },
         note: { type: 'string', description: '备注 / 放弃的理由 / 申请额度或暂停的理由' },
         value: { type: 'number', description: 'pause 时暂停多少分钟（默认 120）' },
         // 2026-10-30：自己定时间——invoke 时可以带“我几点做”，到点系统才执行这条请求
@@ -1718,12 +1776,14 @@ export function apply(ctx) {
         const item = addAgenda(role, {
           what: args?.what, why: args?.why, next: args?.next,
           nextKind: args?.nextKind || 'ask-model', target: args?.target, by: 'self',
+          origin: args?.origin || 'self',
         })
         return { ok: true, role, added: item, max: AGENDA_MAX, items: readAgenda(role).items }
       }
       if (action === 'update') {
         const item = updateAgenda(role, String(args?.id || ''), {
           state: args?.state, next: args?.next, nextKind: args?.nextKind, target: args?.target, note: args?.note,
+          origin: args?.origin,
         })
         return { ok: true, role, updated: item }
       }
@@ -2395,7 +2455,7 @@ export function apply(ctx) {
             return sendJson(res, 400, { ok: false, error: `role 只能是 ${residentRoles().join(' / ')}` })
           }
           try {
-            const text = buildSceneText(role, scene)
+            const text = buildSceneText(role, scene, { userId: String(url.searchParams.get('userId') || '') })
             const st = soulStatus(role)
             return sendJson(res, 200, {
               ok: true,
