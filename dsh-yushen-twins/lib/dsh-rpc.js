@@ -1,4 +1,4 @@
-// 鱼神 · 本机 DSH HTTP RPC 客户端
+// 鱼神双子星 · 本机 DSH HTTP RPC 客户端
 // 用途：宿主的 agents.create 不认 agentOptions、sessions 服务又选不了模型时，
 // 直接走 DSH 自己的 HTTP RPC（session/create → selectModel → prompt），
 // 和 QQ 桥接同一条路；鉴权用本机密钥离线铸造 cookie，不依赖启动 token。
@@ -82,8 +82,13 @@ async function rpc(method, payload = {}) {
 }
 
 /** 建一条会话；返回 sessionId。 */
-export async function createSessionRpc({ cwd } = {}) {
-  const out = await rpc('session/create', cwd ? { cwd } : {})
+export async function createSessionRpc({ cwd, agentPreset } = {}) {
+  // 2026-10-30：带上预设名，让新会话直接挂上「鱼神」预设（否则工具和注入都不全）
+  const payload = {}
+  if (cwd) payload.cwd = cwd
+  // 2026-10-30 实测：字段名 agentPreset 会被拒（不返回 sessionId）；等价字段 preset 可以建会话。
+  if (agentPreset) payload.preset = agentPreset
+  const out = await rpc('session/create', payload)
   const id = out?.value?.sessionId
   if (!id) throw new Error('session/create 没给 sessionId')
   return id

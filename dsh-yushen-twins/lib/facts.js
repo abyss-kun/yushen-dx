@@ -6,7 +6,7 @@ import os from 'node:os'
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DATA = path.join(HOME, 'dayu')
 const ROLES = new Set(['dayu', 'xiaoyu'])
-const ROLE_NAME = { dayu: '管家', xiaoyu: '助手' }
+const ROLE_NAME = { dayu: '大鱼', xiaoyu: '小鱼' }
 
 function roleOf(role) {
   const r = String(role || 'dayu')

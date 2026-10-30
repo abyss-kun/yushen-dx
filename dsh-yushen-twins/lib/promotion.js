@@ -1,4 +1,4 @@
-// 鱼神 · 晋升系统
+// 鱼神双子星 · 晋升系统
 // 只看“干得怎么样”，不自动升权限：
 //   · evaluatePromotion 汇总 XP/任务/证据/经验/事故，给出 readiness 与 reasons；
 //   · requestPromotion 只在达标时写一条 pending 申请（selfAssessment 只是记录，不是授权）；

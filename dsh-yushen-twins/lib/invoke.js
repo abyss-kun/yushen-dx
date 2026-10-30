@@ -13,8 +13,9 @@ import crypto from 'node:crypto'
 import { runtimeDir } from './runtime.js'
 import { requirePlugged } from './plug.js'
 import { readAgenda, updateItem } from './agenda.js'
+import { readBudgets } from './budget-book.js'
 
-export const DEFAULT_PER_DAY = 12 // 不给枷锁：默认放开，钱的事靠"告诉她"而不是靠拦
+export const DEFAULT_PER_DAY = 50 // 只当安全上限，防跑飞；真正的闸是钱包余额
 export const DEFAULT_COOLDOWN_MIN = 30
 
 function pad(n) { return String(n).padStart(2, '0') }
@@ -38,18 +39,50 @@ export function readInvocations(role) {
 function save(role, doc) { writeJson(invocationsFile(role), doc) }
 
 /** 今天用了多少次（请求时就占额度，防止连排三次），剩几次。 */
+// 2026-10-30：按老板的口径——不按次数、按额度。钱包里有余额就能开，见底才停。
+// 没配预算（budget.json 不存在）不等于没钱：按"不拦"处理，避免把没配额度的角色锁死。
+function moneyOf(role) {
+  try {
+    const row = readBudgets().rows.find((r) => r.role === role)
+    if (!row || row.missing) return Number.POSITIVE_INFINITY
+    return Number(row.rest ?? 0)
+  } catch { return Number.POSITIVE_INFINITY }
+}
+
 export function budgetOf(role, { now = Date.now(), perDay = DEFAULT_PER_DAY } = {}) {
   const day = dayKey(now)
   const used = readInvocations(role).items
     .filter((i) => ['pending', 'running', 'started', 'done'].includes(i.status) && String(i.requestedAt || '').startsWith(day)).length
-  return { perDay: Number(perDay) || 0, used, left: Math.max(0, (Number(perDay) || 0) - used) }
+  const capLeft = Math.max(0, (Number(perDay) || 0) - used)
+  const money = moneyOf(role)
+  const left = money > 0.02 ? capLeft : 0
+  return { perDay: Number(perDay) || 0, used, left, money }
+}
+
+/** 把 "HH:MM" / ISO 解析成毫秒；HH:MM 取最近的一次（过了今天就算明天）。 */
+export function resolveNotBefore(raw, { now = Date.now() } = {}) {
+  const s = String(raw || '').trim()
+  if (!s) return 0
+  const hm = /^(\d{1,2}):(\d{2})$/.exec(s)
+  if (hm) {
+    const h = Math.max(0, Math.min(23, Number(hm[1])))
+    const m = Math.max(0, Math.min(59, Number(hm[2])))
+    const d = new Date(now)
+    d.setHours(h, m, 0, 0)
+    let t = d.getTime()
+    if (t <= now) t += 24 * 60 * 60 * 1000
+    return t
+  }
+  const t = Date.parse(s)
+  return Number.isFinite(t) ? t : 0
 }
 
 /**
  * 她请求：花一次模型做这件事。
+ * @param notBefore 可选：她定的时间（"HH:MM" 或 ISO）；到点才执行。
  * @returns 请求记录（status=pending）
  */
-export function requestInvocation(role, { agendaId = '', why = '', now = Date.now(), perDay = DEFAULT_PER_DAY } = {}) {
+export function requestInvocation(role, { agendaId = '', why = '', notBefore = '', now = Date.now(), perDay = DEFAULT_PER_DAY } = {}) {
   // 没接入鱼神（没读过规则）→ 礼物不启用：不是不给，是还没接上。
   try { requirePlugged(role, { now }) } catch (e) { throw new Error(e.message) }
   const doc = readInvocations(role)
@@ -59,13 +92,19 @@ export function requestInvocation(role, { agendaId = '', why = '', now = Date.no
   if (!item) throw new Error(`没有这件事：${agendaId}`)
   if (['done', 'dropped'].includes(item.state)) throw new Error('这件事已经结了，不用再花模型')
   const b = budgetOf(role, { now, perDay })
-  if (b.left <= 0) throw new Error(`今天的额度用完了（${b.used}/${b.perDay}）；可以申请加，或者等明天`)
+  if (b.left <= 0) {
+    throw new Error(b.money > 0.02
+      ? `今天开得太多（${b.used}/${b.perDay}），明天再来`
+      : `这个周期的额度花完了（余额 ${Number(b.money || 0).toFixed(2)}），可以申请加`)
+  }
   const row = {
     id: `i-${String(now).slice(-6)}${Math.random().toString(36).slice(2, 5)}`,
     agendaId: String(agendaId),
     why: String(why || '').slice(0, 200),
     requestedAt: nowIso(now),
     day: dayKey(now),
+    // 她自己定的时间（0 = 没定，下次抬头就做）
+    notBefore: (() => { const t = resolveNotBefore(notBefore, { now }); return t ? new Date(t).toISOString() : '' })(),
     status: 'pending',
     sessionId: '',
     note: '',
@@ -82,12 +121,29 @@ export function takeInvocation(role, { now = Date.now(), perDay = DEFAULT_PER_DA
   if (running) return null
   const b = budgetOf(role, { now, perDay })
   if (b.left <= 0) return null
-  const row = doc.items.find((i) => i.status === 'pending')
+  // 她定了时间的，到点才取；没定时间的按先来后到
+  const row = doc.items.find((i) => i.status === 'pending' && (!i.notBefore || Date.parse(i.notBefore) <= now))
   if (!row) return null
   row.status = 'running'
   row.startedAt = nowIso(now)
   save(role, doc)
   return row
+}
+
+/** 她说「不」：把这件还没起回合的请求撤掉（拒绝要真生效，不是只记一笔）。 */
+export function cancelInvocation(role, { agendaId = '', now = Date.now() } = {}) {
+  const doc = readInvocations(role)
+  let cancelled = 0
+  for (const row of doc.items) {
+    if (row.status !== 'pending') continue
+    if (agendaId && String(row.agendaId) !== String(agendaId)) continue
+    row.status = 'dropped'
+    row.note = '她自己拒绝了这件事'
+    row.finishedAt = nowIso(now)
+    cancelled += 1
+  }
+  if (cancelled) save(role, doc)
+  return { cancelled }
 }
 
 /** 起完/失败，都落一笔。 */

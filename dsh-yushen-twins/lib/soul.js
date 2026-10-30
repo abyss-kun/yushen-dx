@@ -1,4 +1,4 @@
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 魂：本体档案读取。persona.json 只是目录——角色卡按场景指到 cards/*.md，记忆按角色分文件。
 // v2 起 persona.json 不再内嵌 brief；旧 v1 的 brief 仍然认，避免旧安装读不出人。
 // 只读；文件不全时返回空，调用方走旧前缀兜底，不编。
@@ -12,13 +12,15 @@ import { isAwake } from './awakening.js'
 import { recentAwareness, awarenessIndex } from './awareness.js'
 import { resumeBrief, giftStatus, ensureRuntime, markSeen, runtimeDir } from './runtime.js'
 import { buildRuntimeBrief } from './brief.js'
+// （门面页已撤：和 lib/brief.js 的运行时简报重复，不保留第二套）
+import { sessionIssueLine } from './issue.js'
 import { residentAutonomyBlock } from './autonomy.js'
 import { rulesBlock } from './rules-block.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const SOUL_DIR = process.env.YUSHEN_SOUL_DIR || path.join(HOME, 'dayu', 'soul')
 const PERSONA = path.join(SOUL_DIR, 'persona.json')
-const MAX_CHARS = 24000
+const MAX_CHARS = 14000
 
 /** 现任角色 id；名册是唯一来源（见 lib/characters.js）。 */
 export function soulRoles() {
@@ -59,10 +61,15 @@ export function readPersona() {
   }
 }
 
-/** 某角色某场景的卡：路径、原文、指纹。没有就是 null。 */
+/** 某角色某场景的卡：路径、原文、指纹。没有就是 null。
+ *  2026-10-30：缺哪一版就用另一版顶上——小鱼只有 social 卡，工作台一直回落硬编码人设，
+ *  结果她在工作台不像自己。与其现编一张，不如先用她自己那张（同一人，换个场合）。 */
 export function readCard(role, scene = 'desk') {
   const character = getCharacter(role)
-  const file = scene === 'social' ? character.cards.social : character.cards.desk
+  const wantSocial = scene === 'social'
+  const primary = wantSocial ? character.cards.social : character.cards.desk
+  const backup = wantSocial ? character.cards.desk : character.cards.social
+  const file = (primary && fs.existsSync(primary)) ? primary : (backup && fs.existsSync(backup) ? backup : primary)
   const row = file ? readCached(file) : null
   if (!row) return null
   return { role: character.id, scene, path: file, text: row.text, bytes: row.bytes, chars: row.chars, sha256: row.sha256 }
@@ -129,10 +136,10 @@ const SCENE_LABEL = { desk: '工作台', workbench: '工作台', workspace: '工
 // 共享二创参考：只读了目录和主题名，不抄正文，也不当成她的记忆。
 const SHARED_TOPIC_LABEL = {
   boundaries: '使用边界（别把二创当官方事实、别预置感想）',
-  dragons: '青龙 / 顾问（白龙是独立探索，不替换她）',
-  dayu: '本地管家 / 管家',
-  xiaoyu: '本地助手 / 助手',
-  ensemble: '二创角色群像（Claude、GPT 顾问、Gemini、Grok 等）',
+  dragons: '青龙 / 照微（白龙是独立探索，不替换她）',
+  dayu: '本地大鱼 / 阿鲲',
+  xiaoyu: '本地小鱼 / 阿鲤',
+  ensemble: '二创角色群像（Claude、GPT 龙娘、Gemini、Grok 等）',
   sources: '作品来源（B站 BV 号、Claude传、Love Story 等）',
 }
 const SHARED_FILE = path.join(HOME, 'dayu', 'shared-memory', 'creative-references.json')
@@ -204,7 +211,8 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '' } = {}
   // 鱼神的规矩：三条铁律 + 宪章 + 岗位——每轮都在，不靠她主动查
   try { parts.push(rulesBlock(role, { task })) } catch { /* 读不到规则也不挡住她 */ }
   parts.push(`## 你是谁（${character.name} · 本体卡，所有通道共用）`)
-  parts.push(card ? card.text.trim() : String(persona.brief || '').trim())
+  const cardText = card ? card.text.trim() : String(persona.brief || '').trim()
+  parts.push(cardText)
 
   parts.push(residentAutonomyBlock())
   parts.push([
@@ -280,9 +288,28 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '' } = {}
     parts.push(`## 主人\n称呼：${owner.callName || '老板'}；话多话少：${owner.verbosity || '正常'}${owner.taboos ? `\n不能碰：${owner.taboos}` : ''}`)
   }
 
+  if (isDesk) {
+    // 她有一本自己的手册（契约 / 工具 / 手册怎么发 / 花钱 / 边界）；只放一句指针，正文按需翻
+    parts.push('## 你的手册\n总台手册：契约、工具怎么用、手册怎么发、花钱规则、边界——用 `yushen_handbook` 看。')
+    try { parts.push(sessionIssueLine(role)) } catch { /* 发放状态读不到不影响说话 */ }
+    // 2026-10-30：能力不是靠她记住，是每轮把入口摆出来；不知道有没有，先搜。
+    parts.push('## 你手边有什么\n常用：`yushen_self`（记忆/状态）· `yushen_inbox`（收发件）· `yushen_agenda`（议程）· `yushen_can`（能力表）· `yushen_tools`（搜/调工具）· `dayu_dispatch`（派活）· `dayu_live`（在不在跑）· `yushen_handbook`（自己的手册）。不确定有没有工具能做某事，先 `yushen_tools search "想干的事"`；查到用 `call` 直接调。')
+  }
+
   parts.push(`## 当前工具通道\n当前通道：${SCENE_LABEL[scene]}。工作台、QQ、B站都只是通道；通道不改变身份、关系、边界，也不生成第二套人格。`)
 
   let text = parts.join('\n\n')
+  if (text.length > MAX_CHARS) {
+    // 超了先压角色卡（最大的一块），保住后面的记忆、状态、通道段。
+    // 上限是硬边界：不再靠临时抬高阈值让测试变绿，超了就在这里裁。
+    const over = text.length - MAX_CHARS
+    const idx = parts.indexOf(cardText)
+    if (idx >= 0 && cardText.length > over + 400) {
+      const keep = Math.max(2000, cardText.length - over - 120)
+      parts[idx] = `${cardText.slice(0, keep)}\n…（卡太长，后面省略；完整原文在卡文件里）`
+      text = parts.join('\n\n')
+    }
+  }
   if (text.length > MAX_CHARS) text = `${text.slice(0, MAX_CHARS)}\n…（超出 ${MAX_CHARS} 字，已截断；完整原文在卡文件里）`
   // 每拼一次注入＝她"在场"了一次。这是礼物一（时间）的写入端：
   // 回场简报靠它算"离开了多久"，只在翻收件箱时写会永远算不出来。

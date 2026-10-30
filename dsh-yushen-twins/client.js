@@ -1,4 +1,4 @@
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 window.__ModuleLoader__.load({
   id: 'dsh-yushen-twins',
   factory: (require) => {
@@ -6,6 +6,34 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const API = '/api/dayu'
     const NOTICE_KEY = 'yushen.notice.v1'
+
+    // —— 点按音效：现场合成，不用任何音频文件（也就不涉及素材授权） ——
+    let ysnAudio = null
+    function ysnTone({ f0, f1, dur = 0.08, gain = 0.22, type = 'sine' }) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext
+        if (!AC) return
+        if (!ysnAudio) ysnAudio = new AC()
+        const c = ysnAudio
+        if (c.state === 'suspended') c.resume().catch(() => {})
+        const t0 = c.currentTime
+        const g = c.createGain()
+        g.gain.setValueAtTime(0.0001, t0)
+        g.gain.exponentialRampToValueAtTime(gain, t0 + 0.004)
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+        g.connect(c.destination)
+        const o = c.createOscillator()
+        o.type = type
+        o.frequency.setValueAtTime(f0, t0)
+        o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur)
+        o.connect(g)
+        o.start(t0)
+        o.stop(t0 + dur + 0.02)
+      } catch { /* 没声音不影响功能 */ }
+    }
+    // 按下往下沉、松开往上挑——和“往下压一下再弹回来”的动作配对
+    function ysnPress() { ysnTone({ f0: 330, f1: 170, dur: 0.085, gain: 0.18 }) }
+    function ysnRelease() { ysnTone({ f0: 210, f1: 300, dur: 0.07, gain: 0.14 }) }
 
     const css = {
       page: { padding: '22px 26px 40px', boxSizing: 'border-box', height: '100%', overflow: 'auto', maxWidth: '1100px' },
@@ -205,6 +233,15 @@ window.__ModuleLoader__.load({
   @media (prefers-reduced-motion: reduce){.ysn-slot .ysn-art{animation:none}}
   .ysn-fig:hover .ysn-art .ysn-character,.ysn-fig:focus-visible .ysn-art .ysn-character{transform:translateY(-5px);filter:drop-shadow(0 24px 28px rgba(0,0,0,.5))}
 .ysn-fig:focus-visible .ysn-art{outline:2px solid #7cc4ff;outline-offset:5px}
+    /* 按下去：以底部为原点压扁一点、往下沉 2px；松手先往上抬一点，再落回 */
+    .ysn-fig:active{transform:translateY(2px) scale(calc(var(--ysn-zoom,1) * 1.03),calc(var(--ysn-zoom,1) * 0.97))}
+    .ysn-fig-hit{animation:ysn-hop .26s cubic-bezier(.22,.9,.32,1)}
+    @keyframes ysn-hop{
+      0%{transform:translateY(2px) scale(calc(var(--ysn-zoom,1) * 1.03),calc(var(--ysn-zoom,1) * 0.97))}
+      55%{transform:translateY(-7px) scale(calc(var(--ysn-zoom,1) * 0.985),calc(var(--ysn-zoom,1) * 1.015))}
+      100%{transform:translateY(0) scale(var(--ysn-zoom,1))}
+    }
+    @media (prefers-reduced-motion: reduce){.ysn-fig-hit{animation:none}}
 .ysn-shadow{position:absolute;left:50%;bottom:0;width:62%;height:16px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse at center,rgba(0,0,0,.42),rgba(0,0,0,0) 72%);filter:blur(2px);pointer-events:none}
 .ysn-name{flex:0 0 auto;max-width:100%;display:flex;flex-direction:column;align-items:center;overflow:hidden;font-size:13px;line-height:1.35;padding:3px 12px 4px;border-radius:14px;background:rgba(6,14,24,.62);border:1px solid rgba(255,255,255,.16);color:#f1f7ff;text-shadow:0 1px 4px rgba(0,0,0,.5);backdrop-filter:blur(6px)}
 .ysn-name-text{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -238,6 +275,14 @@ window.__ModuleLoader__.load({
 .ysn-catch:focus-visible{outline:2px solid #7cc4ff;outline-offset:2px}
 .ysn-catch[data-on="1"]{border-color:#f59e0b;color:#fbbf24;background:rgba(245,158,11,.14)}
 .ysn-toast{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);z-index:25;max-width:min(520px,calc(100% - 24px));padding:7px 14px;border-radius:10px;background:rgba(10,20,32,.92);border:1px solid rgba(251,191,36,.5);color:#fde68a;font-size:12px;line-height:1.6;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    /* 桌宠气泡：长在宠物身上；小的时候是椭圆，放大后慢慢变成圆角方框（圆角由 React 按实际宽高算） */
+    .ysn-bubble{display:block;position:absolute;left:50%;bottom:calc(100% + 44px);z-index:12;max-width:min(250px,82vw);padding:11px 16px;box-sizing:border-box;background:rgba(255,255,255,.97);border:1px solid rgba(40,100,160,.4);color:#15578f;font-size:13.5px;line-height:1.6;text-align:center;box-shadow:0 16px 34px rgba(0,0,0,.4);cursor:pointer;pointer-events:auto;transition:border-radius .28s ease,width .28s ease,font-size .28s ease}
+    .ysn-bubble::after{content:'';position:absolute;left:50%;bottom:-8px;width:13px;height:11px;transform:translateX(-50%);border-radius:50%;background:inherit;border:1px solid rgba(70,100,150,.35)}
+    .ysn-bubble[data-kind="run"]{border-color:rgba(59,130,246,.6)}
+    .ysn-bubble[data-kind="cost"]{border-color:rgba(217,119,6,.6)}
+    .ysn-bubble[data-kind="info"]{border-color:rgba(100,116,139,.45)}
+    .ysn-bubble[data-kind="idle"]{border-color:rgba(120,170,210,.55);color:#2a6ea3}
+    @media (prefers-reduced-motion: reduce){.ysn-bubble{transition:none}}
 .ysn-catchbar{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:25;padding:6px 14px;border-radius:999px;background:rgba(245,158,11,.94);color:#1b1305;font-size:12px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.35);white-space:nowrap}
 .ysn-catching .ysn-stage{cursor:crosshair}
 .ysn-foot-catch{border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12);color:#fde68a}
@@ -250,6 +295,34 @@ window.__ModuleLoader__.load({
 .ysn-gear{position:absolute;top:58px;right:16px;z-index:41;display:flex;flex-direction:column;gap:2px;min-width:132px;padding:6px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(16,26,40,.97);box-shadow:0 16px 40px rgba(0,0,0,.5);animation:ysn-pop .14s ease-out}
 .ysn-gear button{border:0;background:transparent;color:#eef5ff;text-align:left;padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
 .ysn-gear button:hover,.ysn-gear button:focus-visible{background:rgba(96,165,250,.24);outline:none}
+.ysn-fr-mascot{display:block;width:132px;height:auto;margin:0 auto 14px;filter:drop-shadow(0 8px 18px rgba(0,0,0,.45))}
+.ysn-firstrun{margin:auto;max-width:760px;padding:30px 28px;text-align:center;border-radius:18px;border:1px solid rgba(120,170,230,.22);background:rgba(6,14,24,.62);backdrop-filter:blur(10px)}
+.ysn-fr-title{font-size:26px;font-weight:650;letter-spacing:.04em}
+.ysn-fr-sub{font-size:14px;opacity:.7;margin:8px 0 22px}
+.ysn-fr-cards{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.ysn-fr-card{flex:1 1 240px;max-width:320px;padding:18px 16px;border-radius:14px;border:1px solid rgba(140,190,255,.32);background:rgba(255,255,255,.05);color:inherit;cursor:pointer;text-align:left;font:inherit;transition:border-color .15s ease,background .15s ease}
+.ysn-fr-card:hover{border-color:rgba(140,190,255,.7);background:rgba(96,165,250,.12)}
+.ysn-fr-card b{display:block;font-size:16px;margin-bottom:4px}
+.ysn-fr-card span{font-size:12px;opacity:.7}
+.ysn-fr-note{margin-top:18px;font-size:12px;opacity:.55}
+.ysn-fr-mask{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:18px;background:rgba(4,8,14,.66);backdrop-filter:blur(6px)}
+.ysn-fr-modal{width:min(620px,100%);padding:26px 24px;border-radius:16px;border:1px solid rgba(124,196,255,.38);background:linear-gradient(180deg,rgba(25,38,56,.98),rgba(16,26,40,.98));box-shadow:0 24px 70px rgba(0,0,0,.55);text-align:center}
+.ysn-fr-cancel{margin-top:16px;padding:8px 22px;border-radius:10px;border:1px solid rgba(255,255,255,.22);background:transparent;color:inherit;font:inherit;cursor:pointer}
+.ysn-help-btn{position:absolute;right:18px;bottom:14px;z-index:22;width:34px;height:34px;border-radius:50%;border:1px solid rgba(140,190,255,.35);background:rgba(8,18,30,.6);color:#cfe3ff;font-size:15px;cursor:pointer;backdrop-filter:blur(6px)}
+.ysn-help-btn:hover{border-color:rgba(140,190,255,.9)}
+.ysn-add-role{position:absolute;left:18px;bottom:14px;z-index:22;padding:7px 14px;border-radius:999px;border:1px dashed rgba(140,190,255,.45);background:rgba(8,18,30,.6);color:#cfe3ff;font:inherit;font-size:12px;cursor:pointer;backdrop-filter:blur(6px)}
+.ysn-add-role:hover{border-color:rgba(140,190,255,.9);background:rgba(96,165,250,.18)}
+.ysn-fr-kicker{font-size:11px;letter-spacing:.18em;color:#e0b15c;margin-bottom:6px}
+.ysn-welcome{text-align:left}
+.ysn-welcome .ysn-fr-title{text-align:center}
+.ysn-welcome .ysn-fr-sub{text-align:center}
+.ysn-w-list{display:flex;flex-direction:column;gap:10px;margin:16px 0;font-size:13.5px;line-height:1.7;color:#c4d6e6}
+.ysn-w-list b{color:#eaf2ff;margin-right:6px}
+.ysn-w-steps{text-align:center;font-size:13px;color:#8fb2cc;margin:6px 0 14px}
+.ysn-w-license{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.035);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.9;color:#c4d6e6}
+.ysn-w-license .ysn-ok{color:#7ee0b0;font-weight:600}
+.ysn-w-license .ysn-no{color:#ffb4a8;font-weight:600}
+.ysn-w-start{display:block;margin:18px auto 0;padding:10px 34px;border:0;background:linear-gradient(180deg,#e8c07a,#d9a84f);color:#06202f;font-weight:600;border-radius:12px;cursor:pointer}
 .ysn-state{margin:auto;max-width:420px;padding:18px 20px;text-align:center;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:rgba(6,14,24,.6);font-size:13px;line-height:1.8;backdrop-filter:blur(8px)}
 .ysn-state button{margin-top:10px;padding:7px 16px;border-radius:9px;border:1px solid rgba(96,165,250,.6);background:#2563eb;color:#fff;cursor:pointer;font-size:13px}
 .ysn-notice-back{position:fixed;inset:0;z-index:2147483005;display:grid;place-items:center;padding:18px;background:rgba(4,8,14,.66);backdrop-filter:blur(7px)}
@@ -363,12 +436,12 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         className: 'ysn-notice-back',
         role: 'dialog',
         'aria-modal': 'true',
-        'aria-label': '鱼神作品声明',
+        'aria-label': '鱼神双子星作品声明',
         onClick: (e) => { if (e.target === e.currentTarget) close() },
       },
       h('div', { className: 'ysn-notice' },
-        h('h2', null, '鱼神'),
-        h('p', null, '本作品由作者「用户」独立构思、从零开发。'),
+        h('h2', null, '鱼神双子星'),
+        h('p', null, '本作品由作者「从零开始」独立构思、从零开发。'),
         h('p', null, '请勿用于商业用途、二次分发，或修改本体；扩展请走公开接口。'),
         h('p', { className: 'ysn-small' }, '完整条款见 LICENSE / COMMERCIAL.md。'),
         h('div', { className: 'ysn-notice-foot' },
@@ -389,7 +462,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
             h('span', null, `profile：${health?.profile ?? '—'}`),
             h('span', null, `名册：${health?.plugins ?? plugins.length ?? '—'} 个`),
             h('span', null, `会话：${health?.sessions?.length ?? '—'} 个`),
-            h('span', { style: css.muted }, `助手：${xyOff ? '休假中' : days?.ok ? `${days.name}（${days.alias}）在线` : '没应答'}`))),
+            h('span', { style: css.muted }, `小鱼：${xyOff ? '休假中' : days?.ok ? `${days.name}（${days.alias}）在线` : '没应答'}`))),
         h('div', { style: css.card },
           h('div', { style: css.h }, '员工名册（只读）'),
           plugins.length === 0
@@ -417,7 +490,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           setSw(r.switches)
           if (setStatus) setStatus((prev) => ({ ...(prev || {}), switches: r.switches }))
           const off = Object.values(patch)[0] === false
-          const who = patch.master !== undefined ? '两条鱼' : patch.dayu !== undefined ? '管家' : '助手'
+          const who = patch.master !== undefined ? '两条鱼' : patch.dayu !== undefined ? '大鱼' : '小鱼'
           setNote(`${off ? `已给${who}放假` : `已叫${who}回来上班`}，重启 DSH 后生效。`)
         } catch (e) {
           setNote(String(e?.message ?? e))
@@ -433,15 +506,15 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         h('div', { style: css.h }, '调试开关（关掉 = 放假）'),
         h('div', { style: { ...css.muted, marginBottom: '8px' } }, '平时两条鱼都在岗。只有排查 bug 时，才临时给谁放个假；放假期间不接活，重启 DSH 后生效。'),
         Toggle({ k: 'master', label: '全体上岗（关掉 = 两条都放假）', hint: '紧急用：两条都休息' }),
-        Toggle({ k: 'dayu', label: '管家上岗（关掉 = 放假）', hint: '临时休息，排查用', disabled: sw.master === false }),
-        Toggle({ k: 'xiaoyu', label: '助手上岗（关掉 = 放假）', hint: '临时休息，排查用', disabled: sw.master === false }),
+        Toggle({ k: 'dayu', label: '大鱼上岗（关掉 = 放假）', hint: '临时休息，排查用', disabled: sw.master === false }),
+        Toggle({ k: 'xiaoyu', label: '小鱼上岗（关掉 = 放假）', hint: '临时休息，排查用', disabled: sw.master === false }),
         h('div', { style: css.muted }, note || '平时保持全开；放完假重启 DSH 回来上班。'))
     }
 
-    // 顾问：她有自己的本体卡和常驻会话（顾问·太上长老），不借两姐妹的会话，也不共用她们的记忆。
+    // 照微：她有自己的本体卡和常驻会话（照微·太上长老），不借两姐妹的会话，也不共用她们的记忆。
     const NEST_ROLES = ['dayu', 'xiaoyu', 'dragon']
     // 站位不是身份表：站位按对外层次排，能力和授权完全不看这个。
-    // 顾问走她自己的五境，不换算 L0-L3；管家/助手用 L0-L3 的显示号。
+    // 照微走她自己的五境，不换算 L0-L3；大鱼/小鱼用 L0-L3 的显示号。
     const NEST_DISPLAY_ORDER = ['dayu', 'dragon', 'xiaoyu']
     const NEST_SCALE = { dayu: 0.94, xiaoyu: 0.86, dragon: 1 }
     const NEST_ORG = {
@@ -449,7 +522,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       xiaoyu: { post: '秘书', rank: '阶位2', tone: 'cyan' },
       dragon: { post: '太上长老', also: '空降总裁', rank: '五境', tone: 'gold' },
     }
-    // 五阶光环样机：顾问五境、管家阶位3、助手阶位2；只做显示，不接权限。
+    // 五阶光环样机：照微五境、大鱼阶位3、小鱼阶位2；只做显示，不接权限。
     const NEST_HALO_STAGE = { dragon: 5, dayu: 3, xiaoyu: 2 }
     // 后端路由要重启 DSH 才注册；这里带一份同样的 SVG 兜底，刷新页面就能看到。
     const HALO_FALLBACK = {
@@ -458,8 +531,8 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       dragon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMzIwIiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+PHRpdGxlIGlkPSJ0aXRsZSI+emhhb3dlaSDnhaflpJwg4oCUIOW+heacuuWKqOaAgeagt+acujwvdGl0bGU+PGRlc2MgaWQ9ImRlc2MiPumAj+aYjuiDjOaZr+eLrOeri+WFieeOr++8jOS4jeWQq+inkuiJsuOAguivgeaNruaguOW/g+m7mOiupOmakOiXj++8jOWPquacieehruiupOS6i+S7tuaJjeeUseaOpeWFpeaWueaYvuekuuOAgjwvZGVzYz48c3R5bGU+LnJpbmd7ZmlsbDpub25lO3N0cm9rZTojNzRCOUI1O3N0cm9rZS13aWR0aDoyfS5hY2NlbnQtbGluZXtmaWxsOm5vbmU7c3Ryb2tlOiNEOEFDNjI7c3Ryb2tlLXdpZHRoOjEuNX0uYWNjZW50LWZpbGx7ZmlsbDojRDhBQzYyfS53aGFsZXtmaWxsOiM3NEI5QjU7c3Ryb2tlOiNEOEFDNjI7c3Ryb2tlLXdpZHRoOjF9LmV2aWRlbmNlLWNvcmV7ZGlzcGxheTpub25lfS5vcmJpdHt0cmFuc2Zvcm0tb3JpZ2luOjE2MHB4IDE2MHB4fS5yaW5ne2FuaW1hdGlvbjpicmVhdGhlIDVzIGVhc2UtaW4tb3V0IGluZmluaXRlfS5vcmJpdHthbmltYXRpb246b3JiaXQgMTJzIGxpbmVhciBpbmZpbml0ZX1Aa2V5ZnJhbWVzIGJyZWF0aGV7NTAle29wYWNpdHk6LjQ1fX1Aa2V5ZnJhbWVzIG9yYml0e3Rve3RyYW5zZm9ybTpyb3RhdGUoMzYwZGVnKX19QG1lZGlhKHByZWZlcnMtcmVkdWNlZC1tb3Rpb246cmVkdWNlKXsqe2FuaW1hdGlvbjpub25lIWltcG9ydGFudH19PC9zdHlsZT48ZWxsaXBzZSBjeD0iMTYwIiBjeT0iMTYwIiByeD0iNTAiIHJ5PSI1MCIgY2xhc3M9InJpbmciIG9wYWNpdHk9IjEiIHN0cm9rZS1kYXNoYXJyYXk9IjE4MCAxMiIvPjxlbGxpcHNlIGN4PSIxNjAiIGN5PSIxNjAiIHJ4PSI2NyIgcnk9IjY3IiBjbGFzcz0icmluZyIgb3BhY2l0eT0iMC44NyIgc3Ryb2tlLWRhc2hhcnJheT0iMTgwIDEyIi8+PGVsbGlwc2UgY3g9IjE2MCIgY3k9IjE2MCIgcng9Ijg0IiByeT0iODQiIGNsYXNzPSJyaW5nIiBvcGFjaXR5PSIwLjc0IiBzdHJva2UtZGFzaGFycmF5PSIxODAgMTIiLz48ZWxsaXBzZSBjeD0iMTYwIiBjeT0iMTYwIiByeD0iMTAxIiByeT0iMTAxIiBjbGFzcz0icmluZyIgb3BhY2l0eT0iMC42MSIgc3Ryb2tlLWRhc2hhcnJheT0iMTgwIDEyIi8+PGVsbGlwc2UgY3g9IjE2MCIgY3k9IjE2MCIgcng9IjExOCIgcnk9IjExOCIgY2xhc3M9InJpbmciIG9wYWNpdHk9IjAuNDgiIHN0cm9rZS1kYXNoYXJyYXk9IjE4MCAxMiIvPjxnIGNsYXNzPSJvcmJpdCI+PGNpcmNsZSBjeD0iMTYwIiBjeT0iMTAxIiByPSIzIiBjbGFzcz0iYWNjZW50LWZpbGwiLz48L2c+PHBhdGggY2xhc3M9ImFjY2VudC1saW5lIiBkPSJNODAgMTAwIFExMTUgNDQgMTg1IDU4IEwyMDMgNDcgTDIwMiA2NSBMMjE3IDczIEwxOTggNzkgUTE1MSA1OSAxMTkgOTQgUTk4IDExNyA5MSAxMzkiLz48ZyBjbGFzcz0iZXZpZGVuY2UtY29yZSI+PGNpcmNsZSBjeD0iMTYwIiBjeT0iMTYwIiByPSI3IiBjbGFzcz0iYWNjZW50LWZpbGwiLz48L2c+PHBhdGggY2xhc3M9ImFjY2VudC1saW5lIiBkPSJNNTcgMTQ1IFE4MCA2OSAxNTAgNTMgTTE3MCA1MyBRMjQwIDY5IDI2MyAxNDUiLz48cGF0aCBjbGFzcz0iYWNjZW50LWxpbmUiIGQ9Ik0xNjAgMjcgVjQ1IE0xNTEgMzYgSDE2OSBNMjY3IDE1MCBWMTY4IE0yNTggMTU5IEgyNzYiLz48L3N2Zz4=',
     }
     const orgOf = (role) => NEST_ORG[role] || { post: '', rank: '' }
-    const NEST_LABELS = { dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
-    const NEST_DESCRIPTIONS = { dayu: '姐姐 · 管家', xiaoyu: '妹妹 · 助手', dragon: '顾问 · 太上长老' }
+    const NEST_LABELS = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
+    const NEST_DESCRIPTIONS = { dayu: '姐姐 · 大鱼', xiaoyu: '妹妹 · 小鱼', dragon: '照微 · 太上长老' }
     const NEST_API = '/api/yushen/nest'
     const IMG_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
     const IMG_MAX = 8 * 1024 * 1024
@@ -475,7 +548,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
 
     function guessRole(name) {
       const text = String(name || '')
-      if (/顾问|dragon/i.test(text)) return 'dragon'
+      if (/照微|dragon/i.test(text)) return 'dragon'
       if (/大|姐|鲲/.test(text)) return 'dayu'
       if (/小|妹|鲤/.test(text)) return 'xiaoyu'
       return 'xiaoyu'
@@ -536,10 +609,79 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
 
     function NestFigure({
       slot, role, scale, height, zoom, rank, xp, menuOpen, setMenuOpen, catcher,
-      onPick, onAdopt, onAdoptSrc, onMissing, onRename, onRestore, onZoom,
+      onPick, onAdopt, onAdoptSrc, onMissing, onRename, onRestore, onZoom, live,
     }) {
       const [over, setOver] = React.useState(false)
       const [broken, setBroken] = React.useState(false)
+      const [bubble, setBubble] = React.useState(null)
+      const bubbleTimer = React.useRef(0)
+      const bubbleEl = React.useRef(null)
+      const [hit, setHit] = React.useState(false)
+      const hitTimer = React.useRef(0)
+      const say = React.useCallback((text, kind, ms) => {
+        if (!text) return
+        setBubble({ text, kind: kind || 'info' })
+        if (bubbleTimer.current) clearTimeout(bubbleTimer.current)
+        bubbleTimer.current = setTimeout(() => { bubbleTimer.current = 0; setBubble(null) }, ms || 6000)
+      }, [])
+      React.useEffect(() => () => {
+        if (bubbleTimer.current) clearTimeout(bubbleTimer.current)
+        if (hitTimer.current) clearTimeout(hitTimer.current)
+      }, [])
+
+      // 在跑：冒一句“正在…”，只用大白话。
+      // 只让中间那只（照微）自动冒，三个人同时冒会互相压、还会顶到裁切。
+      const wasActive = React.useRef(false)
+      React.useEffect(() => {
+        if (!live || role !== 'dragon') return
+        if (live.active && !wasActive.current) {
+          wasActive.current = true
+          say(live.tool || '正在处理手头的事情…', 'run', 6000)
+        } else if (!live.active) {
+          wasActive.current = false
+        }
+      }, [live, live?.active, live?.tool, say, role])
+
+      // 这一轮花了多少钱：跑完冒一下（同样只由中间那只冒）
+      const seenSeq = React.useRef(0)
+      React.useEffect(() => {
+        if (!live || !live.lastTurn || role !== 'dragon') return
+        if (Number(live.lastTurnSeq) > seenSeq.current) {
+          const first = seenSeq.current === 0
+          seenSeq.current = Number(live.lastTurnSeq)
+          if (!first && Number(live.lastTurn.cost) > 0) {
+            say(`这轮花了 ¥${Number(live.lastTurn.cost).toFixed(2)}`, 'cost', 6000)
+          }
+        }
+      }, [live?.lastTurnSeq, say, role])
+
+      // 没事的时候自己嘀咕一句（解压用；不打断正在跑的）
+      React.useEffect(() => {
+        const lines = ['嗯…让我想想。', '今天也要好好干活。', '有事情就点我。', '我在。', '要不要歇一会儿？']
+        let alive = true
+        let timer = 0
+        const loop = () => {
+          timer = setTimeout(() => {
+            if (!alive) return
+            if (!live?.active) say(lines[Math.floor(Math.random() * lines.length)], 'idle', 4200)
+            loop()
+          }, 40000 + Math.random() * 60000)
+        }
+        loop()
+        return () => { alive = false; clearTimeout(timer) }
+      }, [say, live?.active])
+
+      // 气泡形状：小的时候椭圆，放大后慢慢变方框（按实际宽高算像素，别用百分比混算）
+      React.useEffect(() => {
+        const el = bubbleEl.current
+        if (!el) return
+        const w = el.offsetWidth || 210
+        const h = el.offsetHeight || 60
+        const m = Math.max(0, Math.min(1, (Number(zoom || 1) - 1) / 0.3))
+        const rx = (1 - m) * (w / 2) + m * 24
+        const ry = (1 - m) * (h * 0.46) + m * 24
+        el.style.borderRadius = `${rx.toFixed(1)}px / ${ry.toFixed(1)}px`
+      }, [bubble, zoom])
       const press = React.useRef({ timer: 0, long: false, moved: false, pending: false, suppressUntil: 0, x: 0, y: 0 })
       const stop = () => {
         if (press.current.timer) {
@@ -565,10 +707,13 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
 
       const label = slot.name || slot.label || NEST_LABELS[role]
       const org = orgOf(role)
+      // 气泡形状：0 = 椭圆（小的时候），1 = 圆角方框（放大了要看清字）
+      const bubbleM = Math.max(0, Math.min(1, (Number(zoom || 1) - 1) / 0.3))
       const toggleMenu = () => setMenuOpen(menuOpen ? '' : role)
       const onDown = (e) => {
         const p = press.current
         if (e.button !== undefined && e.button !== 0) return
+        ysnPress()
         p.x = e.clientX
         p.y = e.clientY
         p.long = false
@@ -589,8 +734,14 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           stop()
         }
       }
-      const onUp = () => {
+      const onUp = (e) => {
         const p = press.current
+        if (e && e.button === 2) return
+        ysnRelease()
+        // 松手往回抬一下（抬过头再落回）
+        if (hitTimer.current) clearTimeout(hitTimer.current)
+        setHit(true)
+        hitTimer.current = setTimeout(() => { hitTimer.current = 0; setHit(false) }, 300)
         stop()
         if (p.pending) {
           p.pending = false
@@ -617,6 +768,12 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         }
         if (menuOpen) { setMenuOpen(''); return }
         if (broken) { pickImage((file) => onAdopt(role, file)); return }
+        if (bubble) { setBubble(null); return }
+        say(`${label}在呢。双击进页面，长按换形象。`, 'info', 4600)
+      }
+      const onDouble = () => {
+        if (Date.now() < press.current.suppressUntil) return
+        if (catcher || broken) return
         onPick(role)
       }
       const onKeyDown = (e) => {
@@ -652,8 +809,9 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       },
         h('button', {
           type: 'button',
-          className: 'ysn-fig',
+          className: `ysn-fig${hit ? ' ysn-fig-hit' : ''}`,
           onClick,
+          onDoubleClick: onDouble,
           onKeyDown,
           onPointerDown: onDown,
           onPointerMove: onMove,
@@ -663,10 +821,28 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           onDragOver: (e) => { e.preventDefault(); e.stopPropagation(); setOver(true) },
           onDragLeave: () => setOver(false),
           onDrop,
-          'aria-label': `${label}：点开她的页面；长按或右键打开换形象、改名、恢复默认`,
+          'aria-label': `${label}：点一下冒个泡；双击进她的页面；长按或右键打开换形象、改名、恢复默认`,
           'aria-haspopup': 'menu',
           'aria-expanded': menuOpen ? 'true' : 'false',
         },
+        bubble
+          ? h('span', {
+            className: 'ysn-bubble',
+            ref: bubbleEl,
+            'data-kind': bubble.kind,
+            role: 'status',
+            'aria-live': 'polite',
+            style: {
+              // 跟宠物一起放大：以前反向缩放，宠物越大、气泡越显小
+              width: `${214 + bubbleM * 56}px`,
+              transform: 'translateX(-50%)',
+              transformOrigin: '50% 100%',
+            },
+            onClick: (e) => { e.stopPropagation(); setBubble(null) },
+            onPointerDown: (e) => e.stopPropagation(),
+            onDoubleClick: (e) => e.stopPropagation(),
+          }, bubble.text)
+          : null,
         h('span', { className: 'ysn-crown', 'data-role': role, title: `${rank?.label || org.rank} · 经验 ${xp?.xp ?? 0}/${xp?.cap ?? 2000}（本人完成 ${xp?.done ?? 0} 单，共同值守 ${xp?.fixed ?? 0} 件）` },
           h('span', { className: 'ysn-rank-chip' }, rank?.chip || org.rank),
           h('span', { className: 'ysn-xp', 'aria-hidden': 'true' },
@@ -705,7 +881,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           : null)
     }
 
-    function Nest({ nest, error, onRetry, onPick, onAdopt, onAdoptSrc, onGuestRemove, onRename, onRestore, gearOpen, onGear }) {
+    function Nest({ nest, error, onRetry, onPick, onAdopt, onAdoptSrc, onGuestRemove, onRename, onRestore, gearOpen, onGear, live }) {
       const [catcher, setCatcher] = React.useState(false)
       const [hint, setHint] = React.useState('')
       const [menuRole, setMenuRole] = React.useState('')
@@ -726,7 +902,14 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           return target
         })
       }
-      const nudgeZoom = (delta) => zoomTo(zoomRef.current + delta)
+      const nudgeZoom = (delta) => {
+        const next = zoomRef.current + delta
+        if (next < 0.75 - 1e-6 || next > 1.3 + 1e-6) {
+          setHint(delta < 0 ? '已经缩到最小了（75%）。想再小就 Alt+滚轮单独调某一只' : '已经放到最大了（130%）。想更大就用 Alt+滚轮单独调')
+          return
+        }
+        zoomTo(next)
+      }
       const [roleZoom, setRoleZoom] = React.useState(() => {
         try {
           const raw = JSON.parse(localStorage.getItem('yushen.nest.roleZoom') || '{}')
@@ -815,20 +998,25 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       }, [Boolean(nest)])
 
       // 滚轮和 +/- 走同一个缩放状态；缩放只改视觉，不改站位数据。
+      // 监听挂在 document 的捕获阶段：页面里别的层把 wheel 吞掉时，这里仍然先收到，
+      // 只有指针确实在鱼窝舞台里才动手。
       React.useEffect(() => {
-        const el = stageRef.current
-        if (!el) return undefined
         const onWheel = (e) => {
+          const stage = stageRef.current
+          if (!stage) return
+          const target = e.target
+          if (!(target instanceof Node) || !stage.contains(target)) return
           e.preventDefault()
+          const step = e.deltaY > 0 ? -0.05 : 0.05
           if (e.altKey) {
-            const slot = e.target?.closest?.('.ysn-slot')
+            const slot = target.closest?.('.ysn-slot')
             const role = slot?.getAttribute('data-role')
-            if (role) { nudgeRoleZoom(role, e.deltaY < 0 ? 0.05 : -0.05); return }
+            if (role) { nudgeRoleZoom(role, step); return }
           }
-          zoomTo(zoomRef.current + (e.deltaY < 0 ? 0.05 : -0.05))
+          zoomTo(zoomRef.current + step)
         }
-        el.addEventListener('wheel', onWheel, { passive: false })
-        return () => el.removeEventListener('wheel', onWheel)
+        document.addEventListener('wheel', onWheel, { passive: false, capture: true })
+        return () => document.removeEventListener('wheel', onWheel, { capture: true })
       }, [Boolean(nest)])
 
       // 统一“站高”：最宽的那只按 1.5 倍槽宽封顶，三只都按这个基准再乘各自的 scale。
@@ -871,20 +1059,20 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
               h('div', { className: 'ysn-title-row' },
                 h('div', { className: 'ysn-title' }, '鱼窝'),
                 h('span', { className: 'ysn-crest' }, '内阁')),
-              h('div', { className: 'ysn-sub' }, '点她进页面 · 把图拖到她身上换形象 · 长按她打开小菜单')),
+              h('div', { className: 'ysn-sub' }, '点一下冒个泡 · 双击进页面 · 把图拖到她身上换形象 · 长按她打开小菜单')),
             h('div', { className: 'ysn-head-side' },
               h('div', { className: 'ysn-zoom', role: 'group', 'aria-label': '缩放', title: '滚轮整体缩放；Alt+滚轮单独缩放' },
                 h('button', {
-                  type: 'button', className: 'ysn-zoom-btn', title: '缩小', 'aria-label': '缩小',
-                  disabled: zoom <= 0.75, onClick: () => nudgeZoom(-0.1),
+                  type: 'button', className: 'ysn-zoom-btn', title: '缩小（最小 75%）', 'aria-label': '缩小',
+                  onClick: () => nudgeZoom(-0.1),
                 }, '−'),
                 h('button', {
                   type: 'button', className: 'ysn-zoom-btn', 'data-pct': '1', title: '恢复 100%',
                   onClick: () => zoomTo(1),
                 }, `${Math.round(zoom * 100)}%`),
                 h('button', {
-                  type: 'button', className: 'ysn-zoom-btn', title: '放大', 'aria-label': '放大',
-                  disabled: zoom >= 1.3, onClick: () => nudgeZoom(0.1),
+                  type: 'button', className: 'ysn-zoom-btn', title: '放大（最大 130%）', 'aria-label': '放大',
+                  onClick: () => nudgeZoom(0.1),
                 }, '+')),
               h('button', {
                 type: 'button',
@@ -915,7 +1103,8 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
                   else setHint('这张没带图片：把图片文件直接拖进来，或点「收编桌宠」。')
                 },
               },
-                NEST_DISPLAY_ORDER.map((role) => h(NestFigure, {
+                // 2026-10-30：只画名册里真有的角色（出厂只有一个），别给不存在的角色留空位
+                NEST_DISPLAY_ORDER.filter((role) => Boolean(slots[role])).map((role) => h(NestFigure, {
                   key: role,
                   role,
                   slot: slots[role],
@@ -933,6 +1122,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
                   onMissing: setHint,
                   onRename,
                   onRestore,
+                  live,
                   onZoom: (r, delta) => { if (delta === 0) roleZoomTo(r, 1); else nudgeRoleZoom(r, delta) },
                 }))),
           guests.length
@@ -1029,6 +1219,23 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         }
       }
 
+      // 2026-10-30：出厂带着三张形象，让对方自己挑一张，不用先去找图。
+      const PRESET_IMGS = [['dayu', '大鱼'], ['xiaoyu', '小鱼'], ['dragon', '照微']]
+      const pickPreset = async (id, label) => {
+        try {
+          setErr('')
+          const res = await fetch(`/yushen-assets/avatar?who=${id}`, { credentials: 'same-origin' })
+          if (!res.ok) throw new Error(`取不到（HTTP ${res.status}）`)
+          const blob = await res.blob()
+          const durl = await readAsDataUrl(blob)
+          setCand(null)
+          setDataUrl(durl)
+          setPreview(durl)
+          if (!name) setName(label)
+          if (!role && !picked) setPicked(id)
+        } catch (e) { setErr('取不到自带形象：' + String(e?.message || e)) }
+      }
+
       const pickCand = (c) => {
         setCand(c)
         const base = String(c.rel || '').split('/').pop().replace(/\.[^.]+$/, '').slice(0, 24)
@@ -1067,6 +1274,19 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
                   alt: c.rel,
                 })))))
             : null,
+          h('div', { style: { ...css.muted, margin: '10px 0 6px' } }, '用自带的形象（不知道选什么就挑一张）'),
+          h('div', { style: { display: 'flex', gap: '10px', padding: '2px 0 4px' } },
+            PRESET_IMGS.map(([id, label]) => h('button', {
+              key: id,
+              type: 'button',
+              title: label,
+              style: { ...css.roleCard, padding: 0, width: '72px', overflow: 'hidden', background: 'transparent' },
+              onClick: () => pickPreset(id, label),
+            }, h('img', {
+              src: `/yushen-assets/avatar?who=${id}`,
+              alt: label,
+              style: { width: '100%', height: '76px', objectFit: 'contain', display: 'block' },
+            }), h('div', { style: { fontSize: '11px', opacity: 0.8 } }, label)))),
           h('div', { style: { ...css.muted, margin: '10px 0 6px' } }, '名字'),
           h('input', {
             style: { ...css.input, minHeight: '0', width: '100%', padding: '9px 12px', marginBottom: '6px' },
@@ -1185,7 +1405,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         incidents.length ? h('div', { style: { ...css.card, marginBottom: '10px', borderColor: 'rgba(248,113,113,.45)' } },
           h('div', { style: css.h }, (() => {
             const open = incidents.filter((x) => x.status === 'open' || x.status === 'fixing').length
-            return open ? `助手示警 · 未结 ${open} 起` : `最近的事故 · 已全部结清（${incidents.length} 条）`
+            return open ? `小鱼示警 · 未结 ${open} 起` : `最近的事故 · 已全部结清（${incidents.length} 条）`
           })()),
           incidents.slice(0, 6).map((inc) => h('div', { style: css.lookRow, key: inc.id },
             h('div', { style: { flex: 1, minWidth: '160px' } },
@@ -1273,7 +1493,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
     function PendingBar() {
       const [items, setItems] = React.useState([])
       const [busy, setBusy] = React.useState('')
-      const NAME = { dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
+      const NAME = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
       const load = () => getJson('/pending')
         .then((r) => setItems(r.items || []))
         .catch(() => {})
@@ -1329,7 +1549,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         .then((r) => setData(r.items || {}))
         .catch((e) => setNote(String(e?.message ?? e)))
       React.useEffect(() => { load() }, [])
-      const LABEL = { dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
+      const LABEL = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
       const ago = (iso) => {
         const t = Date.parse(iso || '')
         if (!Number.isFinite(t)) return '—'
@@ -1403,10 +1623,10 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         ? `${state.alive ? '在线' : '未叫醒'} · 卡 ${state.personaChars || 0} 字 · 记忆 ${state.memoryHabits || 0}+${state.memoryDynamics || 0} 条 · ${state.sessionId ? String(state.sessionId).slice(0, 12) : '无会话'}`
         : '读状态中…'
       return h('div', { style: css.card },
-        h('div', { style: css.h }, slot?.name || '顾问'),
+        h('div', { style: css.h }, slot?.name || '照微'),
         h('div', { style: css.muted, role: 'status' }, `太上长老 · 卡和会话都归她自己，不借两姐妹的。${status}`),
         state?.lastError ? h('div', { style: css.err }, `上次投递失败：${state.lastError}`) : null,
-        slot ? h('img', { src: slot.url, alt: '顾问当前形象', style: { ...css.lookImg, width: '180px', height: '220px', margin: '12px auto', display: 'block' } }) : null,
+        slot ? h('img', { src: slot.url, alt: '照微当前形象', style: { ...css.lookImg, width: '180px', height: '220px', margin: '12px auto', display: 'block' } }) : null,
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { style: css.smallBtn, onClick: () => pickImage((file) => onAdopt('dragon', file)) }, '换图'),
           h('button', { style: css.smallBtn, onClick: () => onRename('dragon') }, '改名'),
@@ -1460,14 +1680,14 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       const [note, setNote] = React.useState('')
       const listRef = React.useRef(null)
       const room = 'group:fish-god'
-      const labels = { owner: '老板', dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
+      const labels = { owner: '老板', dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
       const card = (m) => { const c = m.meta?.card; return c ? h('a', { href: c.url, target: '_blank', rel: 'noreferrer', style: { display: 'block', width: '320px', maxWidth: '100%', textDecoration: 'none', color: 'inherit', border: '1px solid rgba(128,128,128,.25)', borderRadius: '10px', overflow: 'hidden', background: 'rgba(0,0,0,.12)' } }, c.cover ? h('img', { src: c.cover, alt: c.title || c.bvid, style: { display: 'block', width: '100%', aspectRatio: '16/9', objectFit: 'cover' } }) : null, h('div', { style: { padding: '9px 10px' } }, h('div', { style: { fontWeight: 600 } }, c.title || c.bvid), h('div', { style: { fontSize: '11px', opacity: .65, marginTop: '5px' } }, `${c.owner || 'B站视频'} · ${c.bvid}${c.duration ? ` · ${Math.floor(c.duration / 60)}:${String(c.duration % 60).padStart(2, '0')}` : ''}`))) : null }
       const load = React.useCallback(async () => { try { const r = await getJson(`/group-chat?conversationId=${encodeURIComponent(room)}&limit=100`); setMessages(r.messages || []); setNote('') } catch (e) { setNote(String(e?.message ?? e)) } }, [])
       React.useEffect(() => { load(); const timer = setInterval(load, 2500); return () => clearInterval(timer) }, [load])
       React.useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight }, [messages])
       const send = async () => { const value = text.trim(); if (!value || busy) return; setBusy(true); setText(''); try { const result = await postJson('/group-chat', { conversationId: room, text: value, messageId: `owner-${Date.now()}` }); await load(); const failed = (result.deliveries || []).filter((item) => item.status === 'failed'); setNote(failed.length ? `消息已保存，但投递失败：${failed.map((item) => `${labels[item.role] || item.role}：${item.error}`).join('；')}` : `宿主已接收 ${result.delivered || 0} 位的投递，等待她们回复（不代表已阅读）`) } catch (e) { setNote(String(e?.message ?? e)) } finally { setBusy(false) } }
       return h('div', { style: css.chatPage },
-        h('div', { style: css.chatHead }, '鱼神框架群聊', h('span', { style: css.chatHint }, '老板 · 管家 · 助手 · 顾问')), 
+        h('div', { style: css.chatHead }, '鱼神框架群聊', h('span', { style: css.chatHint }, '老板 · 大鱼 · 小鱼 · 照微')), 
         h('div', { ref: listRef, className: 'ysc-panel', style: { ...css.chatList, padding: '12px 14px' } }, messages.length ? messages.map((m) => h('div', { key: `${m.direction}-${m.messageId}`, style: m.direction === 'incoming' ? css.bubbleRowUser : css.bubbleRowFish }, h('div', { className: m.direction === 'incoming' ? undefined : 'ysc-bubble', style: { ...(m.direction === 'incoming' ? css.bubbleUser : css.bubbleFish), overflowWrap: 'anywhere' } }, h('div', { style: { fontSize: '11px', opacity: .7, marginBottom: 3 } }, m.direction === 'incoming' ? '老板' : (labels[m.role] || m.role)), h('div', { style: { whiteSpace: 'pre-wrap' } }, m.text), card(m), h('div', { style: css.bubbleTime }, String(m.at || '').slice(11, 16))))) : h('div', { style: css.chatEmpty }, '群里还没有消息')), 
         note ? h('div', { style: css.err }, note) : null,
         h('div', { style: css.chatBar }, h('textarea', { style: css.chatInput, value: text, rows: 1, placeholder: '在群里说点什么…（Enter 发送）', onChange: (e) => setText(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } } }), h('button', { style: { ...css.btn, minWidth: '72px' }, disabled: busy || !text.trim(), onClick: send }, busy ? '…' : '发送')))
@@ -1581,7 +1801,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
 
       return h('div', { style: css.chatPage },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '0 2px 6px' } },
-          h('span', { style: { ...css.muted, fontSize: '12px' } }, '管家用的模型'),
+          h('span', { style: { ...css.muted, fontSize: '12px' } }, '大鱼用的模型'),
           h('select', {
             value: modelValue,
             disabled: busy || !catalog.length,
@@ -1612,7 +1832,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           },
         },
           visible.length === 0
-            ? h('div', { style: css.chatEmpty }, '和管家说第一句话')
+            ? h('div', { style: css.chatEmpty }, '和大鱼说第一句话')
             : visible.map((m) => h('div', { key: m.id, style: m.role === 'user' ? css.bubbleRowUser : css.bubbleRowFish },
               h('div', {
                 className: m.role === 'user' ? undefined : 'ysc-bubble',
@@ -1891,7 +2111,12 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
 
       const timeText = (v) => { const d = new Date(v); return isNaN(d) ? '—' : (String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')) }
       const short = (v, n) => String(v || '').replace(/\n/g, ' ').slice(0, n || 80)
-      const who = (name, id) => '「' + (name || ('会话 ' + String(id || '').slice(0, 6))) + '」'
+      // 2026-10-30：没有标题时以前显示「session-」这种半截 id，看着像坏了。改成"本机会话 + 尾号"。
+      const who = (name, id) => {
+        const sid = String(id || '')
+        const tail = sid ? sid.replace(/^session-/, '').slice(0, 6) : ''
+        return '「' + (name || (tail ? `本机会话 ${tail}` : '某条会话')) + '」'
+      }
       const placeOf = (p) => {
         const s = String(p || '')
         if (!s) return '工作区'
@@ -1993,7 +2218,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       })
 
       const summary = h('div', { style: { ...css.card, marginBottom: '10px' } },
-        h('div', { style: css.h }, '助手看板 · 谁在忙什么'),
+        h('div', { style: css.h }, '小鱼看板 · 谁在忙什么'),
         h('div', { style: { display: 'flex', gap: '18px', flexWrap: 'wrap', fontSize: '13px' } },
           h('span', null, '在忙 ' + live.length + ' 个'),
           h('span', { style: { color: openIncidents.length ? '#f87171' : 'inherit' } }, '出问题 ' + (openIncidents.length + errLive.length) + ' 个'),
@@ -2112,7 +2337,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
     }
 
     // 和她们说话：左边是她们，右边是我。能发图、发文件，她们的回话全文不截断。
-    const CHAT_ROLES = [['xiaoyu', '助手'], ['dayu', '管家'], ['dragon', '顾问']]
+    const CHAT_ROLES = [['xiaoyu', '小鱼'], ['dayu', '大鱼'], ['dragon', '照微']]
     function ChatView() {
       const [role, setRole] = React.useState('xiaoyu')
       const [turns, setTurns] = React.useState([])
@@ -2434,7 +2659,6 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           (actions || []).slice(0, 6).map((a, i) => h('div', { key: 'act' + i, style: css.muted },
             `${String(a.at || '').slice(11, 19)} ${a.method} ${a.path} → ${a.status}${a.ok ? '' : ' ✗'}`)))),
 
-        h(ProtectionPanel),
         card('活', h('div', { style: { fontSize: '13px', lineHeight: 1.9 } },
           h('div', null, `派活 ${work.jobs ?? 0} 单，未结 ${work.openJobs ?? 0}`),
           h('div', null, `未结事故 ${work.openIncidents ?? 0}`),
@@ -2460,50 +2684,6 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
               (p.routes || []).length ? h('div', { style: { ...css.muted, marginLeft: '8px' } }, '接口：' + p.routes.map((r) => r.path).join('、')) : null))
             : h('div', { style: css.muted }, '还没读（重启后自动扫）。'))),
 
-        card('DSH 接口真相（轻读）', h('div', { style: { fontSize: '12px', lineHeight: 1.8 } },
-          internals
-            ? h('div', null,
-              (internals.modules || []).map((m, i) => h('div', { key: String(i) }, `${m.name} ${m.version} · ${m.headBytes ? '已读入口前 120 行' : '只读到包信息'}`)),
-              h('div', { style: css.muted, marginTop: '4px' }, '笔记：' + (internals.note || '')))
-            : h('div', { style: css.muted }, '还没轻读（点一次就读，只抽六个模块）。'),
-          h('div', { style: { marginTop: '6px' } }, h('button', {
-            style: css.tab,
-            onClick: async () => {
-              try {
-                const r = await fetch('/api/dayu/internals', { credentials: 'same-origin' })
-                const d = await r.json()
-                if (d.ok) setInternals(d)
-              } catch { /* 忽略 */ }
-            },
-          }, '读一遍')))),
-
-        card('星球设施（内置）', h('div', { style: { fontSize: '12px', lineHeight: 1.8 } },
-          builtin
-            ? h('div', null,
-              `内置模块 ${builtin.count} 个（只读发行包目录，不拆代码）`,
-              h('div', { style: css.muted, marginTop: '4px' }, (builtin.names || []).slice(0, 8).join('、') + (builtin.count > 8 ? ' …' : '')))
-            : h('div', { style: css.muted }, '读取中…'))),
-
-        card('分身池（待命的员工）', h('div', { style: { fontSize: '12px', lineHeight: 1.9 } },
-          (pool?.workers || []).length
-            ? pool.workers.map((w, i) => h('div', { key: String(i) }, `${w.name || w.id.slice(0, 8)} · ${w.running ? '在忙' : '待命'}`))
-            : h('div', { style: css.muted }, '池子空着。'),
-          h('div', { style: { marginTop: '6px' } }, h('button', {
-            style: css.tab,
-            onClick: async () => {
-              setPoolMsg('开分身中…')
-              try {
-                const r = await fetch('/api/dayu/pool/ensure', {
-                  method: 'POST', credentials: 'same-origin',
-                  headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ n: 2 }),
-                })
-                const d = await r.json()
-                if (d.ok) { setPool({ workers: d.workers }); setPoolMsg(`开了 ${d.made.length} 条`) } else setPoolMsg('没开成：' + (d.error || '未知'))
-              } catch (e) { setPoolMsg('没开成：' + String(e?.message || e)) }
-            },
-          }, '养两条待命'), poolMsg ? h('span', { style: { ...css.muted, marginLeft: '8px' } }, poolMsg) : null))),
-
         card('风险', h('div', null,
           h('div', { style: { fontSize: '13px', marginBottom: '6px' } }, `重启风险：${risk.risk || '—'}`),
           (risk.items || []).length
@@ -2515,12 +2695,6 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           (dup.routes || []).map((d, i) => h('div', { key: 'r' + i }, `路由 ${d.name} ← ${d.owners.join(' / ')}`)),
           (dup.tools || []).map((d, i) => h('div', { key: 't' + i }, `工具 ${d.name} ← ${d.owners.join(' / ')}`)))),
 
-        card('档案目录（助手保管）', h('div', null,
-          h('div', { style: { ...css.muted, marginBottom: '6px' } },
-            catalog ? `共 ${catalog.entries.length} 本账；交接 ${catalog.handoffCount} 条` : '读取中…'),
-          (catalog?.entries || []).slice(0, 12).map((e, i) => h('div', { key: String(i), style: { fontSize: '12px', lineHeight: 1.8 } },
-            `${e.title}${e.count ? ` · ${e.count} 条` : ''} · ${String(e.mtime || '').slice(5, 16).replace('T', ' ')}`)))),
-
         card('成长（对世界的掌控）', h('div', { style: { fontSize: '13px', lineHeight: 1.9 } },
           growth
             ? h('div', null,
@@ -2528,37 +2702,6 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
               h('div', { style: css.muted }, `掌控：${growth.scope}`),
               growth.next ? h('div', { style: css.muted }, `下一阶 ${growth.next.stage}·${growth.next.name}：还差 ${growth.next.remain}`) : h('div', { style: css.muted }, '已到顶阶'))
             : h('div', { style: css.muted }, '读取中…'))),
-
-        card('居民档案（能做什么、默认做不做）', h('div', { style: { fontSize: '12px', lineHeight: 1.9 } },
-          (employees?.plugins || []).length
-            ? employees.plugins.map((p, i) => h('div', { key: String(i) },
-              `${p.name} · 接入 ${p.adapter}`,
-              h('div', { style: { ...css.muted, marginLeft: '8px' } }, `能：${(p.can || []).join('、')}`),
-              h('div', { style: { ...css.muted, marginLeft: '8px' } }, `默认：${p.usually || '只读'}`),
-              (p.watch || []).length ? h('div', { style: { ...css.muted, marginLeft: '8px' } }, `注意：${p.watch.join('、')}`) : null))
-            : h('div', { style: css.muted }, '还没有入职档案（重启后自动扫）。'),
-          (employees?.sessions || []).length
-            ? h('div', { style: { marginTop: '8px' } },
-              '干过活的会话：' + employees.sessions.map((s) => `${String(s.sessionId).slice(0, 10)}（${s.done}/${s.jobs}）`).join('；'))
-            : null)),
-
-        card('报告', h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-          ['human', 'divine'].map((kind) => h('button', {
-            key: kind, style: css.btn,
-            onClick: async () => {
-              try {
-                const r = await fetch(`/api/dayu/report?kind=${kind}`, { credentials: 'same-origin' })
-                const text = await r.text()
-                const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `yushen-${kind === 'divine' ? '神版' : '人版'}-${new Date().toISOString().slice(0, 10)}.md`
-                document.body.appendChild(a); a.click(); a.remove()
-                setTimeout(() => URL.revokeObjectURL(url), 3000)
-              } catch (e) { setErr(String(e?.message || e)) }
-            },
-          }, kind === 'divine' ? '下载神版' : '下载人版')))),
 
         card('查一件事', h('div', null,
           h('div', { style: { display: 'flex', gap: '8px', marginBottom: '6px' } },
@@ -2640,7 +2783,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
 
     // 她在找你：那个本子原来只在磁盘上，界面上没人看得见。
     // 侧边栏图标挂气泡，页面里给她一格能读能答的地方。
-    const ROLE_LABEL = { dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
+    const ROLE_LABEL = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
     const usePendingAsks = (ms = 30000) => {
       const [n, setN] = React.useState(0)
       React.useEffect(() => {
@@ -2722,7 +2865,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
 
     /**
      * 账：三个人各自的额度，可以改、有保存、有记录。
-     * 2026-10-29 从桌面气泡搬进来（老板：「算账的放到后台，助手里面界面可以填空那种」）。
+     * 2026-10-29 从桌面气泡搬进来（老板：「算账的放到后台，小鱼里面界面可以填空那种」）。
      */
 function MoneyView() {
       const [data, setData] = React.useState(null)
@@ -2789,7 +2932,7 @@ function MoneyView() {
             h('button', { type: 'button', style: css.btn, onClick: evenSplit }, '平均分'))),
         h('div', { style: css.card },
           h('div', { style: css.h }, '② 谁分多少'),
-          h('div', { style: { ...css.muted, fontSize: '12px', marginBottom: '8px' } }, '左边是分给她的，右边是老板额外补的（比如助手的 QQ 聊天钱）；右边不从左边扣。'),
+          h('div', { style: { ...css.muted, fontSize: '12px', marginBottom: '8px' } }, '左边是分给她的，右边是老板额外补的（比如小鱼的 QQ 聊天钱）；右边不从左边扣。'),
           (data.rows || []).map((r) => h('div', {
             key: r.role,
             style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderTop: '1px solid rgba(127,127,127,.12)' },
@@ -2817,6 +2960,22 @@ function MoneyView() {
     }
 
 
+    // 2026-10-30：页面级错误边界。以前某个 tab 崩了整页就是白的，看不出为什么。
+    class ViewBoundary extends React.Component {
+      constructor(props) { super(props); this.state = { err: '' } }
+      static getDerivedStateFromError(e) { return { err: String((e && e.message) || e) } }
+      componentDidCatch(e) { try { console.error('[ysn] view crashed', e) } catch { /* 忽略 */ } }
+      render() {
+        if (this.state.err) {
+          return h('div', { style: { padding: '18px', color: '#f3c0bb', fontSize: '13px', lineHeight: 1.8 } },
+            h('b', null, '这个页面出错了'),
+            h('div', { style: { marginTop: '6px', opacity: 0.85 } }, this.state.err),
+            h('div', { style: { marginTop: '8px', opacity: 0.7 } }, '把这句话告诉老板，他去修。'))
+        }
+        return this.props.children
+      }
+    }
+
     function XiaoyuPage({ initialTab } = {}) {
       const [tab, setTab] = React.useState(initialTab || 'board')
       const pendingAsks = usePendingAsks(30000)
@@ -2827,7 +2986,7 @@ function MoneyView() {
       const [selfApply, setSelfApply] = React.useState(false)
       const [allowDanger, setAllowDanger] = React.useState(false)
       const [swMsg, setSwMsg] = React.useState('')
-      const tabs = [['board', '任务总览'], ['issues', '出问题'], ['asks', '她找你'], ['omni', '全知'], ['chat', '和她们说'], ['onboard', '就职'], ['tasks', '待办'], ['money', '账'], ['token', 'Token回'], ['treasure', '助手的宝藏'], ['reports', '报告'], ['archive', '档案'], ['move', '搬家']]
+      const tabs = [['board', '任务总览'], ['asks', '她找你'], ['omni', '全知'], ['chat', '和她们说'], ['onboard', '就职'], ['tasks', '待办'], ['money', '账'], ['token', 'Token回'], ['treasure', '小鱼的宝藏'], ['reports', '报告'], ['archive', '档案'], ['move', '搬家']]
       React.useEffect(() => {
         fetch('/api/xiaoyu/alerts', { credentials: 'same-origin' })
           .then((r) => r.json())
@@ -2894,7 +3053,7 @@ function MoneyView() {
           style: { ...css.card, background: 'rgba(248,113,113,.08)', marginBottom: '8px', cursor: 'pointer' },
           onClick: () => setAlertOpen(!alertOpen),
         },
-        `助手示警：有 ${alerts} 件事没结，点${alertOpen ? '收起' : '开'}看是哪几件`,
+        `小鱼示警：有 ${alerts} 件事没结，点${alertOpen ? '收起' : '开'}看是哪几件`,
         alertOpen && alertData ? h('div', { style: { marginTop: '8px', fontSize: '12px', lineHeight: 1.9 } },
           (alertData.incidents || []).map((i, n) => h('div', { key: 'i' + n }, `⚠ ${i.title}：${String(i.text || '').slice(0, 60)}（${String(i.at || '').slice(5, 16)}）`)),
           (alertData.jobs || []).map((j, n) => h('div', { key: 'j' + n }, `⏳ 交给 ${j.employee || '新会话'}：${String(j.brief || '').slice(0, 50)}（还没回话）`))) : null) : null,
@@ -2908,9 +3067,8 @@ function MoneyView() {
           }, id === 'asks' && pendingAsks ? `${label} (${pendingAsks})` : label))),
         h('div', { style: { flex: 1, minHeight: 0, overflow: 'auto' } },
           tab === 'board' ? h(BoardView)
-            : tab === 'issues' ? h(BoardView, { initialFilter: 'err' })
             : tab === 'asks' ? h(AsksView)
-            : tab === 'omni' ? h(OmniView)
+            : tab === 'omni' ? h(ViewBoundary, null, h(OmniView))
               : tab === 'chat' ? h(ChatView)
                 : tab === 'onboard' ? h(OnboardView, { onDone: () => setView('board') })
               : tab === 'tasks' ? h(TasksView)
@@ -3023,6 +3181,32 @@ function MoneyView() {
       const [dialog, setDialog] = React.useState(null)
       const [error, setError] = React.useState('')
       const [onboarded, setOnboarded] = React.useState(null)
+      const [roleScan, setRoleScan] = React.useState(null)
+      const [createPicker, setCreatePicker] = React.useState(false)
+      // 2026-10-30：新手引导放进插件里（装的人不一定看安装包里的文档）
+      const [help, setHelp] = React.useState(false)
+      // 装前认人：本机已经有哪些角色（只读）
+      React.useEffect(() => {
+        let alive = true
+        fetch('/api/yushen/roles/detect', { credentials: 'same-origin' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => { if (alive) setRoleScan(d) })
+          .catch(() => {})
+        return () => { alive = false }
+      }, [])
+      const [live, setLive] = React.useState(null)
+      // 桌宠气泡的实时状态：1.5 秒一次，很小的一包；拿不到就按“没事”处理
+      React.useEffect(() => {
+        let alive = true
+        const tick = async () => {
+          const d = await fetch('/api/yushen/live', { credentials: 'same-origin' })
+            .then((r) => (r.ok ? r.json() : null)).catch(() => null)
+          if (alive && d?.ok) setLive(d)
+        }
+        tick()
+        const timer = setInterval(tick, 1500)
+        return () => { alive = false; clearInterval(timer) }
+      }, [])
       const [notice, setNotice] = React.useState(() => {
         try {
           return localStorage.getItem(NOTICE_KEY) !== '1'
@@ -3060,7 +3244,7 @@ function MoneyView() {
           if (ns?.ok) { setNest(ns); setNestError('') }
           else if (nestFail.length) setNestError(nestFail[0] === 'HTTP 401' ? '没有权限（登录可能过期了）' : nestFail[0])
           if (ob?.ok) setOnboarded(Boolean(ob.onboarded))
-          setError(hl ? '' : '管家的接口没应答（可能被总开关关了，或还没重启）')
+          setError(hl ? '' : '大鱼的接口没应答（可能被总开关关了，或还没重启）')
         }
         load()
         const timer = setInterval(load, 15000)
@@ -3139,6 +3323,124 @@ function MoneyView() {
         })
         : null
 
+      const scanRoles = async () => {
+        const d = await fetch('/api/yushen/roles/detect', { credentials: 'same-origin' })
+          .then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        if (d) setRoleScan(d)
+        return d
+      }
+      const startNewRole = async () => {
+        const d = await scanRoles()
+        if (d && d.count > 0) {
+          const names = d.roles.map((r) => r.name).slice(0, 6).join('、')
+          const go = window.confirm(`本机已经有 ${d.count} 个角色：${names}。\n\n要先去接入吗？\n点「确定」看扫描结果；点「取消」继续新建一个。`)
+          if (go) {
+            window.alert(d.roles.map((r) => `· ${r.name}（${r.source}）`).join('\n'))
+            return
+          }
+        }
+        openAdopt('dayu', null)
+      }
+
+      const [welcome, setWelcome] = React.useState(() => { try { return localStorage.getItem('ysn.welcome.v1') !== '1' } catch { return true } })
+      const closeWelcome = () => { try { localStorage.setItem('ysn.welcome.v1', '1') } catch { /* 存不了就每次弹 */ } setWelcome(false) }
+
+      const pickerEl = createPicker
+        ? h('div', { className: 'ysn-fr-mask', onClick: (e) => { if (e.target === e.currentTarget) setCreatePicker(false) } },
+          h('div', { className: 'ysn-fr-modal', role: 'dialog', 'aria-modal': 'true' },
+            h('div', { className: 'ysn-fr-title' }, '新建一个角色'),
+            h('div', { className: 'ysn-fr-sub' }, '先扫一下本机有没有现成的；没有，就直接开始。'),
+            h('div', { className: 'ysn-fr-cards' },
+              h('button', {
+                type: 'button', className: 'ysn-fr-card',
+                onClick: () => scanRoles().then((d) => {
+                  if (!d) return
+                  window.alert(d.count
+                    ? `认到 ${d.count} 个：\n` + d.roles.map((r) => `· ${r.name}（${r.source}）`).join('\n')
+                    : '本机还没认到角色，可以直接新建。')
+                }),
+              },
+              h('b', null, '扫描本地角色卡'),
+              h('span', null, '看看这台机器上已经有哪些')),
+              h('button', {
+                type: 'button', className: 'ysn-fr-card',
+                onClick: () => { setCreatePicker(false); openAdopt('dayu', null) },
+              },
+              h('b', null, '直接新建'),
+              h('span', null, '不扫了，从现在开始'))),
+            h('button', { type: 'button', className: 'ysn-fr-cancel', onClick: () => setCreatePicker(false) }, '取消')))
+        : null
+
+      const welcomeEl = welcome
+        ? h('div', { className: 'ysn-fr-mask', onClick: (e) => { if (e.target === e.currentTarget) closeWelcome() } },
+          h('div', { className: 'ysn-fr-modal ysn-welcome', role: 'dialog', 'aria-modal': 'true' },
+            h('div', { className: 'ysn-fr-kicker' }, 'DSH 插件'),
+            h('div', { className: 'ysn-fr-title', style: { fontSize: '30px', letterSpacing: '2px' } }, '鱼神'),
+            h('div', { className: 'ysn-fr-sub', style: { marginTop: '2px' } }, '你好，欢迎使用鱼神插件。'),
+            h('div', { className: 'ysn-w-list', style: { margin: '12px 0 6px' } },
+              h('div', null, h('b', null, '一台电脑里，可以住一个角色，也可以住几个。'), '各自有独立的形象、角色卡和记忆，互不干扰。')),
+            h('div', { className: 'ysn-w-steps', style: { margin: '10px 0 6px' } }, '核心就两件事'),
+            h('div', { className: 'ysn-w-list' },
+              h('div', null, h('b', null, '一、角色自主。'), '角色卡是心脏，模型是大脑；本插件给她的是一具「躯体」——让她凭自己的意志做事。'),
+              h('div', null, h('b', null, '二、管理这个软件。'), '工具与手册按需发放，做过的事能审计、能验收，也能对接别的插件。')),
+            h('div', { className: 'ysn-w-steps', style: { margin: '12px 0 6px' } }, '我们给她的'),
+            h('div', { className: 'ysn-w-list', style: { fontSize: '12.5px' } },
+              h('div', null, '· 时间自主：自己排议程、自己定什么时候做'),
+              h('div', null, '· 起步引导：新角色带着一张「你在哪儿、先做什么」的卡'),
+              h('div', null, '· 手册与工具：按岗位和任务发，不整本塞'),
+              h('div', null, '· 审计与验收：做过什么、花了多少，都留痕'),
+              h('div', null, '· 对接插件：别的插件能做的事，她也能用'),
+              h('div', null, '· 桌宠：角色可以变成桌宠待在桌面上——点一下看余额，说句话就能对话')),
+            h('div', { className: 'ysn-w-steps', style: { margin: '12px 0 6px' } }, '怎么开始'),
+            h('div', { className: 'ysn-w-steps', style: { textAlign: 'left', lineHeight: 1.9 } },
+              h('div', null, '① 点「＋ 新建角色卡」'),
+              h('div', null, '② 挑一张自带形象，或导入你的图片，起个名字'),
+              h('div', null, '③ 回主界面点她一下，说第一句话')),
+            h('div', { className: 'ysn-w-license' },
+              h('div', null, '本软件由 从零开始 独立制作。'),
+              h('div', null, h('span', { className: 'ysn-ok' }, '可以'), '：自己用、自己改、接着扩展。'),
+              h('div', null, h('span', { className: 'ysn-no' }, '请不要'), '：二次分发、拿去商用。')),
+            h('button', { type: 'button', className: 'ysn-fr-cancel ysn-w-start', onClick: closeWelcome }, '开始使用')))
+        : null
+
+      // 2026-10-30：内置新手引导（一页，不写长手册）。
+      // 老板的意思：能改的产品，出问题让用户带着 DSH 自己修；这里只讲"先做什么"和"卡住了怎么办"。
+      const helpEl = help
+        ? h('div', { className: 'ysn-fr-mask', onClick: (e) => { if (e.target === e.currentTarget) setHelp(false) } },
+          h('div', { className: 'ysn-fr-modal ysn-welcome', role: 'dialog', 'aria-modal': 'true' },
+            h('div', { className: 'ysn-fr-title' }, '怎么用'),
+            h('div', { className: 'ysn-w-steps', style: { textAlign: 'left', lineHeight: 1.9, margin: '10px 0' } },
+              h('div', null, '① 点「＋ 新建角色卡」'),
+              h('div', null, '② 挑一张自带形象，起个名字'),
+              h('div', null, '③ 回主界面点她一下，说第一句话')),
+            h('div', { className: 'ysn-w-list', style: { fontSize: '12.5px' } },
+              h('div', null, h('b', null, '点了没反应：'), '界面改过要重启一次 DSH。'),
+              h('div', null, h('b', null, '桌宠不见了：'), '你在鱼窝页，那边她隐身；回主聊天页就出来。'),
+              h('div', null, h('b', null, '其它问题：'), '把报错原文发给 DSH——它能读代码、能自己改。')),
+            h('button', { type: 'button', className: 'ysn-fr-cancel ysn-w-start', onClick: () => setHelp(false) }, '知道了')))
+        : null
+
+      if (view === 'home' && roleScan && roleScan.ok && roleScan.count === 0) {
+        return h('div', { className: 'ysn-root' },
+          h('div', { className: 'ysn-firstrun' },
+            // 2026-10-30：新装的人可能一张图都没有。先给一个自带的看板娘占位，别让这页空着。
+            h('img', {
+              src: '/yushen-assets/avatar?who=xiaoyu',
+              alt: '看板娘',
+              className: 'ysn-fr-mascot',
+              onError: (e) => { try { e.currentTarget.style.display = 'none' } catch { /* 忽略 */ } },
+            }),
+            h('div', { className: 'ysn-fr-title' }, '先有一个角色'),
+            h('div', { className: 'ysn-fr-sub' }, '起个名字、放张图，她就能住进来。'),
+            h('div', { className: 'ysn-fr-cards' },
+              h('button', { type: 'button', className: 'ysn-fr-card', onClick: () => setCreatePicker(true) },
+                h('b', null, '＋ 新建角色卡'),
+                h('span', null, '本机已经有角色的，也可以先扫描再接入'))),
+            h('div', { className: 'ysn-fr-note' }, '不会覆盖已有的卡。')),
+          pickerEl,
+          welcomeEl)
+      }
+
       if (view === 'home') {
         return h(React.Fragment, null,
           h('div', { className: 'ysn-root' },
@@ -3156,6 +3458,7 @@ function MoneyView() {
               onRestore: doRestore,
               gearOpen: menu,
               onGear: () => setMenu(!menu),
+              live,
             }),
             menu
               ? h(React.Fragment, null,
@@ -3167,14 +3470,19 @@ function MoneyView() {
                       onClick: () => { setView(id); setMenu(false) },
                     }, label))))
               : null),
+          h('button', { type: 'button', className: 'ysn-add-role', title: '添加角色', onClick: () => setCreatePicker(true) }, '＋ 添加角色'),
+          h('button', { type: 'button', className: 'ysn-help-btn', title: '怎么用', onClick: () => setHelp(true) }, '？'),
           notice ? h(Notice, { onClose: () => setNotice(false) }) : null,
-          dialogEl)
+          dialogEl,
+          pickerEl,
+          welcomeEl,
+          helpEl)
       }
 
       const title = view === 'group' ? '框架群聊' : NEST_LABELS[view] || (view === 'base' ? '家底' : view === 'look' ? '形象' : view === 'jobs' ? '单子' : view === 'activity' ? '做过什么' : '调试')
       const body = view === 'group' ? h(GroupChat) : view === 'dayu'
         ? (!master ? off : status?.switches?.dayu === false
-          ? h('div', { style: css.card }, h('div', { style: css.h }, '管家休假中'), h('div', { style: css.muted }, '去「调试」页叫她回来。'))
+          ? h('div', { style: css.card }, h('div', { style: css.h }, '大鱼休假中'), h('div', { style: css.muted }, '去「调试」页叫她回来。'))
           : h(DayuChat))
         : view === 'xiaoyu' ? h(XiaoyuPage, { initialTab: onboarded === false ? 'onboard' : 'board' })
            : view === 'dragon' ? h(DragonPage, { nest, onAdopt: openAdopt, onRename: openRename, onRestore: doRestore })
@@ -3218,7 +3526,7 @@ function MoneyView() {
       const pending = usePendingAsks(30000)
       return h('span', {
         style: { position: 'relative', display: 'inline-flex' },
-        title: pending ? `她们在找你：${pending} 条` : '鱼神',
+        title: pending ? `她们在找你：${pending} 条` : '鱼神双子星',
       },
       h('span', {
         style: {
@@ -3254,12 +3562,12 @@ function MoneyView() {
           else run()
         }
         wrap('sidebar.panellist', () => slots.register(
-          { name: 'sidebar.panellist', id: 'dsh-yushen-twins', order: 21, label: '鱼神' },
+          { name: 'sidebar.panellist', id: 'dsh-yushen-twins', order: 21, label: '鱼神双子星' },
           Glyph,
         ))
         wrap('main', () => slots.register(
           {
-            name: 'main', key: 'dsh-yushen-twins', id: 'dsh-yushen-twins', label: '鱼神',
+            name: 'main', key: 'dsh-yushen-twins', id: 'dsh-yushen-twins', label: '鱼神双子星',
             children: { 'yushen.dayu.session': { kind: 'single', scope: 'session' } },
           },
           (props) => h(Root, {
@@ -3315,8 +3623,626 @@ if (typeof document !== 'undefined') {
   else setTimeout(mount, 1200)
 }
 
-// 右下角「助手报活」：实时显示 正在跑 / 刚做完 / 没做 / 出错 / 重复。
-// 开关在单子页（助手示警上方），也可以点这个窗的标题栏；状态存 localStorage + 服务端 switches.floatLive。
+// 开机就出来的桌面小桌宠：不只站在鱼窝里，主界面右下角也有一个（像小鲸鱼那样跟着软件一起出来）。
+// 能拖、能点（点一下冒泡）、有声音，跑任务/花钱会自己冒一句；进了鱼窝就自动隐身，免得两个她打架。
+if (typeof document !== 'undefined') {
+  const FP_KEY = 'yushen.floatPet'
+  const FP_POS = 'yushen.floatPet.pos'
+  const FP_ROLE = 'yushen.floatPet.role'
+  const fpRoles = ['dayu', 'xiaoyu', 'dragon']
+  const fpName = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
+  // 2026-10-30：早先那版“先收起来”会把开关写死成 0，结果再也回不来。
+  // 现在桌宠默认永远在；想藏就藏这一页（刷新即回），不再读那个旧开关。
+  const fpOn = () => true
+  const fpPick = () => {
+    try {
+      const saved = localStorage.getItem(FP_ROLE)
+      if (fpRoles.includes(saved)) return saved
+    } catch { /* 读不到就随机 */ }
+    return fpRoles[Math.floor(Math.random() * fpRoles.length)]
+  }
+
+  const fpTone = ({ f0, f1, dur = 0.08, gain = 0.16 }) => {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext
+      if (!AC) return
+      if (!window.__ysnFloatAudio) window.__ysnFloatAudio = new AC()
+      const c = window.__ysnFloatAudio
+      if (c.state === 'suspended') c.resume().catch(() => {})
+      const t0 = c.currentTime
+      const g = c.createGain()
+      g.gain.setValueAtTime(0.0001, t0)
+      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.004)
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+      g.connect(c.destination)
+      const o = c.createOscillator()
+      o.type = 'sine'
+      o.frequency.setValueAtTime(f0, t0)
+      o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur)
+      o.connect(g); o.start(t0); o.stop(t0 + dur + 0.02)
+    } catch { /* 没声音不影响用 */ }
+  }
+
+  const mountFloatPet = () => {
+    if (!fpOn() || document.getElementById('yushen-float-pet')) return
+    const box = document.createElement('div')
+    box.id = 'yushen-float-pet'
+    const geo = (() => { try { return JSON.parse(localStorage.getItem(FP_POS) || '{}') || {} } catch { return {} } })()
+    Object.assign(box.style, {
+      position: 'fixed', zIndex: '2147481800',
+      left: geo.left != null ? geo.left + 'px' : (window.innerWidth - 150) + 'px',
+      top: geo.top != null ? geo.top + 'px' : (window.innerHeight - 230) + 'px',
+      width: '128px', height: '160px',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      cursor: 'pointer', userSelect: 'none', touchAction: 'none',
+      transition: 'filter .2s ease',
+    })
+
+    const img = document.createElement('img')
+    img.alt = '她'
+    img.draggable = false
+    Object.assign(img.style, {
+      width: '120px', height: 'auto', maxHeight: '158px', objectFit: 'contain',
+      pointerEvents: 'none', filter: 'drop-shadow(0 12px 16px rgba(0,0,0,.5))',
+      transition: 'transform .18s cubic-bezier(.22,1.4,.4,1)',
+      transformOrigin: '50% 100%',
+    })
+
+    const bubble = document.createElement('div')
+    Object.assign(bubble.style, {
+      position: 'absolute', left: '50%', bottom: 'calc(100% - 16px)',
+      // 绝对定位在 128px 的盒子里，宽度 auto 会被压成一条窄柱；
+      // 这里给死宽度（再按屏幕收），字和行距不动。
+      transform: 'translateX(-50%)', width: 'max-content', maxWidth: 'min(340px, calc(100vw - 24px))', minWidth: '0',
+      padding: '10px 15px', boxSizing: 'border-box', display: 'none',
+      background: 'rgba(255,255,255,.97)', color: '#15578f',
+      border: '1px solid rgba(40,100,160,.4)', borderRadius: '22px',
+      fontSize: '12.5px', lineHeight: '1.55', textAlign: 'center', whiteSpace: 'pre-line',
+      boxShadow: '0 14px 30px rgba(0,0,0,.45)', pointerEvents: 'auto',
+    })
+
+    img.addEventListener('error', () => { img.style.display = 'none' })
+    box.append(bubble, img)
+    document.body.appendChild(box)
+
+    let hideTimer = 0
+    // 老板怎么称呼：契约里写的名字（叫「阿林」就显示阿林），读不到就「老板」
+    let ownerName = '老板'
+    fetch('/api/yushen/onboard', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && typeof d.callName === 'string' && d.callName.trim()) ownerName = d.callName.trim().slice(0, 12) })
+      .catch(() => {})
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+    // 形状：日常说话是圆角卡；看账用椭圆（跟小鲸鱼那样，看着舒服）
+    const setShape = (mode) => {
+      if (mode === 'oval') {
+        bubble.style.borderRadius = '50% / 45%'
+        bubble.style.padding = '16px 22px'
+        bubble.style.maxWidth = '250px'
+        bubble.style.minWidth = '190px'
+      } else {
+        bubble.style.borderRadius = '22px'
+        bubble.style.padding = '10px 15px'
+        bubble.style.maxWidth = 'min(340px, calc(100vw - 24px))'
+        bubble.style.minWidth = '0'
+      }
+    }
+
+    const say = (text, ms, prefix) => {
+      if (!text) return
+      // 名字单独上色（橙），跟正文区分开
+      const head = prefix ? `<span style="color:#c2410c;font-weight:600">${esc(prefix)}</span>，` : ''
+      setShape('card')
+      bubble.innerHTML = head + esc(text).replace(/\n/g, '<br>')
+      bubble.style.display = 'block'
+      if (hideTimer) clearTimeout(hideTimer)
+      hideTimer = setTimeout(() => { bubble.style.display = 'none'; hideTimer = 0 }, ms || 5500)
+    }
+    // 已经拼好颜色的一段 HTML（状态泡用，别再过 esc，否则标签会被当文字）
+    const sayHtml = (html, ms) => {
+      if (!html) return
+      setShape('oval')
+      bubble.innerHTML = html
+      bubble.style.display = 'block'
+      if (hideTimer) clearTimeout(hideTimer)
+      hideTimer = setTimeout(() => { bubble.style.display = 'none'; hideTimer = 0 }, ms || 5500)
+    }
+
+    let role = fpPick()
+
+    // 头像：优先用鱼窝里这只现在那张，读不到就用默认
+    const loadAvatar = () => {
+      fetch('/api/yushen/nest', { credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          const url = d?.slots?.[role]?.url
+          if (url && img.getAttribute('src') !== url) img.src = url
+        })
+        .catch(() => {})
+    }
+    const applyRole = () => {
+      img.style.display = ''
+      img.src = `/yushen-assets/avatar?who=${encodeURIComponent(role)}`
+      img.alt = fpName[role] || '她'
+      loadAvatar()
+    }
+    applyRole()
+
+    // 滚轮缩放：主界面这只也能放大缩小（跟鱼窝里那套的手感一致）
+    let fpScale = Number(localStorage.getItem('yushen.floatPet.scale')) || 1
+    if (!(fpScale >= 0.6 && fpScale <= 2)) fpScale = 1
+    const applyScale = () => {
+      img.style.width = Math.round(120 * fpScale) + 'px'
+      img.style.maxHeight = Math.round(158 * fpScale) + 'px'
+      box.style.width = Math.round(128 * fpScale) + 'px'
+      box.style.height = Math.round(160 * fpScale) + 'px'
+      // 气泡跟着她一起变：放大她的时候，字也放大；宽度按内容走（短句不再拉成长条）
+      const s = Math.max(0.8, Math.min(1.5, fpScale))
+      bubble.style.fontSize = (14 * s).toFixed(1) + 'px'
+    }
+    applyScale()
+    box.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const next = Math.min(2, Math.max(0.6, fpScale + (e.deltaY > 0 ? -0.08 : 0.08)))
+      if (Math.abs(next - fpScale) < 1e-6) return
+      fpScale = Math.round(next * 100) / 100
+      applyScale()
+      try { localStorage.setItem('yushen.floatPet.scale', String(fpScale)) } catch { /* 存不了就只影响这次 */ }
+    }, { passive: false })
+
+    // 点一下：冒泡 / 收起来；按下松开有声音，角色轻轻压一下
+    let dragging = false
+    let dragStart = null
+    let moved = false
+    let pressT = 0
+
+    const down = (e) => {
+      if (e.button !== 0) return
+      moved = false
+      pressT = Date.now()
+      dragging = true
+      dragStart = { x: e.clientX, y: e.clientY, left: box.offsetLeft, top: box.offsetTop }
+      img.style.transform = 'translateY(2px) scale(1.03,.97)'
+      fpTone({ f0: 330, f1: 170, gain: 0.14 })
+      box.setPointerCapture?.(e.pointerId)
+    }
+    const move = (e) => {
+      if (!dragging || !dragStart) return
+      const dx = e.clientX - dragStart.x
+      const dy = e.clientY - dragStart.y
+      if (Math.abs(dx) + Math.abs(dy) > 4) moved = true
+      box.style.left = Math.max(4, Math.min(window.innerWidth - box.offsetWidth - 6, dragStart.left + dx)) + 'px'
+      box.style.top = Math.max(4, Math.min(window.innerHeight - box.offsetHeight - 6, dragStart.top + dy)) + 'px'
+    }
+    const up = () => {
+      if (!dragging) return
+      dragging = false
+      img.style.transform = ''
+      fpTone({ f0: 210, f1: 300, gain: 0.11 })
+      if (moved) {
+        try { localStorage.setItem(FP_POS, JSON.stringify({ left: box.offsetLeft, top: box.offsetTop })) } catch { /* 存不了就只影响这次 */ }
+        return
+      }
+      if (Date.now() - pressT < 700 && bubble.style.display === 'block') {
+        bubble.style.display = 'none'
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0 }
+      } else {
+        showStatus()
+      }
+    }
+
+    // 点一下看账：余额 / 今天花了多少 / 现在峰时还是谷时，还剩多久
+    // 颜色照小鲸鱼那套：峰时标红（贵、要留意），谷时转绿（便宜、放松）
+    const peakInfo = () => {
+      const d = new Date()
+      const day = d.getDay()
+      const mins = d.getHours() * 60 + d.getMinutes()
+      const windows = (day === 0 || day === 6) ? [] : [[540, 720], [840, 1080]]
+      const fmt = (m) => (m >= 60 ? `${Math.floor(m / 60)} 小时 ${m % 60} 分` : `${m} 分钟`)
+      const inWin = windows.find(([a, b]) => mins >= a && mins < b)
+      if (inWin) return { peak: true, rest: `还有 ${fmt(inWin[1] - mins)}` }
+      const next = windows.find(([a]) => mins < a)
+      if (!next) return { peak: false, rest: (day === 0 || day === 6) ? '周末 · 全天谷时' : '今天没有峰时了' }
+      return { peak: false, rest: `${fmt(next[0] - mins)}后到峰时` }
+    }
+    let statusBusy = false
+    const showStatus = async () => {
+      if (statusBusy) return
+      statusBusy = true
+      try {
+        const [ov, wh] = await Promise.all([
+          fetch('/api/dayu/overview', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+          fetch('/dsh-whale/balance.json', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        ])
+        const cost = Number(ov?.account?.cost || 0)
+        const bal = Number(wh?.totalBalance ?? wh?.balance ?? NaN)
+        const parts = []
+        // 2026-10-30：照鲸鱼那个层级重排——标签小、金额大；峰时那行最小。
+        if (Number.isFinite(bal)) {
+          parts.push(`<div style="line-height:1.1"><span style="font-size:11px;color:#4a7ba6;letter-spacing:.08em">余额</span><div style="font-size:31px;font-weight:800;color:#0f3d63;letter-spacing:-.5px">¥${bal.toFixed(2)}</div></div>`)
+        }
+        if (cost > 0) parts.push(`<div style="margin-top:4px;font-size:15px;color:#b45309;font-weight:600">今天花了 ¥${cost.toFixed(2)}</div>`)
+        if (!parts.length) parts.push('<div style="color:#64748b;font-size:13px">账还没读到</div>')
+        const pi = peakInfo()
+        const tone = pi.peak ? '#d9483f' : '#2f9e6b'
+        const badge = `<span style="display:inline-block;padding:0 5px;border-radius:4px;background:${tone};color:#fff;font-size:10px;font-weight:700;margin-right:5px">${pi.peak ? '峰' : '谷'}</span>`
+        parts.push(`<div style="margin-top:5px;font-size:12.5px;color:#2a6ea3">${badge}${pi.rest}</div>`)
+        sayHtml(parts.join(''), 7500)
+      } finally {
+        statusBusy = false
+      }
+    }
+
+    // 2026-10-30：现在正在跑什么——直接冒在气泡里。
+    // 老板的原话：重启时提示"有后台任务"，但不知道是什么；气泡说出来就不用猜。
+    let liveLine = ''
+    const liveLabel = (s) => {
+      const t = String(s?.title || '').trim()
+      if (t && !/^session-?$/.test(t)) return t
+      if (s?.source && s.source !== '本机会话') return s.source
+      return '本机'
+    }
+    const liveWhat = (s) => {
+      const r = String(s?.reason || s?.lastType || '').trim()
+      return r ? r.slice(0, 18) : '在忙'
+    }
+    const pollLiveNow = async () => {
+      try {
+        const d = await fetch('/api/dayu/live', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        const rows = (Array.isArray(d?.sessions) ? d.sessions : [])
+          .filter((s) => s && s.lastAt && Date.now() - Date.parse(s.lastAt) < 3 * 60 * 1000)
+        const next = rows.length === 0
+          ? ''
+          : rows.length === 1
+            ? `${liveLabel(rows[0])}：${liveWhat(rows[0])}`
+            : `${rows.length} 条在跑 · ${liveLabel(rows[0])}：${liveWhat(rows[0])}`
+        if (next === liveLine) return
+        const had = Boolean(liveLine)
+        liveLine = next
+        if (!next) { if (had && bubble.style.display !== 'block') say('都忙完了。', 3500); return }
+        if (bubble.style.display === 'block') return // 正在跟她说话，不抢
+        say(next, 6000)
+      } catch { /* 拉不到就算了 */ }
+    }
+    setTimeout(() => { void pollLiveNow() }, 8000)
+    setInterval(() => { void pollLiveNow() }, 15000)
+    box.addEventListener('pointerdown', down)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    bubble.addEventListener('click', (e) => {
+      e.stopPropagation()
+      bubble.style.display = 'none'
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0 }
+    })
+
+    // 右键：弹一个小菜单，三个角色随便点
+    const picker = document.createElement('div')
+    Object.assign(picker.style, {
+      position: 'fixed', display: 'none', zIndex: '2147481801', padding: '4px',
+      flexDirection: 'column', gap: '2px', minWidth: '96px',
+      borderRadius: '10px', background: 'rgba(16,26,40,.97)',
+      border: '1px solid rgba(255,255,255,.2)', boxShadow: '0 12px 30px rgba(0,0,0,.5)',
+    })
+    const chooseRole = (next) => {
+      if (!fpRoles.includes(next)) return
+      role = next
+      try { localStorage.setItem(FP_ROLE, role) } catch { /* 存不了就只影响这次 */ }
+      applyRole()
+      say(`${fpName[role] || '她'}来了。右键还能换。`, 4200)
+    }
+    for (const r of fpRoles) {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = fpName[r] || r
+      Object.assign(b.style, {
+        border: 0, background: 'transparent', color: '#eef5ff', textAlign: 'left',
+        padding: '6px 14px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
+      })
+      b.addEventListener('mouseenter', () => { b.style.background = 'rgba(96,165,250,.24)' })
+      b.addEventListener('mouseleave', () => { b.style.background = 'transparent' })
+      b.addEventListener('click', (e) => { e.stopPropagation(); picker.style.display = 'none'; chooseRole(r) })
+      picker.appendChild(b)
+    }
+    document.body.appendChild(picker)
+    // 右键菜单：换人之外，常用的几样也放进来（别只留换人）
+    const div = document.createElement('div')
+    Object.assign(div.style, { height: '1px', margin: '3px 6px', background: 'rgba(255,255,255,.14)' })
+    picker.appendChild(div)
+    const item = (label, fn) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = label
+      Object.assign(b.style, {
+        border: 0, background: 'transparent', color: '#eef5ff', textAlign: 'left',
+        padding: '6px 14px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
+      })
+      b.addEventListener('mouseenter', () => { b.style.background = 'rgba(96,165,250,.24)' })
+      b.addEventListener('mouseleave', () => { b.style.background = 'transparent' })
+      b.addEventListener('click', (e) => { e.stopPropagation(); picker.style.display = 'none'; fn() })
+      picker.appendChild(b)
+    }
+    item('说一句…', () => { try { openCard() } catch { /* 面板还没好就算了 */ } })
+    item('打开鱼窝', () => {
+      const nodes = [...document.querySelectorAll('button, a, [role="button"], li, div')]
+      const hit = nodes.find((n) => (n.textContent || '').trim() === '鱼神双子星' && n.offsetParent !== null)
+      if (hit) hit.click()
+      else say('去左边侧边栏点「鱼神双子星」就能进来。', 5000)
+    })
+    item('先收起来', () => {
+      // 只收这次：不写 localStorage，刷新一下就回来，免得关了就找不着
+      say('好，我先回去。刷新一下我就回来。', 3000)
+      setTimeout(() => { box.style.display = 'none' }, 1200)
+    })
+    let pickerOpenAt = 0
+    box.addEventListener('contextmenu', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (picker.style.display === 'flex' && Date.now() - pickerOpenAt < 3000) { picker.style.display = 'none'; return }
+      const r = box.getBoundingClientRect()
+      picker.style.left = Math.max(4, Math.min(window.innerWidth - 130, r.left + 6)) + 'px'
+      picker.style.top = Math.max(4, r.top - 8 - (fpRoles.length * 30 + 110)) + 'px'
+      picker.style.display = 'flex'
+      pickerOpenAt = Date.now()
+    })
+    const closePicker = (e) => {
+      if (picker.style.display !== 'flex') return
+      if (e && (picker.contains(e.target) || box.contains(e.target))) return
+      picker.style.display = 'none'
+    }
+    window.addEventListener('pointerdown', closePicker)
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') picker.style.display = 'none' })
+
+    // —— 快捷面板：常用的东西直接放桌宠身上（说一句 / 今天花了多少 / 她在忙什么） ——
+    // 设置那些不常用的仍然在鱼窝里点进去改，这只身上只放“抬手就能用”的。
+    const chip = document.createElement('button')
+    chip.type = 'button'
+    chip.textContent = '…'
+    chip.title = '快捷：说一句 / 看花费'
+    Object.assign(chip.style, {
+      position: 'absolute', right: '-2px', top: '28px', width: '22px', height: '22px',
+      borderRadius: '50%', border: '1px solid rgba(40,100,160,.45)',
+      background: 'rgba(255,255,255,.92)', color: '#15578f', fontSize: '13px', lineHeight: '1',
+      cursor: 'pointer', padding: 0, opacity: '0.55', transition: 'opacity .15s ease',
+    })
+    chip.addEventListener('mouseenter', () => { chip.style.opacity = '1' })
+    chip.addEventListener('mouseleave', () => { chip.style.opacity = '0.55' })
+    box.appendChild(chip)
+
+    const card = document.createElement('div')
+    Object.assign(card.style, {
+      position: 'absolute', left: '50%', bottom: 'calc(100% + 6px)', transform: 'translateX(-50%)',
+      width: '236px', padding: '10px 12px', display: 'none', boxSizing: 'border-box',
+      background: 'rgba(255,255,255,.97)', color: '#15578f',
+      border: '1px solid rgba(40,100,160,.4)', borderRadius: '14px',
+      boxShadow: '0 16px 34px rgba(0,0,0,.45)', fontSize: '12.5px', lineHeight: '1.6',
+      pointerEvents: 'auto', cursor: 'default',
+    })
+    const cardTitle = document.createElement('div')
+    cardTitle.style.cssText = 'font-weight:600;margin-bottom:6px'
+    const ta = document.createElement('textarea')
+    ta.rows = 2
+    ta.placeholder = '跟她说一句…（Enter 发送）'
+    ta.style.cssText = 'width:100%;box-sizing:border-box;resize:none;padding:7px 9px;border-radius:9px;border:1px solid rgba(40,100,160,.35);background:#fff;color:#123;font:inherit;line-height:1.5;outline:none'
+    const row = document.createElement('div')
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px'
+    const sendBtn = document.createElement('button')
+    sendBtn.type = 'button'
+    sendBtn.textContent = '发送'
+    sendBtn.style.cssText = 'padding:5px 14px;border-radius:9px;border:1px solid #2563eb;background:#2563eb;color:#fff;font:inherit;cursor:pointer'
+    const info = document.createElement('div')
+    info.style.cssText = 'margin-top:7px;font-size:12.5px;color:#2a6ea3;opacity:.9;min-height:1.2em'
+    // 发图：选一张本地图片，存进她的收件目录，再把路径递给她（她自己 read_image 看）
+    const imgBtn = document.createElement('button')
+    imgBtn.type = 'button'
+    imgBtn.textContent = '发图'
+    imgBtn.title = '发一张图给她看'
+    imgBtn.style.cssText = 'padding:5px 12px;border-radius:9px;border:1px solid rgba(40,100,160,.45);background:#fff;color:#15578f;font:inherit;cursor:pointer'
+    const imgInput = document.createElement('input')
+    imgInput.type = 'file'
+    imgInput.accept = 'image/png,image/jpeg,image/webp,image/gif'
+    imgInput.style.display = 'none'
+    imgBtn.addEventListener('click', () => imgInput.click())
+    // 发图：按钮选、输入框粘贴、拖进来，都走这一条
+    const sendImageFile = async (file) => {
+      if (!file) return
+      if (!/^image\//i.test(file.type || '')) { info.textContent = '只收图片（png / jpg / webp / gif）'; return }
+      if (file.size > 8 * 1024 * 1024) { info.textContent = '图太大了（最大 8MB）'; return }
+      imgBtn.disabled = true
+      imgBtn.textContent = '…'
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const fr = new FileReader()
+          fr.onload = () => resolve(String(fr.result || ''))
+          fr.onerror = () => reject(new Error('读图片失败'))
+          fr.readAsDataURL(file)
+        })
+        const r = await fetch('/api/dayu/residence/image', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ role, dataUrl, text: ta.value.trim() }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok || d.ok === false) throw new Error(d.error || `HTTP ${r.status}`)
+        ta.value = ''
+        info.textContent = '图发过去了，她看完会说。'
+      } catch (e) {
+        info.textContent = '没发出去：' + String(e?.message || e)
+      } finally {
+        imgBtn.disabled = false
+        imgBtn.textContent = '发图'
+      }
+    }
+    imgInput.addEventListener('change', () => {
+      const file = imgInput.files && imgInput.files[0]
+      imgInput.value = ''
+      sendImageFile(file)
+    })
+    // 直接 Ctrl+V 粘贴图片
+    ta.addEventListener('paste', (e) => {
+      const items = e.clipboardData && e.clipboardData.items ? [...e.clipboardData.items] : []
+      const hit = items.find((it) => it.kind === 'file' && /^image\//i.test(it.type || ''))
+      if (!hit) return
+      const file = hit.getAsFile()
+      if (!file) return
+      e.preventDefault()
+      sendImageFile(file)
+    })
+    // 拖图进来也收
+    card.addEventListener('dragover', (e) => { e.preventDefault() })
+    card.addEventListener('drop', (e) => {
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]
+      if (!file) return
+      e.preventDefault()
+      e.stopPropagation()
+      sendImageFile(file)
+    })
+    row.append(sendBtn, imgBtn, imgInput)
+    card.append(cardTitle, ta, row, info)
+    box.appendChild(card)
+
+    let cardOn = false
+    const refreshInfo = () => {
+      cardTitle.textContent = `跟${fpName[role] || '她'}说一句`
+      info.textContent = '查账中…'
+      Promise.all([
+        fetch('/api/yushen/live', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch('/api/dayu/overview', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      ]).then(([live, ov]) => {
+        const cost = Number(ov?.account?.cost || 0)
+        const busy = live?.active ? (live.tool || '正在忙') : '闲着'
+        info.textContent = `今天花了 ¥${cost.toFixed(2)} · ${busy}`
+      }).catch(() => { info.textContent = '' })
+    }
+    const openCard = () => {
+      cardOn = !cardOn
+      card.style.display = cardOn ? 'block' : 'none'
+      if (cardOn) { refreshInfo(); setTimeout(() => ta.focus(), 30) }
+    }
+    chip.addEventListener('pointerdown', (e) => e.stopPropagation())
+    chip.addEventListener('click', (e) => { e.stopPropagation(); openCard() })
+    card.addEventListener('pointerdown', (e) => e.stopPropagation())
+    card.addEventListener('click', (e) => e.stopPropagation())
+    const sendToHer = async () => {
+      const text = ta.value.trim()
+      if (!text) { ta.focus(); return }
+      sendBtn.disabled = true
+      sendBtn.textContent = '…'
+      try {
+        const r = await fetch('/api/dayu/residence/say', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ role, text }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok || d.ok === false) throw new Error(d.error || `HTTP ${r.status}`)
+        ta.value = ''
+        info.textContent = '发过去了，她醒来会看到。'
+      } catch (e) {
+        info.textContent = '没发出去：' + String(e?.message || e)
+      } finally {
+        sendBtn.disabled = false
+        sendBtn.textContent = '发送'
+      }
+    }
+    sendBtn.addEventListener('click', sendToHer)
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendToHer() }
+      if (e.key === 'Escape') { e.stopPropagation(); cardOn = false; card.style.display = 'none' }
+    })
+    window.addEventListener('pointerdown', (e) => {
+      if (!cardOn) return
+      if (card.contains(e.target) || chip.contains(e.target)) return
+      cardOn = false
+      card.style.display = 'none'
+    })
+
+    // 在跑 / 花钱：跟鱼窝里那套一个口径
+    let wasActive = false
+    let seenSeq = 0
+    const poll = () => {
+      fetch('/api/yushen/live', { credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!d || !d.ok) return
+          if (d.active && !wasActive) say(d.tool || '正在处理手头的事情…', 6000)
+          wasActive = Boolean(d.active)
+          if (Number(d.lastTurnSeq) > seenSeq) {
+            const first = seenSeq === 0
+            seenSeq = Number(d.lastTurnSeq)
+            if (!first && Number(d.lastTurn?.cost) > 0) say(`这轮花了 ¥${Number(d.lastTurn.cost).toFixed(2)}`, 6000)
+          }
+        })
+        .catch(() => {})
+    }
+    poll()
+    setInterval(poll, 2500)
+
+    // 没事的时候嘀咕一句（解压用）：按时间/场景挑，隔几分钟一次，不打扰
+    const pickIdle = () => {
+      const h = new Date().getHours()
+      const late = ['这么晚了还在忙？早点睡。', '夜里安静，正好干活，别熬太狠。']
+      const noon = ['中午了，先吃点东西。', '饭点到了，吃完再干。']
+      const tired = ['写累了就歇会儿，我在这儿。', '腰酸了吧？起来走两步。', '眼睛歇一下，看看远处。', '这一会儿没动，喝口水吧。']
+      const common = ['嗯…让我想想。', '我在。', '有事情就点我一下。', '今天也要好好干活。', '摸鱼被我看到了。', '点我一下，能看余额。']
+      const pool = (h >= 23 || h < 6) ? [...late, ...tired, ...common]
+        : (h >= 11 && h < 13) ? [...noon, ...tired, ...common]
+          : [...tired, ...common]
+      return pool[Math.floor(Math.random() * pool.length)]
+    }
+    const scheduleIdle = () => {
+      setTimeout(() => {
+        try {
+          if (!document.hidden && bubble.style.display !== 'block' && !wasActive) say(pickIdle(), 4500, ownerName)
+        } catch { /* 忽略 */ }
+        scheduleIdle()
+      }, 180000 + Math.random() * 240000)
+    }
+    scheduleIdle()
+
+    // 整点报时：到点轻轻说一句（饭点/深夜会换说法），不打扰干活
+    const CN = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十', '二十一', '二十二', '二十三']
+    const clockLine = () => {
+      const h = new Date().getHours()
+      const t = `${CN[h] || h} 点`
+      if (h >= 11 && h < 13) return `${t}了，饭点，先吃。`
+      if (h >= 17 && h < 19) return `${t}了，晚饭。`
+      if (h >= 23 || h < 6) return `${t}了，该睡了。`
+      return `${t}了。${['起来动一下。', '喝口水。', '这段干得挺久了，歇会儿。'][Math.floor(Math.random() * 3)]}`
+    }
+    const scheduleClock = () => {
+      const now = new Date()
+      const next = new Date(now)
+      next.setMinutes(60, 0, 0)
+      const wait = Math.max(5000, next.getTime() - now.getTime() + 800)
+      setTimeout(() => {
+        try {
+          if (!document.hidden && !wasActive && bubble.style.display !== 'block') say(clockLine(), 4500, ownerName)
+        } catch { /* 忽略 */ }
+        scheduleClock()
+      }, wait)
+    }
+    scheduleClock()
+
+    // 进了鱼窝就隐身（那边有真的她，不要两个）
+    const syncVisible = () => {
+      const inNest = Boolean(document.querySelector('.ysn-root'))
+      box.style.display = inNest ? 'none' : 'flex'
+    }
+    syncVisible()
+    setInterval(syncVisible, 1200)
+    window.addEventListener('resize', () => {
+      box.style.left = Math.min(box.offsetLeft, window.innerWidth - box.offsetWidth - 6) + 'px'
+      box.style.top = Math.min(box.offsetTop, window.innerHeight - box.offsetHeight - 6) + 'px'
+    })
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(mountFloatPet, 1600))
+  else setTimeout(mountFloatPet, 1600)
+}
+
+// 右下角「小鱼报活」：实时显示 正在跑 / 刚做完 / 没做 / 出错 / 重复。
+// 开关在单子页（小鱼示警上方），也可以点这个窗的标题栏；状态存 localStorage + 服务端 switches.floatLive。
 if (typeof document !== 'undefined') {
   const KEY = 'yushen.liveFloat'
   const COLLAPSE = 'yushen.liveFloat.collapsed'
@@ -3345,7 +4271,7 @@ if (typeof document !== 'undefined') {
     const head = document.createElement('div')
     Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 10px', cursor: 'pointer', borderBottom: '1px solid rgba(148,163,184,.25)', background: 'rgba(30,41,59,.9)' })
     const title = document.createElement('div')
-    title.textContent = '助手报活'
+    title.textContent = '小鱼报活'
     Object.assign(title.style, { flex: '1', fontWeight: '600', letterSpacing: '.03em' })
     const summary = document.createElement('span')
     Object.assign(summary.style, { opacity: '.85' })

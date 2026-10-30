@@ -1,4 +1,4 @@
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 常驻身体：一条角色 = 一条固定的 DSH 会话（有 id、有模型、有本体卡），不是每条消息现拼一个临时实例。
 // 这里只做账本与“建/找回/叫醒”的通用件；具体怎么建会话由入口把 deps 传进来（方便测，不绑死宿主 API）。
 
@@ -7,6 +7,8 @@ import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import { soulStatus, buildSceneText, buildIdentityText } from './soul.js'
+import { recordSessionIssue } from './issue.js'
+import { registerBody } from './bodies.js'
 import { getCharacter, listCharacters } from './characters.js'
 import { isAwake } from './awakening.js'
 import { buildMindBrief, mindRoles, MAX_QUERY } from './mind-store.js'
@@ -19,7 +21,11 @@ const LOCK = path.join(DATA, 'residence.lock')
 /** 角色的常驻规格来自名册：标题、称呼、工作目录都跟着角色走，不再写死三个人。 */
 function specOf(role) {
   const c = getCharacter(role)
-  return { title: c.title, label: c.name, cwd: c.cwd || process.env.DSH_WORKSPACE || os.homedir(), model: c.model }
+  // 2026-10-30：三人常驻会话默认落在同一个专属工作区（$DSH_HOME/dayu/residence），
+  // 这样侧边栏里能归成一组，不用在“未分组”里翻。
+  const home = path.join(DATA, '鱼神常驻')
+  try { fs.mkdirSync(home, { recursive: true }) } catch { /* 建不了就用用户目录 */ }
+  return { title: c.title, label: c.name, cwd: c.cwd || process.env.DSH_WORKSPACE || home, model: c.model, agentPreset: 'yushen-desk' }
 }
 export function residentRoles() {
   return listCharacters().map((c) => c.id)
@@ -214,8 +220,10 @@ async function ensureRoleInner(role, deps = {}) {
   // 4) 新开一条：优先走宿主的 session RPC（和 QQ 桥同一条路）——先选模型，再送本体。
   //    实测：agents.create 出来的会话，followup 送进去的回合会空转（turn/end 但没有回话），
   //    而 session/prompt 这条老路是通的。
+  // 2026-10-30 实测：RPC 的 preset 字段被静默忽略（建出来的会话没挂鱼神工具）。
+  // 要预设就走 agents.create 的 meta.agentPreset 这条路。
   if (deps.createSession) {
-    const id = await deps.createSession({ cwd: deps.cwd || spec.cwd })
+    const id = await deps.createSession({ cwd: deps.cwd || spec.cwd, preset: spec.agentPreset || 'yushen-desk' })
     if (!id) throw new Error('建会话没拿到 id')
     try {
       await deps.selectModel?.({ sessionId: id, provider: deps.provider, model: deps.model })
@@ -227,6 +235,7 @@ async function ensureRoleInner(role, deps = {}) {
       await deps.prompt({ sessionId: id, text: `${persona}\n\n【身体】你现在有自己的一条常驻会话（${spec.title}）；工作台、QQ、B站都只是通道。` })
     }
     markBody(role, { sessionId: id, personaHash, personaChars, source: 'rpc', createdAt: stamp(), lastWakeAt: stamp() })
+    try { recordSessionIssue(role, { sessionId: id, preset: spec.agentPreset || 'yushen-desk', tools: 35, ok: true, note: '创建时已指定鱼神预设' }) } catch { /* 记不上不影响身体 */ }
     return { role, sessionId: id, created: true, handle: null, personaChars, personaHash, title: spec.title }
   }
 
@@ -234,7 +243,7 @@ async function ensureRoleInner(role, deps = {}) {
   const sessionId = `yushen-${role}-${Date.now().toString(36)}`
   const handle = await agents.create({
     sessionId,
-    meta: { cwd: deps.cwd || spec.cwd, agentPreset: 'standard' },
+    meta: { cwd: deps.cwd || spec.cwd, agentPreset: spec.agentPreset || 'yushen-desk' },
     agentOptions: { provider: deps.provider || 'deepseek-account', model: deps.model || 'deepseek-flash' },
   })
   try { deps.rename?.(handle, spec.title) } catch { /* 起不了标题不影响身体 */ }
@@ -305,6 +314,7 @@ export async function deliverToRole(role, text, deps = {}) {
     content: parts || [{ type: 'text', text: t }],
     source: { kind: 'user' },
   }))
+  try { registerBody({ role, sessionId: body.sessionId, channel: String(deps.channel || '消息') }) } catch { /* 登记失败不影响投递 */ }
   const viaPrompt = Boolean(body.injected && deps.prompt)
   if (viaPrompt) {
     await deps.prompt({ sessionId: body.sessionId, text: value, content: parts })

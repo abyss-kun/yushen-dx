@@ -1,8 +1,8 @@
-// 身份：助手只有一个。
+// 身份：小鱼只有一个。
 //
-// 2026-10-27 纠错：上一版把"鱼神里的助手"和"QQ 上显示助手那个号"当成两个人——
-// 错了。她是一个本体（助手），工作台、QQ、B站只是她坐的地方；
-// 桥上的"角色/角色"是她在那个通道的称呼/卡，不是另一个人。
+// 2026-10-27 纠错：上一版把"鱼神里的小鱼"和"QQ 上显示小鱼那个号"当成两个人——
+// 错了。她是一个本体（阿鲤），工作台、QQ、B站只是她坐的地方；
+// 桥上的"大肥鱼/小肥鱼"是她在那个通道的称呼/卡，不是另一个人。
 //
 // 所以这里不再分"两个系统的人"，只分"一个本体的不同通道"。
 import fs from 'node:fs'
@@ -12,7 +12,7 @@ import os from 'node:os'
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const FILE = path.join(HOME, 'dayu', 'identity.json')
 
-const ROLES = Object.freeze({ dayu: '管家（管家）', xiaoyu: '助手（助手）', dragon: '顾问' })
+const ROLES = Object.freeze({ dayu: '大鱼（阿鲲）', xiaoyu: '小鱼（阿鲤）', dragon: '照微' })
 const CHANNEL_LABEL = Object.freeze({ workbench: '工作台', qq: 'QQ', bili: 'B站', hub: '中枢' })
 
 function read() {
@@ -24,7 +24,7 @@ function write(doc) {
   return doc
 }
 
-/** 记下她在某个通道的显示名（比如 QQ 上叫"助手"或"角色"）——称呼，不是身份。 */
+/** 记下她在某个通道的显示名（比如 QQ 上叫"小鱼"或"大肥鱼"）——称呼，不是身份。 */
 export function setChannelName(channel, displayName) {
   const doc = read()
   doc.channelNames = doc.channelNames || {}

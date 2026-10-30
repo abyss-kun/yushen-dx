@@ -1,4 +1,4 @@
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 检索层：工作区文件 + 历史会话（zstd 压缩的 jsonl），只读、限量。
 // 给总台用：需要某一段时，去工作区和各个对话框里找回来。
 

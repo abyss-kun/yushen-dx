@@ -128,7 +128,7 @@ export const UNINSTALL_KEEP = Object.freeze(['soul/cards'])
 export function uninstallPlan() {
   const items = [
     ['她自己的数据（魂/账本/补丁）', path.join(DATA)],
-    ['助手的档案与会话', path.join(XIAOYU)],
+    ['小鱼的档案与会话', path.join(XIAOYU)],
     ['插件代码', path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')],
   ]
   return items.map(([name, p]) => {

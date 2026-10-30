@@ -1,4 +1,4 @@
-// 鱼神 · 状态适配器
+// 鱼神双子星 · 状态适配器
 // 两件事，边界分得很清楚：
 //   1) 外部心情**只读**：只解析 mood 数据文件（YUSHEN_MOOD_FILE / DSH_HOME/dayu /
 //      BILI_STATE_DIR 或默认 DSH_HOME/bili-duty），不读外部插件代码、不 import 外部模块、
@@ -6,7 +6,7 @@
 //   2) 鱼神自己的状态**只写本地**：~/.dsh/dayu/state/<role>.json 与 ~/.dsh/dayu/diary/<role>/<book>.jsonl。
 // 角色（role）与日记本（book）都走白名单；任何路径都由白名单值拼出来，杜绝穿越。
 // 策略（policy）不调模型，逐字对齐 dsh-bili-scroll 的 moodPolicy（index.js:240-255，2026-10-23 核对）。
-// 心情默认属于助手（B 站）；管家要读必须显式给 YUSHEN_MOOD_FILE 或 BILI_STATE_DIR 做授权映射。
+// 心情默认属于小鱼（B 站）；大鱼要读必须显式给 YUSHEN_MOOD_FILE 或 BILI_STATE_DIR 做授权映射。
 
 import fs from 'node:fs'
 import os from 'node:os'
@@ -37,7 +37,7 @@ const READ_ONLY_LIMITS = Object.freeze([
   '不调用模型：策略只按阈值查表',
 ])
 
-const DAYU_NO_MAPPING = '外部心情默认属于助手（B 站）；管家未获显式映射（YUSHEN_MOOD_FILE / BILI_STATE_DIR），本次不读'
+const DAYU_NO_MAPPING = '外部心情默认属于小鱼（B 站）；大鱼未获显式映射（YUSHEN_MOOD_FILE / BILI_STATE_DIR），本次不读'
 
 // ---------- 基础工具 ----------
 
@@ -285,7 +285,7 @@ function readHistoryCandidate(entry) {
  *   BILI_STATE_DIR（未设则用真实默认家目录 DSH_HOME/bili-duty）。
  * 每本书先看 mood.json，再看同书 mood-history.jsonl 的最后一条；
  * **历史只取命中的同一本**，不把 dsh/dayu 与 bili 的历史混在一起。
- * 全部找不到、或管家未获显式映射时 ok=false，value/policy 为 null。
+ * 全部找不到、或大鱼未获显式映射时 ok=false，value/policy 为 null。
  */
 export function readExternalMood({ role = 'xiaoyu' } = {}) {
   const r = assertRole(role)
@@ -295,7 +295,7 @@ export function readExternalMood({ role = 'xiaoyu' } = {}) {
   const limitations = [...READ_ONLY_LIMITS]
   const probed = []
 
-  // 管家默认不继承助手的心情：要么显式给心情文件，要么显式指定 B 站状态目录。
+  // 大鱼默认不继承小鱼的心情：要么显式给心情文件，要么显式指定 B 站状态目录。
   if (r === 'dayu' && !envFile && !biliEnv) {
     return {
       ok: false,

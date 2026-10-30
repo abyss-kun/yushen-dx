@@ -1,12 +1,12 @@
 // 账：三个人各自的额度、已用、剩余。2026-10-29 从桌面气泡搬进面板时新建。
 //
-// 为什么放这儿：老板说「算账的可以放到后台，助手里面界面可以填空那种」。
+// 为什么放这儿：老板说「算账的可以放到后台，小鱼里面界面可以填空那种」。
 // 桌面留着她和一句状态就够了；要改额度这种正经事，应该在面板里填、有保存、有记录。
 import fs from 'node:fs'
 import path from 'node:path'
 import { dshHome } from './paths.js'
 
-const ROLES = [['dayu', '管家'], ['xiaoyu', '助手'], ['dragon', '顾问']]
+const ROLES = [['dayu', '大鱼'], ['xiaoyu', '小鱼'], ['dragon', '照微']]
 
 function fileOf(role) {
   return path.join(dshHome(), 'dayu', 'runtime', role, 'budget.json')

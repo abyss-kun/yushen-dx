@@ -1,0 +1,57 @@
+{
+  "backup": "C:\\Users\\Administrator\\.dsh\\dayu\\backups\\three-portraits-20261025-124750",
+  "portraits": [
+    {
+      "role": "dayu",
+      "registryRole": "dayu",
+      "origin": "D:/AiTOOLS/image-tools/outputs/1792870030901-999d5101-c5d2-4aec-b7ee-ed1205e5964f-0.png",
+      "sourceImage": "D:\\AiTOOLS\\image-tools\\work\\portrait-alpha-audit-20261025\\dayu-transparent-sanitized.png",
+      "processing": "AI gpt-image-2.5; reference dayu-wardrobe-v3.png; clear hidden RGB only",
+      "model": "gpt-image-2.5",
+      "generationTime": "2026-10-25 (exact generation log in original output record; no fabricated timestamp)",
+      "installedAt": "2026-10-25T04:47:50.914198+00:00",
+      "path": "C:\\Users\\Administrator\\.dsh\\dayu\\avatars\\dayu\\idle.png",
+      "sha256": "c0fe6366bce0b146b20f9636ded014ce7d6df96dc694a35a501329bfff142cd4",
+      "status": "installed-static-portrait-not-rigged",
+      "size": [
+        640,
+        960
+      ]
+    },
+    {
+      "role": "xiaoyu",
+      "registryRole": "xiaoyu",
+      "origin": "D:/AiTOOLS/image-tools/outputs/1792870061629-62ac82e5-c575-4a4c-98fc-dca2193b5d55-0.png",
+      "sourceImage": "D:\\AiTOOLS\\image-tools\\work\\portrait-alpha-audit-20261025\\xiaoyu-transparent-sanitized.png",
+      "processing": "AI gpt-image-2.5; reference xiaoyu-wardrobe-v1.png; clear hidden RGB only",
+      "model": "gpt-image-2.5",
+      "generationTime": "2026-10-25 (exact generation log in original output record; no fabricated timestamp)",
+      "installedAt": "2026-10-25T04:47:51.147574+00:00",
+      "path": "C:\\Users\\Administrator\\.dsh\\dayu\\avatars\\xiaoyu\\idle.png",
+      "sha256": "d54c72ffa7f3c615f80883c8d3468b3f6bbe8b2d4e35a665cb29ae954c6ac6e4",
+      "status": "installed-static-portrait-not-rigged",
+      "size": [
+        640,
+        960
+      ]
+    },
+    {
+      "role": "dragon",
+      "registryRole": "zhaowei",
+      "origin": "C:/Users/Administrator/.dsh/dayu/visuals/assets/zhaowei-wardrobe-v1.png",
+      "sourceImage": "D:\\AiTOOLS\\image-tools\\work\\portrait-alpha-audit-20261025\\zhaowei-transparent-candidate.png",
+      "processing": "AI wardrobe source gpt-image-2.5; crop first adult figure with ROI and boundary flood fill; hair edge refinement pending",
+      "model": "gpt-image-2.5",
+      "generationTime": "2026-10-25 (exact generation log in original output record; no fabricated timestamp)",
+      "installedAt": "2026-10-25T04:47:51.253291+00:00",
+      "path": "C:\\Users\\Administrator\\.dsh\\dayu\\avatars\\dragon\\idle.png",
+      "sha256": "db8ed7584451ac89739fb3473f159fdbc5e9fadbd6b159af554cd44f452a0237",
+      "status": "installed-static-portrait-not-rigged",
+      "size": [
+        383,
+        932
+      ]
+    }
+  ],
+  "note": "No secrets or credentials. Generated derivatives for this project; visual registry draft status not promoted."
+}

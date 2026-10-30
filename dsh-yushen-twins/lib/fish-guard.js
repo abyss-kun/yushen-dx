@@ -15,7 +15,7 @@ export const DEFAULT_FISH_GUARD = Object.freeze({
   ratioMinRatio: 0.6,    // …且占比 ≥ 60% → 让位
 })
 
-const FISH_NAME = /(肥鱼|助手|fish)/i
+const FISH_NAME = /(肥鱼|小鱼|fish)/i
 
 /** 这条消息算不算"鱼"发的（按名字判断；桥那边给 sender 名字）。 */
 export function looksLikeFish(msg) {

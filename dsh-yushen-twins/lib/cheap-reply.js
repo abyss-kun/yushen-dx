@@ -111,7 +111,7 @@ export async function decideCheap(role, message, { now = Date.now() } = {}) {
   // 老板看到后定的规矩：**话可以替传，人不能替。**
   // 所以这里不再生成"她会说的话"，只做两件事：传话、留痕。
   // ────────────────────────────────────────────────────────────────
-  const NAME = { dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
+  const NAME = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
   const asked = String(message?.text || '').replace(/\s+/g, ' ').slice(0, 24)
   const needRelay = Boolean(message?.atMe || message?.isOwner)
 

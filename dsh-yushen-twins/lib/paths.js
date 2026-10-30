@@ -1,7 +1,7 @@
 // 路径总入口：所有外部目录都从这里来，别再往代码里写死盘符。
 //
 // 为什么要有（2026-10-28）：交付检查发现 51 处写死路径散在 34 个文件里
-// （<用户目录>、<插件目录>、D:/deepseekTools、<资源库>）。
+// （C:/Users/Administrator、D:/DSH、D:/deepseekTools、D:/AiTOOLS）。
 // 换个机器、换个用户名，插件第一步就崩。
 //
 // 规矩：
@@ -34,7 +34,7 @@ export function packageRoot() {
 }
 
 /**
- * 工作区：原来的 <插件目录>\工作区。
+ * 工作区：原来的 D:\DSH\大小鱼。
  * 顺序：YUSHEN_WS → DSH_WORKSPACE → 包根目录的父级 → cwd。
  */
 /** 找 Python：先看环境变量，再看常见位置；找不到就回 'python'（让 PATH 兜）。 */
@@ -58,7 +58,7 @@ export function workspace() {
   // 包根目录的父级就是鱼神的工作区（那儿有员工手册/框架定义）——优先于 cwd，
   // 因为 DSH 里每条会话的 cwd 可能是别的地方（2026-10-28 实测踩过：被 DSH_WORKSPACE 带跑）。
   const parent = path.dirname(packageRoot())
-  if (exists(path.join(parent, '员工手册.md')) || exists(path.join(parent, '工作区-框架定义.md'))) return parent
+  if (exists(path.join(parent, '员工手册.md')) || exists(path.join(parent, '大小鱼-框架定义.md'))) return parent
   return process.env.DSH_WORKSPACE || process.cwd()
 }
 
@@ -91,7 +91,7 @@ export function localLlmDir() {
 /** 角色素材库（立绘原图）。 */
 export function assetRoot() {
   return process.env.YUSHEN_ASSET_ROOT
-    || firstExisting([path.join(workspace(), 'assets', 'character-library'), '<资源库>/角色素材库'])
+    || firstExisting([path.join(workspace(), 'assets', 'character-library'), 'D:/AiTOOLS/角色素材库'])
 }
 
 /** DSH 安装目录里的 app.asar（读宿主内部实现用）。 */
@@ -127,7 +127,7 @@ export function describe() {
 /** 共享知识库（可选）：没有就是空，调用方跳过。 */
 export function knowledgeBook() {
   return process.env.YUSHEN_WORKSPACE_BOOK
-    || firstExisting([path.join(workspace(), '共享知识库.md'), '<资源库>/共享知识库.md'])
+    || firstExisting([path.join(workspace(), '共享知识库.md'), 'D:/AiTOOLS/共享知识库.md'])
 }
 
 /** 异机备份目标盘：优先生成在工作区那块盘上，找不到再退回数据盘。 */
@@ -143,7 +143,7 @@ export function offsiteDir() {
 export function treasureDir() {
   return process.env.YUSHEN_TREASURE_ROOT
     || process.env.TREASURE_ROOT
-    || firstExisting([path.join(dayuHome(), 'treasure'), 'D:/角色的宝藏'], path.join(dayuHome(), 'treasure'))
+    || firstExisting([path.join(dayuHome(), 'treasure'), 'D:/小肥鱼的宝藏'], path.join(dayuHome(), 'treasure'))
 }
 
 /** 统计磁盘用的盘：工作区在哪块盘就统计哪块（那才是数据盘）。 */

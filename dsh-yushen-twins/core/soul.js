@@ -27,7 +27,7 @@ export function profile() {
   const s = soul()
   const c = charter()
   return {
-    name: s?.owner?.callName || s?.name || '管家',
+    name: s?.owner?.callName || s?.name || '大鱼',
     soulVersion: s?.version || '',
     charterVersion: c?.version || '',
     jobs: jobs().length,

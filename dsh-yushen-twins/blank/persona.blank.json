@@ -7,15 +7,15 @@
     "taboos": ""
   },
   "dayu": {
-    "callName": "管家",
-    "alias": "管家",
+    "callName": "大鱼",
+    "alias": "阿鲲",
     "speech": { "sentenceEnd": "句号", "emoji": false, "length": "短" },
     "likes": [],
     "dislikes": []
   },
   "xiaoyu": {
-    "callName": "助手",
-    "alias": "助手",
+    "callName": "小鱼",
+    "alias": "阿鲤",
     "speech": { "sentenceEnd": "随意", "emoji": false, "length": "短" },
     "likes": [],
     "dislikes": []

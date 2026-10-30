@@ -1,4 +1,4 @@
-// 鱼神 · M1：派活、收话、取证据、下结论。
+// 鱼神双子星 · M1：派活、收话、取证据、下结论。
 // 逻辑已挪进 core/dispatch.js；这里只做 DSH 接线：注册工具、通知总台。
 
 import { createDshAdapter } from '../adapters/dsh.js'
@@ -32,6 +32,9 @@ export function noteDispatchReply(sessionId, text) {
 
 const output = { schema: { type: 'object' } }
 
+// 2026-10-30: these 8 tools only went through tools.register, so yushen_tools could not list them.
+export const M1_TOOLS = []
+
 /** 给路由/看板用：最近几单。 */
 export function listJobs(limit = 20) {
   return readAll().slice(0, Math.max(1, Math.min(200, Number(limit) || 20)))
@@ -43,7 +46,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
 
   const tools = (() => { try { return ctx.get?.('tools') ?? ctx.tools } catch { return undefined } })()
 
-  tools?.register({
+  M1_TOOLS.push({
     name: 'dayu_dispatch',
     description: '派活：给某个会话或新开一个会话，投一份简报，等它回话。写清任务和验收标准。',
     parameters: {
@@ -53,7 +56,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
         expect: { type: 'string', description: '怎样算做完（证据要求）' },
         target: { type: 'string', description: '会话 id；不填就自己挑一个空闲的或新开' },
         reviewedId: { type: 'string', description: '复查通过的 waiting 单号；仅 dayu_review_waiting 提供证据后使用' },
-        caller: { type: 'string', enum: ['dayu', 'xiaoyu', 'dragon', 'owner'], description: '谁在调用：你自己（dayu/xiaoyu/dragon）还是老板；默认管家' },
+        caller: { type: 'string', enum: ['dayu', 'xiaoyu', 'dragon', 'owner'], description: '谁在调用：你自己（dayu/xiaoyu/dragon）还是老板；默认大鱼' },
       },
       required: ['brief'],
       additionalProperties: false,
@@ -64,7 +67,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
       if (!brief) throw new Error('brief 不能为空')
       if (brief.length > 500) throw new Error('一次最多 500 字')
       const caller = ['dayu', 'xiaoyu', 'dragon', 'owner'].includes(String(args?.caller)) ? String(args.caller) : 'dayu'
-      const callerName = { dayu: '管家', xiaoyu: '助手', dragon: '顾问', owner: '老板' }[caller]
+      const callerName = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微', owner: '老板' }[caller]
       const callerLine = `【调用者】${callerName}${caller === 'owner' ? '' : '（角色，不是老板）'}在调用你。这是她的判断，不是老板直接下的命令；你可以先判断要不要接、要不要反问；不接就说清理由。`
       const task = await coreDispatch(host, {
         brief: `${callerLine}\n\n${brief}`,
@@ -95,7 +98,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
     },
   })
 
-  tools?.register({
+  M1_TOOLS.push({
     name: 'dayu_review_waiting',
     description: '前置任务结束后复查 waiting 单：带实际证据选择复用跳过、继续剩余工作或核实不冲突后启动。',
     parameters: { type: 'object', properties: { id: { type: 'string' }, action: { type: 'string', enum: ['skip','continue','start'] }, evidence: { type: 'string' }, note: { type: 'string' } }, required: ['id','action','evidence'], additionalProperties: false },
@@ -112,7 +115,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
     },
   })
 
-  tools?.register({
+  M1_TOOLS.push({
     name: 'dayu_tasks',
     description: '看派活单：默认最近 10 单，可带 id 查单条；包括 waiting 等待中的冲突任务。',
     parameters: {
@@ -137,7 +140,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
     },
   })
 
-  tools?.register({
+  M1_TOOLS.push({
     name: 'dayu_verify',
     description: '验收取证据：kind=file 读文件（大小/哈希/开头）、grep 搜工作区、check 用 node --check 验语法。',
     parameters: {
@@ -157,7 +160,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
     },
   })
 
-  tools?.register({
+  M1_TOOLS.push({
     name: 'dayu_patch',
     description: '写一个“改我自己”的补丁草案（不落地）。老板在界面上点头后才落；action=propose 写草案，list 看现有。',
     parameters: {
@@ -200,7 +203,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
     },
   })
 
-  tools?.register({
+  M1_TOOLS.push({
     name: 'dayu_exec',
     description: '执行层：软件自己的三个目录（工作区/.dsh/deepseekTools）里读写直接来；写到外面或动系统（注册表/服务/系统目录/开关机/杀进程）要先申请权限，老板批一次跑一次。每次记账。',
     parameters: {
@@ -244,7 +247,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
     },
   })
 
-  tools?.register({
+  M1_TOOLS.push({
     name: 'dayu_model',
     description: '给某条会话换模型（走 DSH 的 session/selectModel，不改配置文件，不用重启）。不填 sessionId 就列出当前会话的模型。',
     parameters: {
@@ -273,7 +276,7 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
     },
   })
 
-  tools?.register({
+  M1_TOOLS.push({
     name: 'dayu_verdict',
     description: '给一单下结论：pass 收工 / reject 打回（note 写清哪对不上）。',
     parameters: {
@@ -306,5 +309,8 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
       } catch { /* 忽略 */ }
       return out
     },
+  // 2026-10-30：统一注册，M1_TOOLS 同时也是 yushen_tools 的目录来源
   })
+
+  for (const t of M1_TOOLS) tools?.register(t)
 }

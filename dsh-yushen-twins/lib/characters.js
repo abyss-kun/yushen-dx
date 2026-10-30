@@ -1,9 +1,10 @@
-// 鱼神 · 角色名册
+// 鱼神双子星 · 角色名册
 // 「谁住在这套软件里」只由这份名册决定：每个角色一张卡、一份记忆、一条常驻会话。
 // 发行版不覆盖用户已有的角色：只读用户目录，写入时一律「已存在就拒绝」。
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { blankCard } from './card-template.js'
 
 export const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 export const DATA = path.join(HOME, 'dayu')
@@ -13,12 +14,21 @@ const PERSONA = path.join(SOUL_DIR, 'persona.json')
 
 // 出厂自带的三个角色：新用户没有 characters.json 时也能跑；老用户沿用同一批文件。
 const BUILTINS = [
-  { id: 'dayu', name: '管家', alias: '管家', title: '鱼神·总台', cards: { desk: 'cards/dayu.desk.md', social: 'cards/dayu.social.md' }, memory: 'memory/dayu.json' },
-  { id: 'xiaoyu', name: '助手', alias: '助手', title: '助手·管家', cards: { desk: 'cards/xiaoyu.social.md', social: 'cards/xiaoyu.social.md' }, memory: 'memory/xiaoyu.json' },
-  { id: 'dragon', name: '顾问', alias: '顾问', title: '顾问·太上长老', cards: { desk: 'cards/dragon.desk.md', social: 'cards/dragon.desk.md' }, memory: 'memory/dragon.json' },
+  { id: 'dayu', name: '大鱼', alias: '阿鲲', title: '鱼神·总台', cards: { desk: 'cards/dayu.desk.md', social: 'cards/dayu.social.md' }, memory: 'memory/dayu.json' },
+  { id: 'xiaoyu', name: '小鱼', alias: '阿鲤', title: '小鱼·管家', cards: { desk: 'cards/xiaoyu.social.md', social: 'cards/xiaoyu.social.md' }, memory: 'memory/xiaoyu.json' },
+  { id: 'dragon', name: '照微', alias: '龙娘', title: '照微·太上长老', cards: { desk: 'cards/dragon.desk.md', social: 'cards/dragon.desk.md' }, memory: 'memory/dragon.json' },
 ]
+// 2026-10-30：出厂只点亮一个角色（一般人家只养一条鱼；三个卡反而不好选）。
+// BUILTINS 仍是「认识的角色目录」（形象、默认配置都靠它），SEED 才是「新装默认住进来的」。
+const SEED = BUILTINS.slice(0, 1)
 const ID_RE = /^[a-z][a-z0-9_-]{1,31}$/
-const DEFAULTS = { titleSuffix: '·常驻', memory: () => ({}), card: (name) => `# ${name}（角色卡）\n\n> 这是你的本体卡。写清楚：你是谁、你在意什么、你能做什么、不能做什么、你的底线。\n` }
+const DEFAULTS = {
+  titleSuffix: '·常驻',
+  // 新角色的记忆从一张干净的表开始（不是 {}），读的时候字段都在
+  memory: () => ({ version: 1, summary: '', habits: [], dynamics: [], events: [] }),
+  // 新角色拿到的是结构化空白卡，不是一句话占位
+  card: (name, extra = {}) => blankCard({ name, ...extra }),
+}
 
 function fail(message) { throw new TypeError(message) }
 
@@ -131,7 +141,7 @@ export function listCharacters() {
   const fromPersonaList = fromPersona()
   const list = fromPersonaList.length
     ? fromPersonaList
-    : BUILTINS.map((c) => normalize(c, { source: 'builtin' }))
+    : SEED.map((c) => normalize(c, { source: 'builtin' }))
   cache = { mtimeMs: -1, list }
   return list
 }
@@ -186,7 +196,7 @@ export function addCharacter(input = {}) {
       created.push(cardPath)
     } else {
       fs.mkdirSync(path.dirname(cardPath), { recursive: true })
-      fs.writeFileSync(cardPath, DEFAULTS.card(name), { encoding: 'utf8', flag: 'wx' })
+      fs.writeFileSync(cardPath, DEFAULTS.card(name, { alias: String(input.alias || '').trim(), id }), { encoding: 'utf8', flag: 'wx' })
       created.push(cardPath)
     }
     fs.mkdirSync(path.dirname(memoryPath), { recursive: true })

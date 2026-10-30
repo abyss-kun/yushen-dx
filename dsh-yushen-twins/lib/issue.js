@@ -76,3 +76,43 @@ export function issuedLine(role, { now = Date.now() } = {}) {
   const expired = rows.filter((r) => r.expired)
   return `## 你签发的手册\n${rows.map((r) => `- 给 ${r.to}${r.task ? `（任务：${r.task}）` : ''}${r.expiresAt ? `，到 ${new Date(r.expiresAt).toLocaleDateString('zh-CN')}` : ''}`).join('\n')}\n${expired.length ? `有 ${expired.length} 本过期了，该续或该收。` : '都还在有效期内。'}`.trim()
 }
+
+// ── 会话发放台账（2026-10-30）────────────────────────────────────────
+// 手册那本记的是“签给谁”；这里记的是“这条会话自己收到了什么”：
+// 预设（决定工具挂没挂）、手册章、目录入口。发不出去也要记一条失败。
+function sessionIssueFile(role) { return path.join(runtimeDir(role), 'session-issue.json') }
+
+export function recordSessionIssue(role, { sessionId = '', preset = '', tools = 0, handbook = [], ok = true, note = '' } = {}) {
+  try {
+    ensureRuntime(role)
+    const row = {
+      at: new Date().toISOString(),
+      role: String(role || ''),
+      sessionId: String(sessionId || ''),
+      preset: String(preset || ''),
+      tools: Number(tools) || 0,
+      handbook: (Array.isArray(handbook) ? handbook : []).map((x) => String(x).slice(0, 40)).slice(0, 12),
+      ok: ok !== false,
+      note: String(note || '').slice(0, 200),
+    }
+    fs.writeFileSync(sessionIssueFile(role), JSON.stringify(row, null, 2) + '\n', 'utf8')
+    return row
+  } catch { return null }
+}
+
+export function readSessionIssue(role) {
+  try {
+    const row = JSON.parse(fs.readFileSync(sessionIssueFile(role), 'utf8'))
+    const expect = 'yushen'
+    const off = String(row?.preset || '') !== expect
+    return { ...row, ok: row?.ok !== false && !off, reason: off ? `预设是 ${row?.preset || '未知'}，不是 ${expect}（工具没挂上）` : '' }
+  } catch { return null }
+}
+
+/** 给她看的一句：她这条会话到底收没收到工具。 */
+export function sessionIssueLine(role) {
+  const row = readSessionIssue(role)
+  if (!row) return '## 发放状态\n这条会话还没登记发放（工具可能没挂上）；不确定就先查 yushen_can。'
+  if (!row.ok) return `## 发放状态\n${row.reason || '上次发放不完整'}；工具可能拿不到，先查 yushen_can，别直接说没有。`
+  return `## 发放状态\n预设 ${row.preset}，工具 ${row.tools} 个，手册 ${row.handbook.length} 章。`
+}

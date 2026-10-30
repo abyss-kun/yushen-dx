@@ -24,12 +24,13 @@ export const EMPLOYEE_HANDBOOK_CHARS = 1200
 export const TAG_RULES = Object.freeze([
   { tag: '界面/前端', re: /界面|页面|面板|client|组件|样式|拖拽|立绘|avatar|ui\b/i },
   { tag: '插件开发', re: /插件|plugin|cordis|manifest|注册|包装|适配器|补丁草案/i },
-  { tag: '视频', re: /视频|剪辑|字幕|渲染|ffmpeg|封面|配音|转写|成片/i },
+  { tag: '视频', re: /视频|剪辑|剪一条|剪片|片子|做片|字幕|渲染|ffmpeg|封面|配音|转写|成片/i },
   { tag: 'B站', re: /b站|bilibili|投稿|动态|私信|弹幕/i },
   { tag: '群聊/通道', re: /群聊|群消息|qq|私聊|桥接|潜水|唤醒/i },
   // 真实派活单里最常见的就是自修单："[自修] 冒烟/回归/真机/探活/缺口"
   { tag: '自修/排障', re: /\[自修\]|自省|冒烟|回归|真机|健康|探活|缺口|failed|失败|超时/i },
   { tag: '排查/运维', re: /报错|错误|端口|日志|事故|备份|磁盘|进程|崩溃|超时/i },
+  { tag: '查资料/搜索', re: /查资料|查一下|搜一下|搜索|搜搜|资料|调研/i },
   { tag: '文档/整理', re: /文档|说明|readme|手册|整理|归档/i },
   { tag: '数据/账本', re: /账本|统计|报表|数据|导入|导出/i },
 ])
@@ -69,15 +70,20 @@ export function tagsOf(text) {
 }
 
 /** 岗位标签 → 要发的那几章（除了永远都有的 worker 基本章）。 */
+// 2026-10-30：这里之前写的是 'problemSolving' / 'video' 这种不存在的 id，
+// topicById 找不到就静默跳过——所以「做视频」「查资料」只发了 worker 基础章。
+// 现在一律用 handbook-policy.js 里真实存在的 id，并补上原来空着的几类。
 export const TAG_CHAPTERS = Object.freeze({
   '插件开发': ['plugin'],
-  '排查/运维': ['problemSolving'],
-  '视频': ['video'],
-  '界面/前端': ['worker'],
-  'B站': ['worker'],
-  '群聊/通道': [],
-  '文档/整理': [],
-  '数据/账本': [],
+  '界面/前端': ['plugin'],
+  '视频': ['video-line'],
+  'B站': ['video-line', 'common-extra'],
+  '群聊/通道': ['handoff'],
+  '自修/排障': ['common-extra'],
+  '排查/运维': ['common-extra', 'handoff'],
+  '文档/整理': ['reuse'],
+  '数据/账本': ['common-extra'],
+  '查资料/搜索': ['common-extra'],
 })
 
 /** 一页之内：头 + 员工底线 + 岗位章 + 任务相关章。 */

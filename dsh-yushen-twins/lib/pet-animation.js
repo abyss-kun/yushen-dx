@@ -1,4 +1,4 @@
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 桌宠动画体检：只读解析 dsh-dafeiyu 的 assets/pet-manifest.json。
 //
 // 边界（写死在实现里，别放宽）：

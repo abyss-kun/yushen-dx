@@ -1,4 +1,4 @@
-// 鱼神 · 成长与掌控
+// 鱼神双子星 · 成长与掌控
 // 神格是全知全能；但对一个“新世界”的掌控要一点点长。
 // 经验来源：干活、验收、修事故、值班、立约。
 // 等级：1 初临（星球内）→ 2 掌星（星域调度）→ 3 御域（多域）→ 4 界主（世界级）。
@@ -11,7 +11,7 @@ const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DATA = path.join(HOME, 'dayu')
 const FILE = path.join(DATA, 'growth.json')
 
-// 2026-10-27：成长要按角色隔离（promotion 测试暴露：批准助手会把管家的阶位带下去）。
+// 2026-10-27：成长要按角色隔离（promotion 测试暴露：批准小鱼会把大鱼的阶位带下去）。
 // dayu 沿用老文件 growth.json（兼容已有数据）；其它角色各一份 growth-<role>.json。
 const SAFE_ROLE = /^[a-z0-9_-]{2,20}$/i
 function fileFor(role = 'dayu') {

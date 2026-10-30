@@ -22,7 +22,15 @@ export function createMatter({matterId,kind='requirement',title,source=''}){cons
 export function recordMatterEvent({matterId,stage,summary,source='',evidence='',complete=false,revision=1}){const m=id(matterId);if(!STAGES.has(stage))throw new Error('invalid matter stage');if(!Number.isSafeInteger(revision)||revision<1)throw new Error('invalid revision');if(!clean(summary,MAX.text))throw new Error('summary required');if(stage==='completed'&&!clean(evidence,MAX.evidence))throw new Error('completed stage requires evidence');const current=apply(read()).find(x=>x.matterId===m);if(!current)throw new Error('unknown matter');if(current.current?.stage==='superseded')throw new Error('superseded matter cannot advance');return append({type:'matter-event',matterId:m,stage,summary:clean(summary,MAX.text),source:clean(source,MAX.source),evidence:clean(evidence,MAX.evidence),complete:Boolean(complete),revision})}
 export function supersedeMatter({matterId,supersededBy,reason,evidence=''}){const m=id(matterId),next=id(supersededBy);if(!clean(reason,MAX.text)||!clean(evidence,MAX.evidence))throw new Error('supersession requires reason and evidence');const all=apply(read());if(!all.some(x=>x.matterId===m)||!all.some(x=>x.matterId===next))throw new Error('unknown matter');return append({type:'matter-superseded',matterId:m,supersededBy:next,reason:clean(reason,MAX.text),evidence:clean(evidence,MAX.evidence)})}
 export function listMatters({query='',kind,stage,limit=MAX.items}={}){const q=clean(query,MAX.title).toLowerCase();const out=apply(read()).filter(m=>(!kind||m.kind===kind)&&(!stage||m.current?.stage===stage)&&(!q||`${m.matterId} ${m.title} ${m.current?.summary||''}`.toLowerCase().includes(q)));return out.slice(0,Math.max(1,Math.min(MAX.items,Number(limit)||20))).map(m=>({matterId:m.matterId,kind:m.kind,title:m.title,createdAt:m.createdAt,current:m.current,historyCount:m.events.length,historyComplete:true}))}
-export function matterPreflight({query,kind}={}){const items=listMatters({query,kind,limit:10});return {ok:true,recall:'shared-ledger',completeness:items.length?'matched-records-only':'no-match-is-not-proof-of-absence',items,warning:'A summary is not complete history; inspect matterId history and evidence before acting.'}}
+export function matterPreflight({query,kind}={}){
+  const items=listMatters({query,kind,limit:10})
+  // 2026-10-30：本机 facts/events.jsonl 还不存在时，预检必然空——得说清"是账本空"，不是"查过了"。
+  const hasLedger = (()=>{try{return fs.existsSync(file())}catch{return false}})()
+  if (!hasLedger) {
+    return {ok:true,recall:'shared-ledger',completeness:'empty-ledger-nothing-recorded-yet',items:[],warning:'事实账还没有任何记录（facts/events.jsonl 不存在）；预检为空不代表"没做过"，别当成已核对。'}
+  }
+  return {ok:true,recall:'shared-ledger',completeness:items.length?'matched-records-only':'no-match-is-not-proof-of-absence',items,warning:'A summary is not complete history; inspect matterId history and evidence before acting.'}
+}
 export const SOURCE_KINDS=Object.freeze(['direct-session','plugin','file-observer','external-tool','manual'])
 export const EVIDENCE_QUALITY=Object.freeze(['unverified','observed','hashed','tested','human-confirmed'])
 function sourceId(v){if(typeof v!=='string'||!/^[a-z0-9][a-z0-9._:-]{1,95}$/.test(v))throw new Error('invalid sourceId');return v}

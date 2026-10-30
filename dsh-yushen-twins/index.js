@@ -1,8 +1,8 @@
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // Runtime asset refresh marker: three-role nest assets remain sourced from the linked package.
 // 单入口挂两个子入口：框架 §2.4 的退路。
 // 子路径名 dsh-yushen-twins/dayu 在 DSH 0.1.x 装载器里不认，
-// 改用包根入口，内部按开关依次挂管家、助手。
+// 改用包根入口，内部按开关依次挂大鱼、小鱼。
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -16,6 +16,7 @@ import { transcriptDigest } from './lib/transcript.js'
 import { isAllowed, unauthorized } from './lib/auth.js'
 import { roleList, snapshot, adopt, adoptFile, adoptUrl, adoptGuest, guestFile, removeGuest, rename, restore, move, resolveAvatar, mimeOf } from './lib/nest.js'
 import { characterCandidates, scanPlugins } from './lib/intake.js'
+import { detectRoles } from './lib/detect-roles.js'
 import { exportBundle, importBundle } from './lib/migrate.js'
 import { readOwner, writeOwner } from './lib/onboard.js'
 import { readBudgets, setBudget } from './lib/budget-book.js'
@@ -65,6 +66,137 @@ function readSwitches() {
   } catch {
     return { master: true, dayu: true, xiaoyu: true, autoRepair: true }
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 桌宠气泡的实时状态（只读、只在本机，给页面上那只小鱼用）
+//   · 口径：turn/start → 在跑；turn/end → 结算这一轮
+//   · 钱按官方价目表估；模型不在表里就不报钱（宁可不说，也不瞎说）
+// ─────────────────────────────────────────────────────────────
+const LIVE = { active: false, since: 0, tool: '', session: '', lastTurnSeq: 0, lastTurn: null, usage: null }
+
+const PRICES = {
+  'deepseek-flash': { hit: [0.02, 0.04], miss: [1, 2], out: [4, 8] },
+  'deepseek-v4-pro': { hit: [0.15, 0.30], miss: [4.5, 9], out: [13.5, 27] },
+}
+
+function isPeakHour(now) {
+  const d = new Date(now)
+  const day = d.getDay()
+  if (day === 0 || day === 6) return false
+  const h = d.getHours()
+  return (h >= 9 && h < 12) || (h >= 14 && h < 18)
+}
+
+function priceForModel(model) {
+  const key = String(model || '')
+  if (PRICES[key]) return PRICES[key]
+  if (/^deepseek-(v4-)?flash/.test(key)) return PRICES['deepseek-flash']
+  if (/^deepseek-(v4-)?pro/.test(key)) return PRICES['deepseek-v4-pro']
+  return null
+}
+
+// 工具名 → 给人看的大白话（不出现英文、工具名、路径）
+const TOOL_WORDS = [
+  [/^(read|glob|grep|ls|list|search)/i, '正在查看…'],
+  [/^(write|edit|apply_patch|notebook)/i, '正在调整…'],
+  [/^(pwsh|bash|shell|exec|job_)/i, '正在执行…'],
+  [/^(web_search|web_fetch|fetch|http)/i, '正在查找…'],
+  [/^ask_user_question$/i, '正在等你回话…'],
+]
+function humanTool(name) {
+  const n = String(name || '')
+  for (const [re, word] of TOOL_WORDS) if (re.test(n)) return word
+  return ''
+}
+
+/** 只读地跟一遍会话事件；任何异常都不许影响会话本身。 */
+// 工作账：谁、哪条会话、这一轮干了什么、用了哪些工具、花了多少。
+// 不靠她记得记，turn/end 时自动落一条；只追加，不改。
+const WORK = { text: '', tools: [] }
+function roleOfSession(sessionId) {
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(HOME, 'dayu', 'residence.json'), 'utf8'))
+    for (const [role, row] of Object.entries(j.roles || {})) {
+      if (String(row?.sessionId || '') === String(sessionId || '')) return role
+    }
+  } catch { /* 没有账本 */ }
+  return ''
+}
+function appendWork(row) {
+  try {
+    const dir = path.join(HOME, 'dayu', 'worklog')
+    fs.mkdirSync(dir, { recursive: true })
+    const day = new Date().toISOString().slice(0, 10)
+    fs.appendFileSync(path.join(dir, day + '.jsonl'), JSON.stringify(row) + '\n', 'utf8')
+  } catch { /* 记不上不影响会话 */ }
+}
+function trackLiveEvent(session, event) {
+  try {
+    const type = String(event?.type || '')
+    const data = event?.data && typeof event.data === 'object' ? event.data : {}
+    if (type === 'turn/start') {
+      LIVE.active = true
+      LIVE.since = Date.now()
+      LIVE.session = String(session?.id || '')
+      LIVE.tool = ''
+      LIVE.usage = { hit: 0, miss: 0, out: 0, model: '' }
+      return
+    }
+    if (type === 'tool/call') {
+      const word = humanTool(data.name || data.toolName)
+      if (word) LIVE.tool = word
+      try { WORK.tools.push(String(data.name || data.toolName || '').slice(0, 40)) } catch { /* 忽略 */ }
+      return
+    }
+    if (type === 'assistant/message') {
+      const usage = data.usage
+      if (!usage || typeof usage !== 'object') return
+      if (!LIVE.usage) LIVE.usage = { hit: 0, miss: 0, out: 0, model: '' }
+      LIVE.usage.hit += Number(usage.cacheReadTokens) || 0
+      LIVE.usage.miss += Number(usage.inputTokens) || 0
+      LIVE.usage.out += Number(usage.outputTokens) || 0
+      const model = data.message && data.message.source ? data.message.source.model : ''
+      if (model) LIVE.usage.model = String(model)
+      // 2026-10-30：留一句"这轮说了什么"，给工作账用（只留最后一段，省略号之外不存）
+      try {
+        const c = data.message && data.message.content
+        const txt = Array.isArray(c) ? c.map((x) => (x && x.text) || '').join('') : (typeof c === 'string' ? c : '')
+        if (txt) WORK.text = txt.slice(-240)
+      } catch { /* 忽略 */ }
+      return
+    }
+    if (type === 'turn/end') {
+      const usage = LIVE.usage
+      LIVE.active = false
+      LIVE.tool = ''
+      LIVE.usage = null
+      // 2026-10-30：工作账先落，再算钱。
+      // 原来"没 usage 就 return"会让工作账一条都写不出来（宿主不一定把 usage 送进来）。
+      const total = usage ? (usage.hit + usage.miss + usage.out) : 0
+      const price = usage ? priceForModel(usage.model) : null
+      let cost = 0
+      if (price && total > 0) {
+        const off = isPeakHour(Date.now()) ? 1 : 0
+        cost = (usage.hit / 1e6) * price.hit[off] + (usage.miss / 1e6) * price.miss[off] + (usage.out / 1e6) * price.out[off]
+        LIVE.lastTurnSeq += 1
+        LIVE.lastTurn = { seq: LIVE.lastTurnSeq, cost: Number(cost.toFixed(4)), tokens: total, at: Date.now() }
+      }
+      try {
+        appendWork({
+          at: new Date().toISOString(),
+          role: roleOfSession(LIVE.session),
+          session: LIVE.session,
+          cost: Number(cost.toFixed(4)),
+          tokens: total,
+          tools: [...new Set(WORK.tools)].slice(0, 8),
+          summary: String(WORK.text || '').replace(/\s+/g, ' ').slice(0, 160),
+        })
+      } catch { /* 记不上不影响会话 */ }
+      WORK.text = ''
+      WORK.tools = []
+    }
+  } catch { /* 状态跟踪失败不影响会话 */ }
 }
 
 function sendJson(res, status, value) {
@@ -228,6 +360,40 @@ export async function apply(ctx) {
       return sendJson(res, 404, { ok: false, error: 'unknown' })
     },
   }), 'yushen: /yushen-assets')
+
+  // 桌宠气泡的实时状态：跟一遍会话事件（老宿主没有这条事件也不影响别的功能）
+  try { ctx.on('session/event', trackLiveEvent) } catch { /* 没有事件总线就只靠点按冒泡 */ }
+
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'exact',
+    path: '/api/yushen/live',
+    handler: (req, res) => {
+      if (!isAllowed(req)) return unauthorized(res)
+      return sendJson(res, 200, {
+        ok: true,
+        active: LIVE.active,
+        since: LIVE.since,
+        tool: LIVE.tool,
+        lastTurnSeq: LIVE.lastTurnSeq,
+        lastTurn: LIVE.lastTurn,
+      })
+    },
+  }), 'yushen: /api/yushen/live')
+
+  // 装前认人：本机已经有哪些角色（只读，不改任何文件）
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'exact',
+    path: '/api/yushen/roles/detect',
+    handler: (req, res) => {
+      if (!isAllowed(req)) return unauthorized(res)
+      try {
+        const { roles, checked } = detectRoles({})
+        return sendJson(res, 200, { ok: true, count: roles.length, checked, roles })
+      } catch (error) {
+        return sendJson(res, 200, { ok: false, count: 0, roles: [], error: String(error?.message || error) })
+      }
+    },
+  }), 'yushen: /api/yushen/roles/detect')
 
   // 移动端接口：必须注册在 /api/yushen 之前——手机没有 DSH 登录态，只带自己的设备令牌
   // （X-Mobile-Token）。契约见 手机端-设计.md。
@@ -468,17 +634,17 @@ export async function apply(ctx) {
     return
   }
   if (switches.dayu) {
-    // 动态加载：管家入口自己写崩了，也不连累路由和侧边栏。
+    // 动态加载：大鱼入口自己写崩了，也不连累路由和侧边栏。
     try {
       const mod = await import('./dayu/index.js')
       mod.apply(ctx)
-    } catch (error) { logError('dayu', error); console.error('[yushen] 管家入口挂了（路由尽量保留）', error) }
+    } catch (error) { logError('dayu', error); console.error('[yushen] 大鱼入口挂了（路由尽量保留）', error) }
   }
   if (switches.xiaoyu) {
     try {
       const mod = await import('./xiaoyu/index.js')
       mod.apply(ctx)
-    } catch (error) { logError('xiaoyu', error); console.error('[yushen] 助手入口挂了', error) }
+    } catch (error) { logError('xiaoyu', error); console.error('[yushen] 小鱼入口挂了', error) }
   }
 
   // 启动标记：重启脚本靠它判断“是不是真的起来了”，不花 token。

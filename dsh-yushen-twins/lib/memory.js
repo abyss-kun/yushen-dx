@@ -25,7 +25,7 @@ function readJson(file, fallback) {
  * 做法：用一个目录当锁（mkdir 是原子的），拿不到就等；等太久就强行拿走，
  * 宁可慢一点，也不要卡死不干活。
  */
-function withLock(file, fn, { waitMs = 20, maxWaitMs = 3000 } = {}) {
+export function withLock(file, fn, { waitMs = 20, maxWaitMs = 3000 } = {}) {
   const lockPath = `${file}.lock`
   const deadline = Date.now() + maxWaitMs
   let held = false
@@ -159,6 +159,7 @@ export function memoryCapacity(role) {
 export function applyDailyDecay(role, { now = Date.now(), force = false } = {}) {
   const character = getCharacter(role)
   const file = character.memory
+  return withLock(file, () => {
   const memory = readJson(file, null)
   if (!memory) return { ok: false, skipped: '记忆文件读不出来' }
   const today = new Date(now).toISOString().slice(0, 10)
@@ -176,6 +177,7 @@ export function applyDailyDecay(role, { now = Date.now(), force = false } = {}) 
   writeAtomic(file, { ...memory, version: memory.version ?? 1, lastDecayDay: today, updatedAt: new Date(now).toISOString(), events: next })
   noteWrite({ role, file, op: 'decay', before: -1, after: -1, who: 'applyDailyDecay', why: `${changed} 条降了一档` })
   return { ok: true, changed, at: new Date(now).toISOString() }
+  })
 }
 
 /** 复习：她或谁提到某个词，把最近一条包含它的事拉回 vivid。 */
@@ -184,6 +186,7 @@ export function touchMemory(role, { match = '', now = Date.now() } = {}) {
   if (!key) return { ok: false, error: '要复习哪个词？' }
   const character = getCharacter(role)
   const file = character.memory
+  return withLock(file, () => {
   const memory = readJson(file, null)
   if (!memory) return { ok: false, error: '记忆读不出来' }
   const events = Array.isArray(memory.events) ? memory.events : []
@@ -196,6 +199,7 @@ export function touchMemory(role, { match = '', now = Date.now() } = {}) {
   events[hit] = { ...e, clarity: 'vivid', lastSeenAt: new Date(now).toISOString(), recallCount: Number(e.recallCount || 0) + 1 }
   writeAtomic(file, { ...memory, version: memory.version ?? 1, updatedAt: new Date(now).toISOString(), events })
   return { ok: true, at: events[hit].lastSeenAt, text: String(e.text || '').slice(0, 60), recallCount: events[hit].recallCount }
+  })
 }
 
 /** 给"看记忆"用：默认不返回已 forgotten 的（想不起来，但文件里还在）。 */

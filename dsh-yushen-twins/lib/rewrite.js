@@ -16,6 +16,7 @@
 //   · 改之前先备份整份文件（.bak-<时间戳>），坏了自己能退。
 import fs from 'node:fs'
 import { noteWrite } from './memory-audit.js'
+import { withLock } from './memory.js'
 import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
@@ -88,6 +89,7 @@ export function rewriteMemory(role, { field = '', op = '', text = '', index = -1
   if (!spec) return { ok: false, error: `只能改这几样：${Object.keys(FIELDS).join(' / ')}` }
   const file = memoryFile(role)
   if (!file) return { ok: false, error: '找不到你那一份记忆文件' }
+  return withLock(file, () => {
   const mem = readJson(file, null)
   if (!mem) return { ok: false, error: '记忆文件读不出来（不是合法 JSON），先别改' }
 
@@ -141,6 +143,7 @@ export function rewriteMemory(role, { field = '', op = '', text = '', index = -1
   }
   appendLedger(role, row)
   return { ok: true, changed: true, field: f, op: act, count: spec.type === 'scalar' ? 1 : (mem[f] || []).length, id: row.id, note: '改好了。后悔可以用 rewrite 的 revert 带上这个 id。' }
+  })
 }
 
 function locate(list, { index = -1, match = '' } = {}) {
@@ -186,14 +189,19 @@ export function revertRewrite(role, id) {
     fs.writeFileSync(file, String(row.before || ''), 'utf8')
   } else if (row.target === 'memory') {
     const file = memoryFile(role)
-    const mem = readJson(file, null)
-    if (!mem) return { ok: false, error: '记忆文件读不出来' }
-    const f = String(row.field || '')
-    if (!FIELDS[f]) return { ok: false, error: '这条改写的字段不认识' }
-    mem[f] = FIELDS[f].type === 'scalar' ? String(row.before ?? '') : (Array.isArray(row.before) ? row.before : [])
-    const sizeBeforeAudit = (() => { try { return fs.statSync(file).size } catch { return -1 } })();
-    writeJsonAtomic(file, { ...mem, updatedAt: new Date().toISOString() })
-    noteWrite({ role, file, op: (op || 'edit'), before: sizeBeforeAudit, after: (() => { try { return fs.statSync(file).size } catch { return -1 } })(), who: 'rewrite', why: String(why || '') });
+    // 2026-10-30：撤销也要拿同一把锁；原来这里引用了不存在的 op/why，运行时必抛 ReferenceError
+    const fail = withLock(file, () => {
+      const mem = readJson(file, null)
+      if (!mem) return '记忆文件读不出来'
+      const f = String(row.field || '')
+      if (!FIELDS[f]) return '这条改写的字段不认识'
+      mem[f] = FIELDS[f].type === 'scalar' ? String(row.before ?? '') : (Array.isArray(row.before) ? row.before : [])
+      const before = (() => { try { return fs.statSync(file).size } catch { return -1 } })()
+      writeJsonAtomic(file, { ...mem, updatedAt: new Date().toISOString() })
+      noteWrite({ role, file, op: 'revert', before, after: (() => { try { return fs.statSync(file).size } catch { return -1 } })(), who: 'rewrite', why: '撤销' })
+      return ''
+    })
+    if (fail) return { ok: false, error: fail }
   } else {
     return { ok: false, error: `不认识的改写目标：${row.target}` }
   }

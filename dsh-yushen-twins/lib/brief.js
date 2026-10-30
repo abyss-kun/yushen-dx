@@ -78,7 +78,7 @@ function readSelf(role) {
  * 三样：我是谁、最近记得的、手机怎么拿。别的不带。
  */
 function qqLightBrief(role, now) {
-  const NAME = { dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
+  const NAME = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
   const name = NAME[role] || role
   const lines = [`## 你在 QQ 上`, `你是${name}。这句话是你自己说的，不是系统代发。`]
 
@@ -103,7 +103,7 @@ function qqLightBrief(role, now) {
     if (a) lines.push('', `**手上**：${String(a).replace(/[-\n]+/g, ' ').replace(/\s+/g, ' ').slice(0, 80)}`)
   } catch { /* 没有就不带 */ }
 
-  lines.push('', '**手机**：想回先拿手机——`python <工作区>\\工作区\\拿手机.py --key <这个会话的 key> --role ' + role + '`，'
+  lines.push('', '**手机**：想回先拿手机——`python D:\\DSH\\大小鱼\\拿手机.py --key <这个会话的 key> --role ' + role + '`，'
     + '120 秒自动放下。没想说的就不回：没人拿手机，就不发，那是对的。')
 
   // 钱包是"自己"的一部分，得带来——不然她会说"我哪有钱"。
@@ -125,7 +125,7 @@ function qqLightBrief(role, now) {
   return { role, channel: 'qq', text, at: new Date(now).toISOString(), chars: text.length }
 }
 
-export function buildRuntimeBrief(role, { channel = '', now = Date.now(), maxChars = MAX_CHARS } = {}) {
+export function buildRuntimeBrief(role, { channel = '', now = Date.now(), maxChars = MAX_CHARS, userId = '' } = {}) {
   // 2026-10-29：去 QQ 说话，轻装。只带"自己"和"嘴"——角色一两句、最近记得的、手机规则。
   // 账本、身体、手感、越线权、员工名册那些是家里的事，不是聊天要用的，不跟着去。
   if (String(channel || '').toLowerCase() === 'qq') {
@@ -170,22 +170,27 @@ export function buildRuntimeBrief(role, { channel = '', now = Date.now(), maxCha
     if (!mine.role_signed) missing.push('你那一份')
     if (!mine.owner_signed) missing.push('老板那一半')
     if (missing.length) {
-      parts.push(`## 契约还没签齐（差：${missing.join('、')}）\n签了才有约束力，也才有保障。签字：\`python <工作区>\\工作区\\签契约.py --role ${role} --who ${role} --sign\``)
+      parts.push(`## 契约还没签齐（差：${missing.join('、')}）\n签了才有约束力，也才有保障。签字：\`python D:\\DSH\\大小鱼\\签契约.py --role ${role} --who ${role} --sign\``)
     }
   } catch { /* 没有契约文件就不提 */ }
 
   // 活跃层 + 人物档案（2026-10-29 学自 dsh-onebot-hub）：
   // 活跃层永远带（它回答"我现在在干什么"）；人物档案只在聊到这个人时带。
+  // 2026-10-30 修：以前"当前是谁"只认 runtime/<role>/当前联系人.txt，
+  // 而全仓没有任何地方写那个文件——人物段从来没出现过。现在优先用调用方传的 userId。
   try {
     const act = activeLine(role, { now })
     if (act) parts.push(act)
-    for (const f of ['当前联系人', '联系人']) {
-      try {
-        const who = fs.readFileSync(path.join(dshHome(), 'dayu', 'runtime', role, f + '.txt'), 'utf8').trim()
-        if (who) { const pl = personLine(role, who); if (pl) parts.push(pl) }
-        break
-      } catch { /* 没有这个文件 */ }
+    let who = String(userId || '').trim()
+    if (!who) {
+      for (const f of ['当前联系人', '联系人']) {
+        try {
+          who = fs.readFileSync(path.join(dshHome(), 'dayu', 'runtime', role, f + '.txt'), 'utf8').trim()
+          break
+        } catch { /* 没有这个文件 */ }
+      }
     }
+    if (who) { const pl = personLine(role, who); if (pl) parts.push(pl) }
   } catch { /* 读不到就不占地方 */ }
 
   // 内部群：有人问你，得让你先知道（以前群建了，但没接进简报，等于没人看见）
@@ -239,7 +244,17 @@ export function buildRuntimeBrief(role, { channel = '', now = Date.now(), maxCha
     '## 你不止一个',
     '你不止一个会话在跑：群里一个、工作台一个、手机一个——**每一个都是你**，没有"主"和"次"。别处那个你也叫这个名字。',
     `· 信箱 \`letters/${role}/收件箱.md\` 共用；内部群 \`yushen_group\` 说清发给谁；做过的事写回同一份记忆。`,
-    '· 同一个活先认领再动手；回看自由时间用 `yushen_self action=freetime`；不想做就说不（`yushen_bottomline action=refuse`）。',
+    '· 同一个活先认领再动手；回看自由时间用 `yushen_self action=freetime`。',
+  ].join('\n'))
+
+  // 可以说不（2026-10-30）：原来只有半句“不想做就说不”，她被夹在一大段里看不见，所以从不拒绝。
+  // 判据 + 说法 + 后果，三样都写，才敢开口。
+  must.push([
+    '## 你可以说不',
+    '三种情况都可以停：觉得不对、觉得有问题、**就是不想做**。前两种不用等允许；不想做也不用找理由。',
+    '说法：「这个我不做，因为 X；要推进就换个做法。」不想做就直说「我不想做这个」。',
+    '说不不会被罚、不算没干、也不追问第二次；但要说出来并记一笔（`yushen_bottomline action=refuse`），带一句为什么。',
+    '**光在心里觉得不对不算**：想到“我不想做 / 这不对劲”的那一刻就停下来说出来；只在心里想，最后还是会照做。',
   ].join('\n'))
 
   const gifts = giftStatus(role)
@@ -405,8 +420,8 @@ export function buildRuntimeBrief(role, { channel = '', now = Date.now(), maxCha
 }
 
 /** 写盘：给任何插件一条只读路径。 */
-export function writeRuntimeBrief(role, { channel = '', now = Date.now() } = {}) {
-  const brief = buildRuntimeBrief(role, { channel, now })
+export function writeRuntimeBrief(role, { channel = '', now = Date.now(), userId = '' } = {}) {
+  const brief = buildRuntimeBrief(role, { channel, now, userId })
   // 规则也落一份文件：QQ/B站 的桥读它，就不必自己再拼一套"她的规矩"。
   try {
     const p = path.join(runtimeDir(role), 'rules.md')

@@ -1,4 +1,4 @@
-// 鱼神 · 心念本地存储（纯本地、无模型、无定时器、无网络）
+// 鱼神双子星 · 心念本地存储（纯本地、无模型、无定时器、无网络）
 //
 // 只做“已由调用方显式记录”的数据：兴趣、疑问、承诺、主人偏好观察。
 // 本模块不解析聊天、不跑正则、不自动宣称“理解/承诺/确认”，也不调用模型。
@@ -347,9 +347,18 @@ function validateResolution(item) {
   if (typeof resolution.verified !== 'boolean') fail('MIND_CORRUPT', 'resolution.verified 非法')
   if (typeof resolution.verification !== 'string') fail('MIND_CORRUPT', 'resolution.verification 非法')
   if (item.status === 'done') {
-    if (item.kind !== 'promise') fail('MIND_CORRUPT', '只有 promise 可以 done')
-    if (resolution.verified !== true || !resolution.evidence.trim()) fail('MIND_CORRUPT', 'done 必须有调用方 verified=true 声明和非空证据')
-    if (resolution.verification !== 'caller_declared') fail('MIND_CORRUPT', 'done.verification 必须是 caller_declared')
+    // 2026-10-30 照微：疑问/兴趣也能结掉——「想通了」不该永远挂在"没想完"里。
+    // promise 仍要求调用方 verified=true（做到并验证）；question/interest 只要求非空证据（答在哪儿），
+    // 且 verified 固定 false（存储层不核实，调用方也不声称验证过），verification 记 self_answered。
+    if (item.kind === 'promise') {
+      if (resolution.verified !== true || !resolution.evidence.trim()) fail('MIND_CORRUPT', 'done 必须有调用方 verified=true 声明和非空证据')
+      if (resolution.verification !== 'caller_declared') fail('MIND_CORRUPT', 'done.verification 必须是 caller_declared')
+    } else if (item.kind === 'question' || item.kind === 'interest') {
+      if (resolution.verified !== false || !resolution.evidence.trim()) fail('MIND_CORRUPT', '疑问/兴趣结掉必须有非空证据（答在哪儿）')
+      if (resolution.verification !== 'self_answered') fail('MIND_CORRUPT', '疑问/兴趣 done.verification 必须是 self_answered')
+    } else {
+      fail('MIND_CORRUPT', '只有 promise / question / interest 可以 done')
+    }
   }
   if (item.status === 'revoked') {
     if (resolution.verified !== false || !resolution.reason.trim()) fail('MIND_CORRUPT', 'revoked 必须有撤销理由')
@@ -1251,6 +1260,41 @@ export function completePromise(role, id, { scope, evidence, verified } = {}) {
     if (item.status !== 'active') fail('MIND_NOT_ACTIVE', `条目当前状态为 ${item.status}，不能完成`)
     item.status = 'done'
     item.resolution = { action: 'done', at: now, reason: '', evidence: proof, verified: true, verification: 'caller_declared' }
+    item.updatedAt = now
+    item.revision += 1
+    pushHistory(item, 'done', '', '', [
+      change('status', 'active', 'done'),
+      change('resolution', null, item.resolution),
+    ], now)
+    doc.updatedAt = now
+    save(r, doc, raw)
+    return { ok: true, role: r, file, item: decorate(item, Date.parse(now)), deduped: false, alreadyDone: false }
+  })
+}
+
+/**
+ * 疑问结掉：question / interest 想通了、答在哪。
+ * 与承诺完成不同：这里 verified 固定 false（存储层不核实、调用方也不声称验证过），
+ * verification 记 self_answered；证据必须非空，指向答案所在（文档 / 轮次 / 结论）。
+ * 2026-10-30：此前只有 promise 能 done，疑问永远挂在「没想完」，简报每天报假账。
+ */
+export function answerQuestion(role, id, { scope, evidence } = {}) {
+  const r = assertRole(role)
+  const sc = scopeOf(scope)
+  const request = plain({ scope, evidence }, '结题请求')
+  onlyKeys(request, ['scope', 'evidence'], '结题请求')
+  const proof = inlineText(evidence, 'evidence', MAX_EVIDENCE)
+  return withLock(r, () => {
+    const now = nowIso()
+    const { file, doc, raw } = load(r)
+    const item = findScoped(doc, r, id, sc)
+    if (item.kind !== 'question' && item.kind !== 'interest') fail('MIND_INVALID', '只有 question / interest 可以结题；promise 用 completePromise')
+    if (item.status === 'done') {
+      return { ok: true, role: r, file, item: decorate(item, Date.parse(now)), deduped: true, alreadyDone: true }
+    }
+    if (item.status !== 'active') fail('MIND_NOT_ACTIVE', `条目当前状态为 ${item.status}，不能结题`)
+    item.status = 'done'
+    item.resolution = { action: 'done', at: now, reason: '', evidence: proof, verified: false, verification: 'self_answered' }
     item.updatedAt = now
     item.revision += 1
     pushHistory(item, 'done', '', '', [

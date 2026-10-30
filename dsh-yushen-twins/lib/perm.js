@@ -43,7 +43,7 @@ export function getApproval(id) {
 }
 
 /** 申请一条系统级权限：同一命令 10 分钟内不重复开单。 */
-export function requestApproval({ command, reason = '', who = '管家' } = {}) {
+export function requestApproval({ command, reason = '', who = '大鱼' } = {}) {
   const text = String(command || '').trim()
   if (!text) throw new Error('command 不能为空')
   const list = read()

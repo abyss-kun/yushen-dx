@@ -1,5 +1,5 @@
 import { characterIds } from './characters.js'
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 鱼窝：两只鱼当前的形象 + 名字。
 // 图只落用户目录（~/.dsh/dayu/avatars/<role>/idle.<ext>），永不进发布包。
 // 没有用户图时回落到插件自带的默认形象（assets/avatars/<role>/idle.*）。
@@ -20,10 +20,19 @@ export const DEFAULT_AVATARS = path.join(PKG, 'assets', 'avatars')
 const INDEX = path.join(NEST_DIR, 'index.json')
 
 // dragon 在鱼窝里只管形象和站位；她的人格卡与常驻会话在 soul/ 与 lib/residence.js，不写进 nest 档案。
-// 角色从名册读（2026-10-27）
-export function roleList() { try { return characterIds() } catch { return [] } }
-export const ROLE_LABEL = { dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
-export const DEFAULT_NAMES = { dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
+// 角色从名册读（2026-10-27）；2026-10-30：出厂只住一个，但包里三张形象都要能取，所以把自带形象目录并进来。
+export function roleList() {
+  const ids = new Set()
+  try { for (const id of characterIds()) ids.add(id) } catch { /* 名册读不到 */ }
+  try {
+    for (const e of fs.readdirSync(DEFAULT_AVATARS, { withFileTypes: true })) {
+      if (e.isDirectory()) ids.add(e.name)
+    }
+  } catch { /* 没有自带形象目录 */ }
+  return [...ids]
+}
+export const ROLE_LABEL = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
+export const DEFAULT_NAMES = { dayu: '阿鲲', xiaoyu: '阿鲤', dragon: '照微' }
 
 function assertRole(role) {
   if (!roleList().includes(role)) throw new Error(`role 只能是 ${roleList().join(' / ')}`)
@@ -286,7 +295,7 @@ export function adoptBytes(role, name, ext, buf, from = {}) {
   return adoptBuffer(role, name, clean, buf, from)
 }
 
-/** 收一只“客人”：不占管家/助手的位置，单独进 guests。 */
+/** 收一只“客人”：不占大鱼/小鱼的位置，单独进 guests。 */
 export function adoptGuest(name, ext, buf, from = {}) {
   const clean = normalizeExt(ext)
   if (!MIME_BY_EXT[clean]) throw new Error('只收 png / jpg / webp / gif')

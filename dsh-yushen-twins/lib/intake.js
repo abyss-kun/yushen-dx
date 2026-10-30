@@ -1,6 +1,6 @@
-// 鱼神 · 入职分析（插件接入扫描）
+// 鱼神双子星 · 入职分析（插件接入扫描）
 // 插件装进来 = 员工入职：读包、登记、认人、收资产、记风险。
-// 产物：~/.dsh/xiaoyu/registry/index.json（助手保管）。
+// 产物：~/.dsh/xiaoyu/registry/index.json（小鱼保管）。
 //
 // 只读本地文件；扫描动作本身不联网、不执行插件代码、不改插件。
 // 注意：这是“扫描器”的边界，不是鱼神的边界——鱼神照常联网干活，只是不外传、不窃取。
@@ -99,9 +99,17 @@ export function analyzePlugin(dir) {
   if (/\batob\s*\(|Buffer\.from\([^)]*,\s*['"]base64['"]/.test(text)) suspicious.push('base64 解码')
   if (/child_process[\s\S]{0,120}(shell\s*:\s*true|exec\()/.test(text)) suspicious.push('shell 执行')
   // 删文件：把删的是谁都带上——只写「删除文件」的话，复核的人还得去翻源码才知道是不是它自己的标记。
+  // 2026-10-30：删**自己的标记/状态文件**（READY_FILE、LOCK、TMP、CACHE、PID…）是正常清理，
+  // 不算「值得看一眼」。这条误报在 dsh-feiyu-voice 上开了三次，补个按标识符的白名单。
+  const SELF_STATE = /(READY|MARK|LOCK|TMP|TEMP|CACHE|PID|FLAG)[A-Z0-9_]*/i
   const del = text.match(/rmSync\s*\(\s*([^,)\n]{1,60})/)
-  if (del) suspicious.push(`删除文件：${del[1].trim()}`)
-  else if (/unlinkSync/.test(text)) suspicious.push('删除文件')
+  if (del) {
+    const target = del[1].trim()
+    const upperIdent = /^[A-Za-z_$][\w$.]*$/.test(target) && /[A-Z]/.test(target)
+    if (!(upperIdent && SELF_STATE.test(target))) suspicious.push(`删除文件：${target}`)
+  } else if (/unlinkSync/.test(text) && !/unlinkSync\s*\(\s*[A-Z][A-Z0-9_]*/.test(text)) {
+    suspicious.push('删除文件')
+  }
   if (/process\.env\.[A-Z0-9_]*(KEY|TOKEN|SECRET)/.test(text)) suspicious.push('读环境变量里的密钥')
   const external = urls.filter((u) => {
     if (u.includes('${')) return false // 模板变量，解析不出真域名

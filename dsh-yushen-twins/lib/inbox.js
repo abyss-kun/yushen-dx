@@ -183,7 +183,7 @@ export function readInbox({ day = '', channel = 'qq', limit = 50, key = '', sinc
 }
 
 // ── 谁看到哪儿了：身体是共用的（同一个 QQ 号），眼睛各有一双 ──
-// 管家和助手登的是同一个号，所以收件箱只有一份；已读到哪一条，每人各记一份。
+// 大鱼和小鱼登的是同一个号，所以收件箱只有一份；已读到哪一条，每人各记一份。
 const READS = path.join(INBOX, '.reads.json')
 
 export function roleReads(role) {

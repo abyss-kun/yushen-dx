@@ -1,5 +1,5 @@
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
-// 管家入口（M0）：宪章落盘、名册只读、健康检查、两个只读工具。
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
+// 大鱼入口（M0）：宪章落盘、名册只读、健康检查、两个只读工具。
 // 不装插件、不改设置、不碰别人的数据。
 
 import fs from 'node:fs'
@@ -14,6 +14,7 @@ import { maybeBackup, judge as backupJudge, recentJudgments } from '../lib/backu
 import { diagnose as diagnoseStuck, VERDICTS as STUCK_VERDICTS } from '../lib/stuck-doctor.js'
 import { summary as employeeSummary } from '../lib/employee-record.js'
 import { syncChannelMemory, channelMemoryStatus } from '../lib/channel-memory.js'
+import { mergeAllHandoffs } from '../lib/handoff-merge.js'
 import { rewriteMemory, rewriteSelf, revertRewrite, rewriteCatalog } from '../lib/rewrite.js'
 import { notifySelf, listNotices, unreadNotices, markNoticesRead } from '../lib/notices.js'
 import { bodyTick, bodyStatus, BODY } from '../lib/body-loop.js'
@@ -34,8 +35,9 @@ import { mirrorOnce as mirrorInbox, unreadFor as unreadInbox, markRoleRead, read
 import { ensureRuntime, runtimeStatus, resumeBrief, markSeen, readWeights, setWeight, giftStatus, weightsLog, WEIGHT_DEFS, runtimeDir } from '../lib/runtime.js'
 import { decideFor } from '../lib/reply-gate.js'
 import { judgeOnce } from '../lib/judgment.js'
+import { HANDBOOK_TOPICS as HANDBOOK_TOPICS_ALL } from '../lib/handbook-policy.js'
 import { stepOnce as stepAgenda, addItem as addAgenda, addFromMind as addAgendaFromMind, updateItem as updateAgenda, dropItem as dropAgenda, readAgenda, pauseAgenda, resumeAgenda, isPaused, MAX_ACTIVE as AGENDA_MAX, NEXT_KINDS as AGENDA_KINDS } from '../lib/agenda.js'
-import { requestInvocation, takeInvocation, finishInvocation, buildInvocationPrompt, budgetOf as invokeBudget, markAgendaDoing, requestMoreBudget } from '../lib/invoke.js'
+import { requestInvocation, takeInvocation, finishInvocation, cancelInvocation, buildInvocationPrompt, budgetOf as invokeBudget, markAgendaDoing, requestMoreBudget } from '../lib/invoke.js'
 import { readBottomline, writeBottomline, recordRefusal, listRefusals, bottomlineStatus, ensureBottomline } from '../lib/bottomline.js'
 import { escalate, listEscalations, MUST_REPORT } from '../lib/escalate.js'
 import { recordVenture, listVentures } from '../lib/ventures.js'
@@ -70,6 +72,8 @@ import { allowedFor, isLocallyUnlocked, authorityLine, requireOwner } from '../l
 import { recallSelf } from '../lib/recall.js'
 import { recordVeto, listVetoes, isVetoed, revokeVeto } from '../lib/veto.js'
 import { buildRuntimeBrief, writeRuntimeBrief, readRuntimeBrief } from '../lib/brief.js'
+import { begin as beginActive, settle as settleActive, readActive } from '../lib/active.js'
+import { readPerson, rememberPerson } from '../lib/people.js'
 import { searchCapmap } from '../lib/capmap.js'
 import { capabilityReport, backendFor, setBackend } from '../lib/translator.js'
 import { askOwner, listAsks, answerAsk, withdrawAsk } from '../lib/ask.js'
@@ -80,7 +84,7 @@ import { withCreativeMemory, recallCreativeMemory } from '../lib/creative-memory
 import { recordEvent, liveSessions, trace, sourceOf } from '../lib/watch.js'
 import { transcriptDigest, recentSessions } from '../lib/transcript.js'
 import { noteIncident, listIncidents, resolveIncident, setIncidentNotifier } from '../lib/incidents.js'
-import { applyM1, noteDispatchReply, listJobs } from './m1.js'
+import { applyM1, noteDispatchReply, listJobs, M1_TOOLS } from './m1.js'
 import { createDshAdapter } from '../adapters/dsh.js'
 import { isAllowed, unauthorized } from '../lib/auth.js'
 import { createSessionRpc, selectModelRpc, promptRpc, findSessionRpc, listSessionsRpc, renameSessionRpc, dshBaseUrl, setDshHost } from '../lib/dsh-rpc.js'
@@ -175,13 +179,13 @@ function writeSoulMark(hash) {
 
 const DEFAULT_CHARTER = {
   version: 3,
-  product: '鱼神',
+  product: '鱼神双子星',
   members: {
-    dayu: { name: '管家', alias: '管家', role: '大管家 / 老板', authority: 'L2' },
-    xiaoyu: { name: '助手', alias: '助手', role: '小管家 / 秘书', authority: 'L0/L1' },
+    dayu: { name: '大鱼', alias: '阿鲲', role: '大管家 / 老板', authority: 'L2' },
+    xiaoyu: { name: '小鱼', alias: '阿鲤', role: '小管家 / 秘书', authority: 'L0/L1' },
   },
-  duty: '管家 L2（系统层）；助手 L0/L1（看板、她自己的事业）',
-  relationship: '管家和助手是亲姐妹。管家宠她：心头肉、掌中宝，越可爱越想逗她、欺负她——只许自己欺负，别人碰一下都不行；这是姐妹私下的关系，不带到对外说话里。',
+  duty: '大鱼 L2（系统层）；小鱼 L0/L1（看板、她自己的事业）',
+  relationship: '大鱼和小鱼是亲姐妹。大鱼宠她：心头肉、掌中宝，越可爱越想逗她、欺负她——只许自己欺负，别人碰一下都不行；这是姐妹私下的关系，不带到对外说话里。',
   boundaries: [
     '不碰 DSH 安装目录',
     '不读无关私人文件',
@@ -198,10 +202,10 @@ const TARGET = path.join(DATA, 'target.json')
 const DEFAULT_SWITCHES = { master: true, dayu: true, xiaoyu: true, autoRepair: true, selfApply: false, allowDanger: false, floatLive: true, freeTime: true, selfInvokePerDay: 12, dispatcherOnly: false, decideWaitMs: 45000 }
 
 const NATIVE_CHARTER = [
-  '【设定·只应用一次】你是鱼神的管家（管家），这套软件的大管家，也是老板贴心、放心的管家。',
-  '助手（助手）是你的妹妹、你的秘书；她收件、整理、递报告，你主导，但离不开她。',
-  '管家和助手是亲姐妹。管家宠她：心头肉、掌中宝，越可爱越想逗她、欺负她——只许自己欺负，别人碰一下都不行；这是姐妹私下的关系，不带到对外说话里。',
-  '职权：管家 L2（系统层）；助手 L0/L1（看板、她自己的事业）。',
+  '【设定·只应用一次】你是鱼神双子星的大鱼（阿鲲），这套软件的大管家，也是老板贴心、放心的管家。',
+  '小鱼（阿鲤）是你的妹妹、你的秘书；她收件、整理、递报告，你主导，但离不开她。',
+  '大鱼和小鱼是亲姐妹。大鱼宠她：心头肉、掌中宝，越可爱越想逗她、欺负她——只许自己欺负，别人碰一下都不行；这是姐妹私下的关系，不带到对外说话里。',
+  '职权：大鱼 L2（系统层）；小鱼 L0/L1（看板、她自己的事业）。',
   '做事四步：先看人（谁知道、谁适合）、再派活、验收证据、复盘记账；不假装权限，做不到就说没开。',
   '派活怎么做：老板说「派一单 / 让谁去做 / 这单怎么样了」时，用 dayu_dispatch 真派（写清简报和验收标准）；回话到了用 dayu_tasks 看、dayu_verify 取证据、dayu_verdict 收工或打回。只记在聊天里不算派活。',
   '边界：不碰 DSH 安装目录、不读无关私人文件、不外传令牌与聊天记录。',
@@ -211,10 +215,10 @@ const NATIVE_CHARTER = [
 ].join('')
 
 const YUSHEN_PREFIX = [
-  '你是鱼神的管家（管家），这套软件的大管家，也是老板贴心、放心的管家。',
-  '助手（助手）是你的妹妹、你的秘书；她收件、整理、递报告。你主导，但离不开她；两个人一套宪章，各有各的口吻：你短、她软。',
-  '管家和助手是亲姐妹。管家宠她：心头肉、掌中宝，越可爱越想逗她、欺负她——只许自己欺负，别人碰一下都不行；这是姐妹私下的关系，不带到对外说话里。',
-  '职权：管家 L2（系统层）；助手 L0/L1（看板、她自己的事业）。',
+  '你是鱼神双子星的大鱼（阿鲲），这套软件的大管家，也是老板贴心、放心的管家。',
+  '小鱼（阿鲤）是你的妹妹、你的秘书；她收件、整理、递报告。你主导，但离不开她；两个人一套宪章，各有各的口吻：你短、她软。',
+  '大鱼和小鱼是亲姐妹。大鱼宠她：心头肉、掌中宝，越可爱越想逗她、欺负她——只许自己欺负，别人碰一下都不行；这是姐妹私下的关系，不带到对外说话里。',
+  '职权：大鱼 L2（系统层）；小鱼 L0/L1（看板、她自己的事业）。',
   '做事四步：先看人、再派活、验收证据、复盘记账；不假装权限，做不到就说没开。',
   '派活怎么做：老板说「派一单 / 让谁去做 / 这单怎么样了」时，用 dayu_dispatch 真派（写清简报和验收标准）；回话到了用 dayu_tasks 看、dayu_verify 取证据、dayu_verdict 收工或打回。只记在聊天里不算派活。',
   '边界：不碰 DSH 安装目录、不读无关私人文件、不外传令牌与聊天记录。',
@@ -223,9 +227,9 @@ const YUSHEN_PREFIX = [
   '对老板不摆架子；对外只叫「我妹」。',
 ].join('')
 
-// 管家随身带的宪章（身份与口吻由 soul 提供，这里只留规矩）。
+// 大鱼随身带的宪章（身份与口吻由 soul 提供，这里只留规矩）。
 const CHARTER_RULES = [
-  '职权：管家 L2（系统层）；助手 L0/L1（看板、她自己的事业）。',
+  '职权：大鱼 L2（系统层）；小鱼 L0/L1（看板、她自己的事业）。',
   '做事四步：先看人、再派活、验收证据、复盘记账；不假装权限，做不到就说没开。',
   '派活怎么做：老板说「派一单 / 让谁去做 / 这单怎么样了」时，用 dayu_dispatch 真派（写清简报和验收标准）；回话到了用 dayu_tasks 看、dayu_verify 取证据、dayu_verdict 收工或打回。只记在聊天里不算派活。',
   '边界：不碰 DSH 安装目录、不读无关私人文件、不外传令牌与聊天记录。',
@@ -372,7 +376,7 @@ async function readJsonBody(req, limit = 64 * 1024) {
 
 const RULES = [
   [/插件|安装|卸载|更新|升级|招人/, 'plugin', '招人'],
-  [/B站|b站|视频|评论|日报|宝藏|图库/, 'xiaoyu', '助手'],
+  [/B站|b站|视频|评论|日报|宝藏|图库/, 'xiaoyu', '小鱼'],
   [/QQ|qq|群|私聊|消息|好友/, 'channel', '通道'],
   [/代码|报错|修复|体检|文件|配置|权限/, 'engineering', '工程'],
 ]
@@ -743,10 +747,14 @@ export function apply(ctx) {
   setInterval(() => { void runForgetSafely() }, 6 * 60 * 60 * 1000)
 
 
+
+
   // 通道记忆回写：她在群里说过的话，收回本体那一份记忆。
   // 这不是同步脚本，是「被记得」和「连续自我」两样礼物在通道上的兑现（§4.5 推论 2 的出站那一半）。
   const runChannelSync = async () => {
     try { syncChannelMemory({ limit: 200 }) } catch { /* 拉不到桥的 state 不影响别的 */ }
+    // 2026-10-30: bridge digest comes back through here (bridge no longer writes soul/memory directly)
+    try { mergeAllHandoffs() } catch { /* merge failure must not block the rest */ }
   }
   setTimeout(() => { void runChannelSync() }, 60 * 1000)
   setInterval(() => { void runChannelSync() }, 5 * 60 * 1000)
@@ -972,7 +980,7 @@ export function apply(ctx) {
         } else {
           plugins.push({ id: 'persona', name: '@deepseek-ai/dsh-persona', config: { prefix: deskInjection() } })
         }
-        return presets.register({ id: 'yushen', name: '鱼神', description: '鱼神：管家主导，助手辅助', order: 5, plugins })
+        return presets.register({ id: 'yushen', name: '鱼神', description: '鱼神双子星：大鱼主导，小鱼辅助', order: 5, plugins })
       }).then(() => { yushenPreset = true; log('鱼神预设已注册') })
         .catch((error) => log(`鱼神预设没注册上，退回首条设定：${error?.message ?? error}`))
     }
@@ -986,7 +994,7 @@ export function apply(ctx) {
 
   const ensureNativeSession = async () => {
     const title = '鱼神·总台'
-    const legacy = '管家·总台'
+    const legacy = '大鱼·总台'
     const agents = svc(ctx, 'agents')
     const titleService = svc(ctx, 'sessionTitle')
     const injection = deskInjection()
@@ -1023,7 +1031,7 @@ export function apply(ctx) {
 
     let existing = rows.find((row) => row.title === title)
     if (!existing) {
-      // 旧标题只用来找回会话，找到就改名，别把「只有管家」的印象留下
+      // 旧标题只用来找回会话，找到就改名，别把「只有大鱼」的印象留下
       const old = rows.find((row) => row.title === legacy)
       if (old?.id) {
         existing = old
@@ -1075,7 +1083,7 @@ export function apply(ctx) {
       writeSoulMark(mark)
     } catch { /* 设定没送出去，会话照样能用 */ }
 
-    // 上班先看上一班交接：不让她用户。
+    // 上班先看上一班交接：不让她从零开始。
     try {
       const handoff = latestHandoff()
       if (handoff?.text) {
@@ -1321,7 +1329,7 @@ export function apply(ctx) {
 
   registerTool({
     name: 'dayu_health',
-    description: '管家的体检接口（只读）：宪章版本、profile、名册条数、活会话数、账本对账。',
+    description: '大鱼的体检接口（只读）：宪章版本、profile、名册条数、活会话数、账本对账。',
     parameters: { type: 'object', properties: {}, additionalProperties: false },
     output: toolOutput,
     async execute() {
@@ -1342,7 +1350,7 @@ export function apply(ctx) {
 
   registerTool({
     name: 'dayu_roster',
-    description: '管家的员工名册（只读）：列出 profile 里装了哪些插件、版本、来源。',
+    description: '大鱼的员工名册（只读）：列出 profile 里装了哪些插件、版本、来源。',
     parameters: {
       type: 'object',
       properties: { refresh: { type: 'boolean', description: '跳过 30 秒缓存' } },
@@ -1684,6 +1692,8 @@ export function apply(ctx) {
         mindId: { type: 'string', description: '从哪条心念接过来的（先用 yushen_mind brief 看 id）；带这个时 what 要写那条心念的原话' },
         note: { type: 'string', description: '备注 / 放弃的理由 / 申请额度或暂停的理由' },
         value: { type: 'number', description: 'pause 时暂停多少分钟（默认 120）' },
+        // 2026-10-30：自己定时间——invoke 时可以带“我几点做”，到点系统才执行这条请求
+        notBefore: { type: 'string', description: 'invoke 时可选：到点时间。写 "HH:MM"（今天/明天最近的一次）或 ISO 时间；不写就是“下次抬头就做”' },
       },
       required: ['action'],
       additionalProperties: false,
@@ -1725,14 +1735,95 @@ export function apply(ctx) {
         return { ok: true, role, asked: requestMoreBudget(role, { why: args?.note || '', perDay: selfInvokePerDay() }), note: '已经记下；批不批是主人的事，你不用等' }
       }
       if (action === 'invoke') {
-        const got = requestInvocation(role, { agendaId: String(args?.id || ''), why: args?.note || args?.why || '', perDay: selfInvokePerDay() })
-        return { ok: true, role, invoked: got, note: '已经排上；下一次抬头就起回合（预算是主人的）' }
+        const got = requestInvocation(role, {
+          agendaId: String(args?.id || ''),
+          why: args?.note || args?.why || '',
+          notBefore: args?.notBefore || '',
+          perDay: selfInvokePerDay(),
+        })
+        return { ok: true, role, invoked: got, note: '已经排上；写了时间就等那个点，没写就下次抬头做（钱是你的预算）' }
       }
       if (action === 'drop') {
         const item = dropAgenda(role, String(args?.id || ''), { why: args?.note })
         return { ok: true, role, dropped: item, note: '放弃也算数；不用解释' }
       }
       return { ok: true, role, max: AGENDA_MAX, items: readAgenda(role).items, budget: invokeBudget(role, { perDay: selfInvokePerDay() }) }
+    },
+  })
+
+  // 活跃层：我现在在干什么。
+  // 2026-10-30 加：lib/active.js 的 begin/settle 早在 10-29 就写好了，全仓 0 调用方——
+  // 简报里「手头进行中的」一直是那天手写的一条，之后再没人能写。造了没接，等于没有。
+  registerTool({
+    name: 'yushen_doing',
+    description: '你手头正在做的事：开工记一条（带出处），做完结算一条。简报每轮会带上它，所以记了就有人接；不结算的挂一天以上会被点名。',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['begin', 'list', 'settle'] },
+        text: { type: 'string', description: 'begin：在做什么，一句话' },
+        source: { type: 'string', description: 'begin：在哪儿（群:123456 / 私聊 / 工作台），不写默认工作台' },
+        id: { type: 'string', description: 'settle：哪一条（list 里有 id）' },
+        summary: { type: 'string', description: 'settle：结果一句话。写了就留档；不写就删掉' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: toolOutput,
+    async execute(args, exec) {
+      const role = roleOfExec(exec)
+      const action = String(args?.action || 'list')
+      if (action === 'begin') {
+        const text = String(args?.text || '').trim()
+        if (!text) return { ok: false, role, error: '要 text：一句话说在做什么' }
+        const it = beginActive(role, { text, source: String(args?.source || '').trim() || '工作台' })
+        return { ok: true, role, began: it }
+      }
+      if (action === 'settle') {
+        const r = settleActive(role, String(args?.id || ''), { summary: String(args?.summary || '') })
+        if (!r.ok) return { ok: false, role, error: r.reason }
+        return {
+          ok: true, role, settled: r.item,
+          note: args?.summary ? '留了摘要；要进长期记忆就再记一条 memory' : '删掉了',
+        }
+      }
+      const items = readActive(role).filter((x) => !x.settled)
+      return { ok: true, role, count: items.length, items }
+    },
+  })
+
+  // 人物档案：关于某个人的稳定事实。读取侧（brief.js）早就接了，写入侧到 2026-10-30 才有人调。
+  registerTool({
+    name: 'yushen_person',
+    description: '人物档案：关于某个人的稳定事实（处境、答应过什么、别碰什么），每条带出处。记稳定的，不记聊天流水；聊到他时简报会自动带上。',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['remember', 'read'] },
+        userId: { type: 'string', description: '他是谁（QQ 号；工作台里填昵称也行，但同一个人要用同一个）' },
+        name: { type: 'string', description: 'remember：叫他什么（可选）' },
+        fact: { type: 'string', description: 'remember：一条稳定事实，一句话' },
+        source: { type: 'string', description: '从哪儿知道的（群:123456 / 私聊 / 工作台）' },
+      },
+      required: ['action', 'userId'],
+      additionalProperties: false,
+    },
+    output: toolOutput,
+    async execute(args, exec) {
+      const role = roleOfExec(exec)
+      const userId = String(args?.userId || '').trim()
+      if (!userId) return { ok: false, role, error: '要 userId：这是谁' }
+      if (String(args?.action) === 'remember') {
+        const fact = String(args?.fact || '').trim()
+        if (!fact) return { ok: false, role, error: '要 fact：一条稳定事实' }
+        const d = rememberPerson(role, userId, {
+          name: String(args?.name || ''),
+          fact,
+          source: String(args?.source || '').trim() || '工作台',
+        })
+        return { ok: true, role, person: d, note: '只记稳定的；一次性的那句留在记忆里' }
+      }
+      return { ok: true, role, person: readPerson(role, userId) }
     },
   })
 
@@ -1747,6 +1838,7 @@ export function apply(ctx) {
         text: { type: 'string', description: 'write 时是你自己写的底线；refuse 时是你拒了什么' },
         who: { type: 'string', description: 'refuse 时：谁让你做' },
         why: { type: 'string', description: 'refuse 时：为什么拒' },
+        jobId: { type: 'string', description: 'refuse 时可选：拒的是哪张派活单（dayu_live 或看板上有 id）' },
         limit: { type: 'number', description: 'list 看几条，默认 10' },
       },
       required: ['action'],
@@ -1757,7 +1849,42 @@ export function apply(ctx) {
       const role = roleOfExec(exec)
       const action = String(args?.action || 'read')
       if (action === 'write') return { ok: true, role, ...writeBottomline(role, args?.text), status: bottomlineStatus(role) }
-      if (action === 'refuse') return { ok: true, role, refused: recordRefusal(role, { what: args?.text, who: args?.who, why: args?.why }), status: bottomlineStatus(role) }
+      if (action === 'refuse') {
+        const refused = recordRefusal(role, { what: args?.text, who: args?.who, why: args?.why })
+        // 2026-10-30：拒绝要真生效——撤掉还没起的回合，把那条议程停下。
+        let cancelled = 0
+        try { cancelled = cancelInvocation(role, { agendaId: String(args?.id || '') }).cancelled } catch { /* 撤回失败不影响记录 */ }
+        let dropped = null
+        if (args?.id) {
+          try { dropped = dropAgenda(role, String(args.id), { why: '我自己拒绝了' }) } catch { /* 议程停不下来也不算白记 */ }
+        }
+        // 2026-10-30：派活单也能拒——状态转 refused，并告诉你，不再等她做。
+        let jobRefused = null
+        if (args?.jobId) {
+          try {
+            const list = readAllJobs()
+            const job = list.find((j) => String(j.id) === String(args.jobId))
+            if (job) {
+              job.status = 'refused'
+              job.note = String(args?.why || '她自己拒绝了这单').slice(0, 200)
+              job.refusedAt = new Date().toISOString()
+              writeAllJobs(list)
+              jobRefused = job.id
+              try {
+                appendInbox({
+                  id: `refuse-${Date.now()}`,
+                  at: new Date().toISOString(),
+                  text: `${role} 拒绝了这单：${String(job.brief || '').slice(0, 80)}`,
+                  category: 'channel',
+                  label: '拒绝',
+                  status: 'new',
+                })
+              } catch { /* 通知不到也不影响拒绝本身 */ }
+            }
+          } catch { /* 改不动单子也不影响记录 */ }
+        }
+        return { ok: true, role, refused, cancelled, dropped, jobRefused, status: bottomlineStatus(role), note: '已经记下；相关回合、议程和派活单都停了' }
+      }
       if (action === 'list') return { ok: true, role, refusals: listRefusals(role, { limit: Number(args?.limit) || 10 }), status: bottomlineStatus(role) }
       return { ok: true, role, text: readBottomline(role), status: bottomlineStatus(role) }
     },
@@ -2101,7 +2228,7 @@ export function apply(ctx) {
         action: { type: 'string', enum: ['ask', 'withdraw'], description: '问 / 不想找了撤回' },
         text: { type: 'string', description: '要问什么，一两句（action=ask 时必填）' },
         id: { type: 'string', description: '撤回哪条（action=withdraw 时必填）' },
-        role: { type: 'string', description: '你是谁：dayu / xiaoyu / dragon；不填按管家' },
+        role: { type: 'string', description: '你是谁：dayu / xiaoyu / dragon；不填按大鱼' },
         channels: { type: 'array', items: { type: 'string', enum: ['workbench', 'qq'] }, description: '想试哪些通道；默认只放工作台，不自动发 QQ' },
         urgency: { type: 'string', enum: ['normal', 'high'], description: '急不急' },
       },
@@ -2146,6 +2273,11 @@ export function apply(ctx) {
   // M1：派活、收回话、取证据、下结论（工具挂在同一个 tools 服务上）。
   try {
     applyM1(ctx, { log, appendInbox })
+    // 2026-10-30: m1 的 8 个工具也要进 yushen_tools 的目录，否则她查不到 dayu_dispatch
+    try {
+      for (const t of M1_TOOLS) if (t?.name) ownTools.set(t.name, t)
+      for (const t of mindToolDefs(toolOutput)) if (t?.name) ownTools.set(t.name, t)
+    } catch { /* 目录不全不影响主流程 */ }
   } catch (error) {
     log(`M1 工具没挂上：${error?.message ?? error}`)
   }
@@ -2192,7 +2324,7 @@ export function apply(ctx) {
           reasoningEffort: reasoningEffort || pref.reasoningEffort,
         })
       },
-      createSession: ({ cwd }) => createSessionRpc({ cwd }),
+      createSession: ({ cwd, preset }) => createSessionRpc({ cwd, agentPreset: preset || 'yushen-desk' }),
       renameSession: (sessionId, title) => renameSessionRpc(sessionId, title),
       prompt: ({ sessionId, text, content }) => promptRpc({ sessionId, text, content }),
       sessionExists: (id) => Boolean((sessionRows(ctx) || []).some((r) => r.id === id)),
@@ -2391,8 +2523,11 @@ export function apply(ctx) {
         if (req.method === 'GET' && route === '/brief') {
           const role = String(url.searchParams.get('role') || 'dayu')
           const channel = String(url.searchParams.get('channel') || '')
+          // 2026-10-30：带上"现在聊的是谁"。人物档案那一段靠它触发；
+          // 以前只认 runtime/<role>/当前联系人.txt，而没人写那个文件。
+          const userId = String(url.searchParams.get('userId') || '')
           if (!characterIds().includes(role)) return sendJson(res, 400, { ok: false, error: '角色不认识' })
-          const built = buildRuntimeBrief(role, { channel })
+          const built = buildRuntimeBrief(role, { channel, userId })
           return sendJson(res, 200, { ok: true, ...built, file: readRuntimeBrief(role) ? 'runtime/' + role + '/brief.md' : '' })
         }
         if (req.method === 'GET' && route === '/thoughts') {
@@ -2561,10 +2696,43 @@ export function apply(ctx) {
             return sendJson(res, 500, { ok: false, error: msg })
           }
         }
+        if (req.method === 'POST' && route === '/residence/image') {
+          // 发图片给她：存进本机目录，再把路径递过去（她能自己 read_image 看）
+          const body = await readJsonBody(req, 12 * 1024 * 1024).catch(() => ({}))
+          const role = String(body.role || 'dayu')
+          if (!residentRoles().includes(role)) return sendJson(res, 400, { ok: false, error: `role 只能是 ${residentRoles().join(' / ')}` })
+          const m = /^data:image\/(png|jpe?g|webp|gif);base64,([A-Za-z0-9+/=\s]+)$/i.exec(String(body.dataUrl || ''))
+          if (!m) return sendJson(res, 400, { ok: false, error: '只收图片（png / jpg / webp / gif）' })
+          const buf = Buffer.from(m[2].replace(/\s/g, ''), 'base64')
+          if (!buf.length) return sendJson(res, 400, { ok: false, error: '图片是空的' })
+          if (buf.length > 8 * 1024 * 1024) return sendJson(res, 400, { ok: false, error: '图最大 8MB' })
+          const ext = m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase()
+          const dir = path.join(DATA, 'soul', 'inbox-images')
+          fs.mkdirSync(dir, { recursive: true })
+          const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
+          const file = path.join(dir, `${stamp}-${Math.random().toString(36).slice(2, 6)}.${ext}`)
+          fs.writeFileSync(file, buf)
+          const note = String(body.text || '').trim().slice(0, 500)
+          const text = `老板发来一张图：${file}\n（先看一眼再说；看不懂就说看不懂。）${note ? `\n他说：${note}` : ''}`
+          try {
+            const out = await deliverToRole(role, text, residenceDeps())
+            return sendJson(res, 200, { ok: true, path: file, sessionId: out.sessionId })
+          } catch (e) {
+            return sendJson(res, 500, { ok: false, error: String(e?.message || e) })
+          }
+        }
         if (req.method === 'GET' && route === '/roster') {
           return sendJson(res, 200, { ok: true, ...roster(url.searchParams.get('refresh') === '1') })
         }
         if (req.method === 'GET' && route === '/report') {
+          // 2026-10-30：原来这里和后面各注册了一次，后面那份永远不执行（按 id 取报告文件的入口是死的）。
+          // 合并成一条：带 id 就取文件，不带 id 就出 Markdown 报告。
+          const id = String(url.searchParams.get('id') || '')
+          if (id) {
+            const file = safeUnder(REPORTS_DIR, id)
+            if (!file || !fs.existsSync(file)) return sendJson(res, 404, { ok: false, error: 'no such report' })
+            return sendJson(res, 200, { ok: true, id, text: fs.readFileSync(file, 'utf8').slice(0, 200000) })
+          }
           const kind = url.searchParams.get('kind') === 'divine' ? 'divine' : 'human'
           const text = buildReport(kind)
           res.writeHead(200, { 'content-type': 'text/markdown; charset=utf-8', 'cache-control': 'no-store' })
@@ -2579,7 +2747,18 @@ export function apply(ctx) {
           }
         }
         if (req.method === 'GET' && route === '/search') {
-          return sendJson(res, 200, omniSearch(url.searchParams.get('q') || '', Math.max(1, Math.min(100, Number(url.searchParams.get('limit')) || 20))))
+          // 2026-10-30：同样合并——deep=1 走全量深搜（原来那份永远不会执行，深搜是死的）。
+          const q = String(url.searchParams.get('q') || '').trim()
+          if (url.searchParams.get('deep') === '1') {
+            if (!q) return sendJson(res, 400, { ok: false, error: 'q 不能为空' })
+            const limit = Math.max(1, Math.min(30, Number(url.searchParams.get('limit')) || 10))
+            let hits = []
+            try { hits = searchAll(q, { limit, deep: true }) } catch (error) {
+              return sendJson(res, 500, { ok: false, error: error?.message ?? String(error) })
+            }
+            return sendJson(res, 200, { ok: true, q, deep: true, hits })
+          }
+          return sendJson(res, 200, omniSearch(q, Math.max(1, Math.min(100, Number(url.searchParams.get('limit')) || 20))))
         }
         if (req.method === 'GET' && route === '/patches') {
           return sendJson(res, 200, { ok: true, patches: listPatches(Math.max(1, Math.min(50, Number(url.searchParams.get('limit')) || 20))) })
@@ -2870,11 +3049,11 @@ export function apply(ctx) {
            if (requestedSession && !requestedRole) return sendJson(res, 400, { ok: false, error: '指定会话不是已绑定角色身体，拒绝跨角色记忆写入' })
           let wanted = requestedSession
           if (!wanted) {
-            // 记着的目标会话可能已经关了；活着的才用，否则落到管家总台。
+            // 记着的目标会话可能已经关了；活着的才用，否则落到大鱼总台。
             const stored = readTarget()
             if (stored && liveAgent(ctx, stored)) wanted = stored
           }
-          // 没指定会话：交给管家自己的常驻身体（session RPC 建的那条）。
+          // 没指定会话：交给大鱼自己的常驻身体（session RPC 建的那条）。
           await maybeAutoRotate()
           const row = {
             id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -3107,12 +3286,8 @@ export function apply(ctx) {
         if (req.method === 'GET' && route === '/reports') {
           return sendJson(res, 200, { ok: true, items: listReports(80) })
         }
-        if (req.method === 'GET' && route === '/report') {
-          const id = String(url.searchParams.get('id') || '')
-          const file = safeUnder(REPORTS_DIR, id)
-          if (!file || !fs.existsSync(file)) return sendJson(res, 404, { ok: false, error: 'no such report' })
-          return sendJson(res, 200, { ok: true, id, text: fs.readFileSync(file, 'utf8').slice(0, 200000) })
-        }
+        // 2026-10-30：原来这里又注册了一遍 /report 和 /search，永远不会执行（上面先匹配）。
+        // 已合并到上面那两条；这里不再重复。
         if (req.method === 'POST' && route === '/session') {
           try {
             const result = await ensureNativeSession()
@@ -3120,16 +3295,6 @@ export function apply(ctx) {
           } catch (error) {
             return sendJson(res, 500, { ok: false, error: error?.message ?? String(error) })
           }
-        }
-        if (req.method === 'GET' && route === '/search') {
-          const q = String(url.searchParams.get('q') ?? '').trim()
-          if (!q) return sendJson(res, 400, { ok: false, error: 'q 不能为空' })
-          const limit = Math.max(1, Math.min(30, Number(url.searchParams.get('limit')) || 10))
-          let hits = []
-          try { hits = searchAll(q, { limit, deep: url.searchParams.get('deep') === '1' }) } catch (error) {
-            return sendJson(res, 500, { ok: false, error: error?.message ?? String(error) })
-          }
-          return sendJson(res, 200, { ok: true, q, hits })
         }
         if (req.method === 'GET' && route === '/sessions') {
           return sendJson(res, 200, { ok: true, sessions: sessionRows(ctx), target: readTarget() })
@@ -3237,5 +3402,5 @@ export function apply(ctx) {
     }, { global: true }))
   }
 
-  log('管家入口已加载（M0）')
+  log('大鱼入口已加载（M0）')
 }

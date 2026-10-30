@@ -237,17 +237,47 @@ export async function ensureLocalServer({ waitSeconds = 180 } = {}) {
   throw new Error(`本地服务 ${waitSeconds} 秒没起来（看 bin/llama-server.log）`)
 }
 
+/** 2026-10-30：请求格式规范化。
+ *  本地模型对格式极敏感（角色名错一个字母、空消息、content 是数组而不是字符串，
+ *  都会让它“看起来在答，其实答歪了”）。发之前统一：角色只留三种、内容压成纯文本、空的丢掉。 */
+export function normalizeMessages(messages) {
+  const ALLOWED = new Set(['system', 'user', 'assistant'])
+  const out = []
+  for (const m of Array.isArray(messages) ? messages : []) {
+    if (!m) continue
+    const role = String(m.role || '').toLowerCase()
+    if (!ALLOWED.has(role)) continue
+    const raw = Array.isArray(m.content)
+      ? m.content.map((p) => (typeof p === 'string' ? p : String(p?.text || ''))).join('')
+      : String(m.content ?? '')
+    const text = raw.replace(/\r\n/g, '\n').trim()
+    if (!text) continue
+    out.push({ role, content: text })
+  }
+  return out
+}
+
+/** 从本地服务的返回里取文本：有的版本给字符串，有的给数组。 */
+export function pickLocalText(data) {
+  const content = data?.choices?.[0]?.message?.content
+  if (typeof content === 'string') return content.trim()
+  if (Array.isArray(content)) return content.map((p) => String(p?.text || '')).join('').trim()
+  return String(data?.content || data?.choices?.[0]?.text || '').trim()
+}
+
 /** 跟本地模型说一句话，拿回文本。 */
 export async function chatLocal(messages, { maxTokens = 400, temperature = 0.3, timeoutMs = 120000 } = {}) {
+  const msgs = normalizeMessages(messages)
+  if (!msgs.length) throw new Error('没有可发的消息（角色或内容不合法）')
   await ensureLocalServer()
   const r = await fetch(`${BASE}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ model: 'local', temperature, max_tokens: maxTokens, messages }),
+    body: JSON.stringify({ model: 'local', temperature, max_tokens: maxTokens, messages: msgs }),
     signal: AbortSignal.timeout(timeoutMs),
   })
   if (!r.ok) throw new Error(`本地服务返回 ${r.status}`)
   const data = await r.json()
   touchLocalUse() // 记一笔：这次真用过；闲着超过 10 分钟就会被关掉，不再常驻占内存
-  return String(data?.choices?.[0]?.message?.content || '').trim()
+  return pickLocalText(data)
 }

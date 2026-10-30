@@ -1,5 +1,5 @@
 // 全知·在场：系统现在是什么样——进程、窗口标题、监听端口、磁盘。
-// 只读采集，不弹窗、不改系统；结果进 actions.jsonl，供全知页/助手查。
+// 只读采集，不弹窗、不改系统；结果进 actions.jsonl，供全知页/小鱼查。
 
 import { execFile } from 'node:child_process'
 import { recordAction } from './actionlog.js'

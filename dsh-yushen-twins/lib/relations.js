@@ -6,7 +6,7 @@ import path from 'node:path'
 import { qqBridgeState } from './paths.js'
 
 const BRIDGE_STATE = () => process.env.QQ_BRIDGE_STATE || qqBridgeState()
-const ROLE_FILE = { dayu: 'people-角色.json', xiaoyu: 'people-角色.json', dragon: 'people-角色.json' }
+const ROLE_FILE = { dayu: 'people-大肥鱼.json', xiaoyu: 'people-小肥鱼.json', dragon: 'people-小肥鱼.json' }
 
 function fileFor(role) { return path.join(BRIDGE_STATE(), ROLE_FILE[role] || ROLE_FILE.dayu) }
 

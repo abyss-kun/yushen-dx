@@ -1,8 +1,8 @@
 // 群：每个角色一个。同角色的几个身体都在里面，跨角色消息两边各记一条。
 //
 // 一条消息写两处，共用一个 id：
-//   自己群  from: 管家·我  to: 助手      dir: out
-//   对方群  from: 管家     to: 助手·我   dir: in
+//   自己群  from: 大鱼·我  to: 小鱼      dir: out
+//   对方群  from: 大鱼     to: 小鱼·我   dir: in
 //
 // 读的时候按档位给，不一次全倒出来。只读本地，不调模型。
 import fs from 'node:fs'
@@ -15,7 +15,7 @@ const DATA = path.join(HOME, 'dayu')
 const GROUPS = path.join(DATA, 'groups')
 const PUBLIC = 'all'    // 公共群：三个人都在的地方
 
-export const NAMES = Object.freeze({ xiaoyu: '助手', dayu: '管家', dragon: '顾问' })
+export const NAMES = Object.freeze({ xiaoyu: '小鱼', dayu: '大鱼', dragon: '照微' })
 
 export const LEVELS = Object.freeze({
   low: { items: 0, questions: 3, cap: 900, label: '低' },

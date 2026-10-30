@@ -16,7 +16,7 @@ function stamp() { return new Date().toISOString().replace(/[:.]/g, '-') }
 
 /**
  * 生成要写进 personaPrompt 的文本（带标记，便于下次判断是不是我们写的）。
- * 只同步一个角色；默认助手（B站号是她的）。
+ * 只同步一个角色；默认小鱼（B站号是她的）。
  *
  * 2026-10-27 修：以前用 buildSceneText（含简报/心情/回场），每次都会变，
  * 于是"第二次同步"永远 changed=true。人格只该用稳定来源：卡 + 本体 brief。

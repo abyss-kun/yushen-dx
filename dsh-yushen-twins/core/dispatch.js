@@ -63,7 +63,7 @@ export async function pickEmployee(host) {
   const busy = openSessions()
   return (sessions || []).find((row) => row.running
     && !busy.has(row.id)
-    && !/鱼神·总台|管家·总台/.test(row.title || '')
+    && !/鱼神·总台|大鱼·总台/.test(row.title || '')
     && !String(row.id).startsWith('dayu-job-')) || null
 }
 

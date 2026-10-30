@@ -1,4 +1,4 @@
-// 鱼神 · 双报告（神版 / 人版）
+// 鱼神双子星 · 双报告（神版 / 人版）
 // 数据：events / dispatch / incidents；同一件事，两种写法。
 
 import fs from 'node:fs'

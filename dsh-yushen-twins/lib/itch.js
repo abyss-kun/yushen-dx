@@ -61,7 +61,7 @@ export function itchOf(role, { now = Date.now() } = {}) {
   const today = new Date(now).toISOString().slice(0, 10)
   let moved = 0
   try {
-    const log = fs.readFileSync(path.join(DATA, '..', '..', 'DSH', '工作区', '运营', `数据-${today}.jsonl`), 'utf8')
+    const log = fs.readFileSync(path.join(DATA, '..', '..', 'DSH', '大小鱼', '运营', `数据-${today}.jsonl`), 'utf8')
       .split(/\r?\n/).filter(Boolean)
       .map((l) => { try { return JSON.parse(l) } catch { return null } }).filter(Boolean)
     const last = {}

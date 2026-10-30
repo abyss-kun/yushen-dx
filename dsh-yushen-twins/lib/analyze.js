@@ -8,9 +8,9 @@ import { IRREVERSIBLE } from './authority.js'
 const ASK = /(？|\?|吗|呢|怎么|为什么|多少|能不能|可不可以|是不是|有没有|帮我|请问)/
 const ORDER = /(^|[\s，。！？])(去|给我|把|马上|立刻|必须|赶紧|不许|别|禁止)/
 const EMOTION = /(气死|烦死|难受|开心|高兴|难过|无语|离谱|卧槽|操|妈的|呜|哭)/
-const ABOUT_HER = /(你|你们|管家|助手|鱼神|管家|助手|鱼姐|鱼宝)/
+const ABOUT_HER = /(你|你们|阿鲲|阿鲤|鱼神|大鱼|小鱼|鱼姐|鱼宝)/
 // 她在这套系统里的名字（桥上的号也叫这个）
-const SELF_NAMES = /(超级角色|角色|角色|鱼神|管家|助手)/
+const SELF_NAMES = /(超级大肥鱼|大肥鱼|小肥鱼|鱼神|阿鲲|阿鲤)/
 
 // 自动回复不是人说的话：不接、不学、不替它发
 const CANNED = [
@@ -86,7 +86,7 @@ export function analyzeMessage(text, { from = '', atMe = false, isOwner = false 
   }
 }
 
-function AT_ME(t) { return /@\s*(助手|管家|鱼神|管家|助手)/.test(t) }
+function AT_ME(t) { return /@\s*(小鱼|大鱼|鱼神|阿鲲|阿鲤)/.test(t) }
 
 /** 一批：先数清楚，再挑出要她注意的。 */
 export function analyzeBatch(messages = [], { limit = 5 } = {}) {

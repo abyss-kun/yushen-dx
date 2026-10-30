@@ -162,7 +162,7 @@ export async function bodyTick(role, { now = Date.now(), pulseCheck = null } = {
   } catch { /* 读不到就不报，别把身体循环拖垮 */ }
 
   // 本体近况：写一份给桥看（2026-10-27 补"本体→通道"那一向）。
-  // 写出去的内容必须是"能进群的"——私聊不进群（管家定的规矩），过滤在 buildRecap 里做。
+  // 写出去的内容必须是"能进群的"——私聊不进群（大鱼定的规矩），过滤在 buildRecap 里做。
   try {
     const rc = writeRecap(id, { now })
     if (rc.ok && !rc.empty) rep.did.push(`本体近况已更新（${rc.lines} 行）`)

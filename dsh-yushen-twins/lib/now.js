@@ -4,7 +4,7 @@ const STATUS_ERROR = /error|fail|retry|blocked/i
 const TEXT_ERROR = /❌|失败|出错|异常/
 const ACTIVE_STATUS = (s) => Boolean(s) && s !== 'turn/end'
 const baseName = (p) => String(p || '').split(/[\\/]/).filter(Boolean).pop() || ''
-const ROLE_NAME = { dayu: '管家', xiaoyu: '助手', dragon: '顾问' }
+const ROLE_NAME = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
 
 /** 没标题的会话也要能认人：先看派活，再看工作区 + 谁在跑。 */
 export function titleOf(row, role = '') {

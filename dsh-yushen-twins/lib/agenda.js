@@ -12,8 +12,12 @@ import { runtimeDir, ensureRuntime } from './runtime.js'
 import { unreadFor } from './inbox.js'
 
 export const STATES = Object.freeze(['want', 'doing', 'blocked', 'waiting', 'done', 'dropped'])
-export const LOCAL_STEPS = Object.freeze(['read-inbox', 'read-file', 'check'])
-export const NEXT_KINDS = Object.freeze([...LOCAL_STEPS, 'ask-model', 'write', 'tell-owner'])
+// check 不算"本地能推的一步"（2026-10-30 改）：tick 没法核对任何东西，
+// 它只会写一句「核对过一遍，暂时没新东西」——那是假话；而且会把她写下的 note 盖掉
+// （她那条「流水作者归属」的疑点，被盖了 459 次，最后还是靠人重写回来）。
+// check 仍是她能选的下一步，只是它要模型，就地标 waiting，别假装做了。
+export const LOCAL_STEPS = Object.freeze(['read-inbox', 'read-file'])
+export const NEXT_KINDS = Object.freeze([...LOCAL_STEPS, 'check', 'ask-model', 'write', 'tell-owner'])
 // 5 而不是 3：老板 2026-10-28 又加了两件长期活（每天去对口视频下说一句真话、每天学一点），
 // 3 件装不下。防堆靠的是「每件都要有下一步」，不是靠把上限压死。
 export const MAX_ACTIVE = 5
@@ -171,7 +175,8 @@ export function stepOnce(role, { now = Date.now() } = {}) {
   const item = pool[0]
   if (!LOCAL_STEPS.includes(item.nextKind)) {
     item.state = 'waiting'
-    item.note = `下一步要模型（${item.nextKind}），等她下次自己决定要不要花`
+    // 她自己写的 note 不盖：那是她的判断，tick 只有「记账」的资格，没有替她下结论的资格。
+    if (!item.note) item.note = `下一步要模型（${item.nextKind}），等她下次自己决定要不要花`
     item.updatedAt = nowIso(now)
     doc.updatedAt = item.updatedAt
     writeJson(agendaFile(role), doc)
@@ -193,7 +198,8 @@ export function stepOnce(role, { now = Date.now() } = {}) {
     note = `这一步没成：${e?.message || e}`
   }
   item.tries = Number(item.tries || 0) + 1
-  item.note = note.slice(0, 200)
+  // 这一步看到的东西记在 lastTry，不占她的 note（note 是她写的）。
+  item.lastTry = { at: nowIso(now), note: note.slice(0, 200) }
   item.updatedAt = nowIso(now)
   doc.updatedAt = item.updatedAt
   writeJson(agendaFile(role), doc)
@@ -204,5 +210,9 @@ export function stepOnce(role, { now = Date.now() } = {}) {
 export function agendaBrief(role, { limit = 3 } = {}) {
   const items = activeItems(role).slice(0, limit)
   if (!items.length) return ''
-  return items.map((i) => `- 「${i.what}」${i.state === 'blocked' ? '（卡住了）' : i.state === 'waiting' ? '（等下步要模型）' : ''}${i.note ? `：${i.note.slice(0, 40)}` : ''}`).join('\n')
+  return items.map((i) => {
+    // 先给她自己写的那句；她没有，才拿 tick 看到的那句补上。
+    const note = String(i.note || i.lastTry?.note || '')
+    return `- 「${i.what}」${i.state === 'blocked' ? '（卡住了）' : i.state === 'waiting' ? '（等下步要模型）' : ''}${note ? `：${note.slice(0, 40)}` : ''}`
+  }).join('\n')
 }

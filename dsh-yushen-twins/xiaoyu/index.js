@@ -1,5 +1,5 @@
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
-// 助手入口：报到、示警、自己的会话（L0/L1）。系统级的事一律“找我姐”。
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
+// 小鱼入口：报到、示警、自己的会话（L0/L1）。系统级的事一律“找我姐”。
 
 import { workspace } from '../lib/paths.js'
 import fs from 'node:fs'
@@ -52,7 +52,7 @@ function injection() {
     ].filter(Boolean).join('\n\n')
   }
   return [
-    '你是助手（助手），这套软件的小管家，管家的妹妹。',
+    '你是小鱼（阿鲤），这套软件的小管家，大鱼的妹妹。',
     '你管自己的那摊：看板、日报、图库、学习；有姐姐在，系统级的事一般不出手，一句「这个得找我姐」。',
     '姐姐不在（单鱼模式）时，你顶上：能做就做，做完记账，等姐姐回来交接给她——这是克制，不是无能。',
     '说话软一点、会多问一句；认真、给依据、不确定就说拿不准。',
@@ -89,8 +89,8 @@ export function apply(ctx) {
         return sendJson(res, 200, {
           ok: true,
           role: 'xiaoyu',
-          name: '助手',
-          alias: '助手',
+          name: '小鱼',
+          alias: '阿鲤',
           dayu: fs.existsSync(CHARTER) ? 'present' : 'absent',
         })
       }
@@ -99,7 +99,7 @@ export function apply(ctx) {
         return sendJson(res, 200, alerts())
       }
 
-      // 助手保管的总目录：公司的一切记录，在她这里都查得到。
+      // 小鱼保管的总目录：公司的一切记录，在她这里都查得到。
       if (req.method === 'GET' && route === '/catalog') {
         try { return sendJson(res, 200, buildCatalog()) } catch (e) { return sendJson(res, 500, { ok: false, error: String(e?.message || e) }) }
       }
@@ -150,5 +150,5 @@ export function apply(ctx) {
     },
   }), 'yushen: /api/xiaoyu')
 
-  try { console.log('[yushen] 助手入口已加载（示警 + 会话）') } catch { /* 没有控制台 */ }
+  try { console.log('[yushen] 小鱼入口已加载（示警 + 会话）') } catch { /* 没有控制台 */ }
 }

@@ -18,8 +18,8 @@ import { bridgeStatePath } from './inbox.js'
 import { appendEvent } from './memory.js'
 import { listCharacters } from './characters.js'
 
-/** 桥说的角色名不是 id（「角色」/「角色」），要翻成 id 才写得到那份记忆。
- * 2026-10-27 的坑：桥标的是「角色」，记忆按 id `xiaoyu` 找，结果一条都没写进去，
+/** 桥说的角色名不是 id（「小肥鱼」/「大肥鱼」），要翻成 id 才写得到那份记忆。
+ * 2026-10-27 的坑：桥标的是「小肥鱼」，记忆按 id `xiaoyu` 找，结果一条都没写进去，
  * 游标还照样往前推进——账看起来在动，实际什么都没记。 */
 export function resolveRole(name, { ids = null } = {}) {
   const raw = String(name || '').trim()
@@ -27,7 +27,7 @@ export function resolveRole(name, { ids = null } = {}) {
   const rows = (() => { try { return ids || listCharacters() } catch { return [] } })()
   const hit = rows.find((c) => c.id === raw || c.name === raw || (c.alias && c.alias === raw))
   if (hit) return hit.id
-  const TABLE = { 角色: 'xiaoyu', 角色: 'dayu', 顾问: 'dragon', 顾问: 'dragon', 助手: 'xiaoyu', 管家: 'dayu' }
+  const TABLE = { 小肥鱼: 'xiaoyu', 大肥鱼: 'dayu', 龙娘: 'dragon', 照微: 'dragon', 小鱼: 'xiaoyu', 大鱼: 'dayu' }
   return TABLE[raw] || ''
 }
 
@@ -85,7 +85,7 @@ export function syncChannelMemory({ now = Date.now(), dryRun = false, limit = 20
   const result = { ok: true, statePath, scanned: rows.length, appended: 0, skipped: 0, byRole: {}, rows: [] }
 
   for (const r of rows) {
-    // 桥说的是「角色」，记忆按 id 存。翻不过来就不写、也不推游标——留给下次再试，
+    // 桥说的是「小肥鱼」，记忆按 id 存。翻不过来就不写、也不推游标——留给下次再试，
     // 绝不"推进了但没记"（2026-10-27 就是这么丢了一整晚 QQ 的话）。
     const id = resolveRole(r.role)
     if (!id) {

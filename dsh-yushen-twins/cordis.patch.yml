@@ -1,6 +1,6 @@
-# 鱼神：单入口挂两个子入口（框架 §2.4 的退路）。
+# 鱼神双子星：单入口挂两个子入口（框架 §2.4 的退路）。
 # 子路径名 dsh-yushen-twins/dayu 在 DSH 0.1.x 上没被装载器认下来，
-# 改用包根入口，内部依次挂管家、助手。
+# 改用包根入口，内部依次挂大鱼、小鱼。
 - insert:
     - id: dsh-yushen-twins
       name: dsh-yushen-twins

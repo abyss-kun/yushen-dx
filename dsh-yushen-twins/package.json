@@ -1,7 +1,8 @@
 {
   "name": "dsh-yushen-twins",
-  "version": "0.1.0",
-  "description": "鱼神：点化运行时（框架、宪章、三问、礼物、鱼窝基本型与预设角色）",
+  "version": "0.2.1",
+  "description": "鱼神双子星 · 大鱼（阿鲲）与小鱼（阿鲤）",
+  "author": "从零开始",
   "type": "module",
   "main": "./index.js",
   "exports": {
@@ -13,23 +14,23 @@
   },
   "files": [
     "index.js",
-    "client.js",
-    "cordis.patch.yml",
-    "lib/",
-    "kernel/",
-    "blank/",
-    "core/",
-    "adapters/",
-    "preset/",
     "assets/",
     "dayu/",
     "xiaoyu/",
+    "lib/",
+    "core/",
+    "adapters/",
+    "kernel/",
+    "blank/",
     "scripts/",
-    "CORE.md",
+    "docs/",
+    "client.js",
+    "cordis.patch.yml",
     "LICENSE",
     "NOTICE",
+    "COMMERCIAL.md",
     "THIRD_PARTY.md",
-    "COMMERCIAL.md"
+    "README.md"
   ],
   "dsh": {
     "client": {
@@ -39,8 +40,19 @@
       "patch": "./cordis.patch.yml"
     }
   },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5"
+  },
   "engines": {
     "node": ">=22.19"
+  },
+  "scripts": {
+    "check:utf8": "node scripts/check-utf8.mjs",
+    "prepack": "node scripts/check-protection.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "live": "node scripts/live-check.mjs",
+    "ui": "node scripts/nest-ui-check.mjs",
+    "test:xp": "node scripts/test-role-xp.mjs"
   },
   "license": "SEE LICENSE IN LICENSE"
 }

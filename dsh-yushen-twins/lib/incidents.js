@@ -1,5 +1,5 @@
-// 鱼神 · Copyright (c) 2026 用户. All rights reserved.
-// 事故单：谁出错、在哪、什么错、什么时候；助手示警与善后都挂在这上面。
+// 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
+// 事故单：谁出错、在哪、什么错、什么时候；小鱼示警与善后都挂在这上面。
 // 数据：~/.dsh/dayu/incidents.json（写前留 .bak）
 
 import fs from 'node:fs'
@@ -19,7 +19,7 @@ const DEDUPE_SKIP_STATUS = new Set(['fixed', 'closed'])
 const ESCALATE_AT = 3
 
 let notifier = null
-/** 管家/助手要“主动说一声”时接这里：新单、升级、结单。 */
+/** 大鱼/小鱼要“主动说一声”时接这里：新单、升级、结单。 */
 export function setIncidentNotifier(fn) {
   notifier = typeof fn === 'function' ? fn : null
 }
