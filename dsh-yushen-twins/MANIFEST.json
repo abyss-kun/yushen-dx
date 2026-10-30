@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-30T11:00:12.058Z",
+  "at": "2026-10-30T13:45:11.966Z",
   "files": [
     {
       "rel": "index.js",
@@ -19,12 +19,12 @@
     {
       "rel": "package.json",
       "bytes": 1256,
-      "sha": "dfeed73ae9ef"
+      "sha": "832e526c5964"
     },
     {
       "rel": "README.md",
-      "bytes": 12379,
-      "sha": "34e8c16ab359"
+      "bytes": 12654,
+      "sha": "c5971dbdd84b"
     },
     {
       "rel": "LICENSE",
@@ -53,8 +53,8 @@
     },
     {
       "rel": "dayu\\index.js",
-      "bytes": 197431,
-      "sha": "797309d9ea52"
+      "bytes": 198206,
+      "sha": "530c8b5370fe"
     },
     {
       "rel": "dayu\\m1.js",
@@ -103,8 +103,8 @@
     },
     {
       "rel": "lib\\authority.js",
-      "bytes": 4207,
-      "sha": "b436959fdb82"
+      "bytes": 4939,
+      "sha": "a44d961e9e32"
     },
     {
       "rel": "lib\\authz.js",
@@ -198,13 +198,13 @@
     },
     {
       "rel": "lib\\brief.js",
-      "bytes": 25354,
-      "sha": "6a2df813e91c"
+      "bytes": 25594,
+      "sha": "8fa669db5a15"
     },
     {
       "rel": "lib\\budget-book.js",
-      "bytes": 2663,
-      "sha": "fdbb4e47d3e0"
+      "bytes": 5999,
+      "sha": "97db283ad61b"
     },
     {
       "rel": "lib\\builtin.js",
@@ -283,8 +283,8 @@
     },
     {
       "rel": "lib\\cost.js",
-      "bytes": 4937,
-      "sha": "1bc28ee3ae56"
+      "bytes": 7288,
+      "sha": "d627ffe6b9ca"
     },
     {
       "rel": "lib\\crash.js",
@@ -473,8 +473,8 @@
     },
     {
       "rel": "lib\\issue.js",
-      "bytes": 5707,
-      "sha": "52c28355431f"
+      "bytes": 6121,
+      "sha": "3106d3f2f182"
     },
     {
       "rel": "lib\\itch.js",
@@ -763,8 +763,8 @@
     },
     {
       "rel": "lib\\rules-block.js",
-      "bytes": 7773,
-      "sha": "ceffbb1a062c"
+      "bytes": 8846,
+      "sha": "f6889b6c697e"
     },
     {
       "rel": "lib\\runtime.js",
@@ -913,8 +913,8 @@
     },
     {
       "rel": "lib\\worklog.js",
-      "bytes": 1634,
-      "sha": "e62d0f764c95"
+      "bytes": 2884,
+      "sha": "616f29361ec0"
     },
     {
       "rel": "core\\dispatch.js",
@@ -1433,8 +1433,8 @@
     },
     {
       "rel": "scripts/regression.mjs",
-      "bytes": 92973,
-      "sha": "8e5f23b25ea1"
+      "bytes": 101137,
+      "sha": "84292d391a5d"
     },
     {
       "rel": "scripts/verify-settings.mjs",
@@ -1453,8 +1453,8 @@
     },
     {
       "rel": "scripts/note-work.mjs",
-      "bytes": 2088,
-      "sha": "f86ad5c0a528"
+      "bytes": 5749,
+      "sha": "361bc88bb880"
     },
     {
       "rel": "docs/吸收与升级.md",
@@ -1777,5 +1777,5 @@
       "sha": "df7d66d533ca"
     }
   ],
-  "totalBytes": 4308476
+  "totalBytes": 4330747
 }

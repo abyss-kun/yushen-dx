@@ -51,7 +51,8 @@ export function readSelfNote(role) {
     const p = path.join(dshHome(), 'dayu', 'runtime', role, '纸条.json')
     const d = JSON.parse(fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, ''))
     const text = String(d?.text || '').trim()
-    if (!text) return null
+    // 2026-10-30：空壳便签（「1」、单字、纯符号）不算「留了一句话」——它只会占一段位置。
+    if (!text || text.length < 4 || /^[\d\s\p{P}\p{S}]+$/u.test(text)) return null
     return { text, at: String(d.at || '') }
   } catch { return null }
 }
@@ -349,8 +350,8 @@ export function buildRuntimeBrief(role, { channel = '', now = Date.now(), maxCha
   // 拿不准是不是本人：挂起等确认，敏感事先不办。
   try { const a = ownerAskLine(role); if (a) must.push(a) } catch { /* 没有待确认就不写 */ }
 
-  // 位置决定权限：远程只能办可逆的，不可逆的要在电脑前。
-  try { must.push(authorityLine()) } catch { /* 读不到就不写 */ }
+  // 位置决定权限：远程只能办可逆的，不可逆的要在电脑前。本机通道不再说「没在电脑前」。
+  try { must.push(authorityLine({ channel })) } catch { /* 读不到就不写 */ }
 
   // 权限只认本人：别人说什么都拿不到权限，直接拒。
   try { must.push(ownerOnlyLine()) } catch { /* 读不到就不写 */ }

@@ -1,6 +1,6 @@
 // 账：今天花了多少、云端一次大概多少、本地回是免费的。
 //
-// 用途只有一个：**告诉她**，好让她自己悠着点——不是拿它当闸门。
+// 用途只有一个：**把数摆给她看**——不是拿它当闸门，也不是替她决定花不花。
 // 数据源：桥的 token-usage.jsonl（三个桶）+ 官方价目表（model-prices.js 的口径）。
 import fs from 'node:fs'
 import path from 'node:path'
@@ -17,19 +17,63 @@ const PRICE = { hit: 0.02, miss: 1, write: 1, out: 4 }
 function pad(n) { return String(n).padStart(2, '0') }
 function dayKey(ms) { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
 
-/** 自己那份额度还剩多少（读 runtime/<role>/budget.json；没有就不写）。 */
+/** 本期从哪天开始（budget.json 的「本期」写着「2026-10-29 ~ 2026-11-11」）。读不出返回 0。 */
+export function periodStartMs(b) {
+  const m = String(b?.本期 || '').match(/(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return 0
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime()
+}
+
+/**
+ * 某人自己名下花了多少。QQ 那侧流水带 author，能分到人；工作台回合没署名，分不到人不假装。
+ * 只统计，不设限。
+ */
+export function spendForRole(role, { sinceMs = 0, now = Date.now() } = {}) {
+  if (!role) return { turns: 0, yuan: 0 }
+  const rows = readRows().filter((r) => {
+    const t = Number(r.t) || 0
+    return t && t >= sinceMs && t <= now && String(r.author || '') === String(role)
+  })
+  let cost = 0
+  for (const r of rows) {
+    const b = r.b || {}
+    cost += (Number(b.cacheHit) || 0) / 1e6 * PRICE.hit
+      + (Number(b.cacheMiss) || 0) / 1e6 * PRICE.miss
+      + (Number(b.cacheWrite) || 0) / 1e6 * PRICE.write
+      + (Number(b.output) || 0) / 1e6 * PRICE.out
+  }
+  return { turns: rows.length, yuan: Number(cost.toFixed(3)) }
+}
+
+/**
+ * 自己那份额度还剩多少。
+ * 2026-10-30 改：以前读 budget.json 里写死的「余额」——那数从设额度那天起没动过，
+ * 花 2 块和花 0 块看到的都一样。现在按真实流水现算：余额 = 总额 - 本期已花。
+ * 只报事实：不劝、不拦、不告诉她该怎么做。
+ */
 function ownBudgetLine(role, now) {
   if (!role) return ''
   try {
     const p = path.join(HOME, 'dayu', 'runtime', role, 'budget.json')
     const b = JSON.parse(fs.readFileSync(p, 'utf8'))
-    const rest = b.余额
-    const total = b.总额
-    if (rest === null || rest === undefined) {
+    const total = Number(b.总额)
+    if (!Number.isFinite(total)) {
       return `\n你自己那份账还没有额度（老板还没给）；今天已经花了多少，账本里记着。`
     }
-    const used = b.已用 ?? 0
-    return `\n**你自己的那份：还剩 ${Number(rest).toFixed(2)} 元**（本期给 ${Number(total).toFixed(2)}，已用 ${Number(used).toFixed(2)}）。花完就没有了，不是从别人那儿挪。`
+    const startMs = periodStartMs(b)
+    const span = startMs ? spendForRole(role, { sinceMs: startMs, now }) : { turns: 0, yuan: Number(b.已用 || 0) }
+    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
+    const today = spendForRole(role, { sinceMs: todayStart.getTime(), now })
+    const used = Number(span.yuan.toFixed(2))
+    const rest = Number((total - used).toFixed(2))
+    const end = b.本期 ? String(b.本期).split('~').pop().trim() : ''
+    // 她给自己定的日上限（不是别人下的命令）：只把数和差摆出来，不加话。
+    const limit = Number(b.我的日上限) || 0
+    const limitLine = limit
+      ? `\n你自己定的日上限 ${limit.toFixed(2)} 元，今天已经 ${today.yuan.toFixed(2)}（${today.yuan > limit ? '超了' : '还没到'}）。`
+      : ''
+    return `\n**你自己的那份：还剩 ${rest.toFixed(2)} 元**（本期给 ${total.toFixed(2)}${end ? `，到 ${end}` : ''}，已花 ${used.toFixed(2)}；按真实流水现算，每轮都会变）`
+      + `\n今天你名下 ${today.yuan.toFixed(2)} 元（${today.turns} 回合）——QQ 那侧的账，工作台回合没署名，分不到人。${limitLine}`
   } catch { return '' }
 }
 
@@ -102,7 +146,8 @@ export function costLine({ now = Date.now(), cache = null, role = '' } = {}) {
       .filter((r) => r && r.status === 'cost' && String(r.at || '').startsWith(new Date(now).toISOString().slice(0, 10)))
     if (recent.length) alerts = `\n账上记着：${recent.slice(-2).map((r) => String(r.text).replace(/^【账】/, '')).join('；')}。要不要跟他说、怎么说，你自己定。`
   } catch { /* 没账就不写 */ }
-  const line = `## 钱的事\n今天云端花了 ${s.yuan} 元（${s.turns} 次）；一次云端回合大约 ${per} 元；本地回是 0 元；不回的 0 元。主人不是富翁，你悠着点——怎么花、花不花，你自己定。`
+  // 只报数。不劝、不催——花不花是她自己的事（老板 2026-10-30 的话：不要用代码去控制她做什么）。
+  const line = `## 钱的事\nQQ 那边今天一共 ${s.yuan} 元（${s.turns} 回合）；一次云端回合大约 ${per} 元；本地回 0 元，不回也 0 元。`
     + ownBudgetLine(role, now) + failQuotaLine(role, now) + alerts
   return line
 }

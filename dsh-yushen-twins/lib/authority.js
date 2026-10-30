@@ -8,7 +8,9 @@ const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DATA = path.join(HOME, 'dayu')
 const UNLOCK = path.join(DATA, 'unlocked.json')
 
-export const LOCAL_CHANNELS = Object.freeze(['workbench', 'local', 'console', 'desktop'])
+// 2026-10-30：加上 'desk'——soul.js 的工作台场景键就叫 desk，它一直没进这张表，
+// 结果工作台会话被当成「远程」，天天在注入里说「没在电脑前」。这是名对不上，不是策略。
+export const LOCAL_CHANNELS = Object.freeze(['workbench', 'desk', 'local', 'console', 'desktop'])
 
 export const IRREVERSIBLE = Object.freeze([
   '转账、付款、发红包',
@@ -74,7 +76,12 @@ export function allowedFor(channel, action = '') {
 }
 
 /** 注入：她现在能办到哪一步。 */
-export function authorityLine() {
+export function authorityLine({ channel = 'desk' } = {}) {
+  // 2026-10-30 改：本机通道还写「没在电脑前」是假话——那条会话就跑在这台机器上。
+  // 位置这句只对远程通道有意义；本机只说「你在本机」，权限仍按不可逆那套问过老板。
+  if (channelKind(channel) === 'local') {
+    return '## 你现在的位置\n你在本机（这条会话就跑在这台机器上）。不可逆的事（钱、密钥、删数据）仍然先问老板，别自己拍板。'
+  }
   const u = isLocallyUnlocked()
   return u.ok
     ? `## 你现在的位置\n电脑刚解锁过（还剩约 ${Math.round((u.until - Date.now()) / 60000)} 分钟），不可逆的事这段窗口里可以办。`

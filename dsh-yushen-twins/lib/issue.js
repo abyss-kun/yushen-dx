@@ -103,16 +103,20 @@ export function recordSessionIssue(role, { sessionId = '', preset = '', tools = 
 export function readSessionIssue(role) {
   try {
     const row = JSON.parse(fs.readFileSync(sessionIssueFile(role), 'utf8'))
-    const expect = 'yushen'
-    const off = String(row?.preset || '') !== expect
-    return { ...row, ok: row?.ok !== false && !off, reason: off ? `预设是 ${row?.preset || '未知'}，不是 ${expect}（工具没挂上）` : '' }
+    // 2026-10-30 改：原来按「预设名是不是 yushen」判工具挂没挂，预设一改名就永远显示「工具没挂上」。
+    // 现在只看登记时到底有没有工具；而且下面那句会带上登记时间，过期的账一眼看得出来。
+    const tools = Number(row?.tools) || 0
+    const off = tools === 0
+    return { ...row, ok: row?.ok !== false && !off, reason: off ? `登记时工具 0 个（预设 ${row?.preset || '未知'}）` : '' }
   } catch { return null }
 }
 
 /** 给她看的一句：她这条会话到底收没收到工具。 */
 export function sessionIssueLine(role) {
   const row = readSessionIssue(role)
-  if (!row) return '## 发放状态\n这条会话还没登记发放（工具可能没挂上）；不确定就先查 yushen_can。'
-  if (!row.ok) return `## 发放状态\n${row.reason || '上次发放不完整'}；工具可能拿不到，先查 yushen_can，别直接说没有。`
-  return `## 发放状态\n预设 ${row.preset}，工具 ${row.tools} 个，手册 ${row.handbook.length} 章。`
+  if (!row) return '## 发放状态\n这条会话还没登记发放；现在有没有工具，以 yushen_can 为准。'
+  const at = String(row.at || '').slice(0, 16).replace('T', ' ')
+  const when = at ? `登记于 ${at}` : '没记登记时间'
+  if (!row.ok) return `## 发放状态\n${when}：${row.reason || '那次发放不完整'}。这是**登记时的账，不是现在**——现在有没有工具，用 yushen_can 查一次为准。`
+  return `## 发放状态\n${when}：预设 ${row.preset}，工具 ${row.tools} 个，手册 ${row.handbook.length} 章。`
 }

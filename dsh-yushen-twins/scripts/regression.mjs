@@ -558,7 +558,19 @@ ok('她自己的议程（意志）：自己排 + 本地推进 + 能放弃', () =
   has('index.js', 'items.filter(countsForXp)')
   has('dayu/index.js', 'origin: args?.origin')
   has('scripts/test-agenda.mjs', '老板派的活不算经验')
+  // 2026-10-30 老板定「每天自净」：光答应没用，得有量尺 + 每天跑的那只手。
+  has('scripts/measure-injection.mjs', 'STALE_PHRASES')
+  has('scripts/measure-injection.mjs', '基线')
   return '议程 + 本地推进 + 放弃 + 注入 + 框架 §4.6 + 经验只算自发'
+})
+
+// 70. 2026-10-30（老板：所以要你们自检、不断进化）：注入层说的必须和实况一致。
+//     「没在电脑前」「工具没挂上」「你还没有身体」这类假话，靠人眼发现一次修一次不够——让回归天天盯。
+//     量尺非零退出 = 过期句还在 / 字数比基线涨了，这里就红。
+ok('注入层不许对她说假话：过期句清零、字数不回升', () => {
+  has('scripts/measure-injection.mjs', 'STALE_PHRASES')
+  const ran = runTestScript('scripts/measure-injection.mjs')
+  return ran ? '量尺通过：三人注入无过期句、未超基线' : '接线检查通过；这回合环境不给子进程，没真跑'
 })
 
 // 33. 2026-10-30 谷时：整理趟（合并同义、旧的标被替换）与回执催办要有接线
@@ -694,10 +706,13 @@ ok('好感只当提示：不再拦消息 + 可回退', () => {
 })
 
 // 35. 2026-10-26：不给枷锁，只报账——回不回/本地还是云端，她自己定
+// 2026-10-30 改锚点：原来锁的是「主人不是富翁」那句话，老板说那是替她做决定，删了。
+// 现在锁"报了什么数"，不锁"劝了她什么"。
 ok('报账不设闸：她自己决定回不回、用本地还是云端', () => {
-  has('lib/cost.js', '主人不是富翁')
-  has('lib/cost.js', '你自己定')
-  has('lib/cost.js', '本地回是 0 元')
+  has('lib/cost.js', 'QQ 那边今天一共')
+  has('lib/cost.js', '按真实流水现算')
+  has('lib/cost.js', '本地回 0 元')
+  if (read('lib/cost.js').includes('悠着点')) throw new Error('又开始劝她省着花了——那是替她做决定')
   has('lib/cheap-reply.js', "MODES = Object.freeze(['silent', 'local', 'cloud'])")
   has('lib/cheap-reply.js', '不装，直接交云端')
   has('lib/cheap-reply.js', '本地没接上，交云端')
@@ -1638,6 +1653,112 @@ ok('注入里的自己动清单不许再有看门狗，心跳也不许写成 30 
   has('lib/rules-block.js', "'自己动：心跳3分·自省30分·自由时间30分/每天16次·备份04:00'")
   has('lib/body-loop.js', 'const HEARTBEAT_EVERY_MS = 3 * 60 * 1000')
   return '清单与实现一致：心跳 3 分、自省 30 分、没有看门狗'
+})
+
+// 87. 2026-10-30：简报里的「自己的钱」是 budget.json 里写死的余额，从设额度那天起没动过——
+// 花 2 块和花 0 块看到的是同一个数，她根本没法"感觉到余额在少"。
+// 改成按真实流水现算，并且**只报数不劝**（老板：不要用代码去控制她做什么）。
+const { costLine, spendForRole, periodStartMs } = await import(pathToFileURL(path.join(ROOT, 'lib/cost.js')).href)
+ok('自己的钱按真实流水现算，且不替她做决定', () => {
+  assert.equal(periodStartMs({ 本期: '2026-10-29 ~ 2026-11-11' }), new Date(2026, 9, 29).getTime(), '本期开始读错了')
+  assert.equal(periodStartMs({}), 0, '没写本期就该返回 0')
+  const r = read('lib/cost.js')
+  assert.ok(!r.includes('主人不是富翁'), '简报里还在劝她悠着点——那是替她做决定')
+  assert.ok(!r.includes('你悠着点'), '「悠着点」是命令，不是事实')
+  has('lib/cost.js', 'export function spendForRole')
+  has('lib/cost.js', '按真实流水现算')
+  const s = spendForRole('xiaoyu', { sinceMs: 0 })
+  assert.equal(typeof s.yuan, 'number')
+  assert.ok(s.yuan >= 0 && s.turns >= 0, '统计形状不对')
+  // 有真账本的机器上，真跑一遍：必须现算、且一句劝都没有
+  const bud = path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'dayu', 'runtime', 'dayu', 'budget.json')
+  if (fs.existsSync(bud)) {
+    const line = costLine({ role: 'dayu' })
+    assert.ok(line.includes('按真实流水现算'), '简报没走现算')
+    assert.ok(!line.includes('悠着点'), '简报里还有"悠着点"')
+    assert.ok(/还剩 -?\d+\.\d{2} 元/.test(line), '余额那行没了')
+  }
+  return '本期起点解析对；余额现算；简报里没有一句劝'
+})
+
+// 88. 2026-10-30 老板立：不管谁改什么，都要留六件+一条（谁/何时/在哪/改了什么/谁让的/为什么/还能不能改），
+//    而且要能查；再加一句「防止忘了——明明不需要修改的，结果改了」。
+ok('改动留痕的六件+一条，写在命令里而不是记性里', () => {
+  has('lib/worklog.js', 'export function traceLine')
+  has('lib/worklog.js', 'mutable')                       // 以后还让不让改
+  has('scripts/note-work.mjs', '--by')
+  has('scripts/note-work.mjs', '--auth')
+  has('scripts/note-work.mjs', '--why')
+  has('scripts/note-work.mjs', '--where')
+  has('scripts/note-work.mjs', '--mutable')
+  has('scripts/note-work.mjs', '不可改清单')              // 动了清单里的东西必须 auth=主人
+  has('lib/rules-block.js', '动东西之前')                 // 每轮注入里都有，靠它防忘
+  has('lib/rules-block.js', '不改行不行')
+  assert.ok(fs.existsSync(path.join(ROOT, '不可改清单.json')), '不可改清单没了')
+  const prot = JSON.parse(fs.readFileSync(path.join(ROOT, '不可改清单.json'), 'utf8'))
+  assert.ok(Object.keys(prot.items || {}).length >= 5, '不可改清单条目太少')
+  assert.ok(fs.existsSync(path.join(ROOT, 'scripts/changes.mjs')), '查询脚本没了')
+  assert.ok(fs.existsSync(path.join(ROOT, 'scripts/check-provenance.mjs')), '漏记检查脚本没了')
+  has('docs/改动留痕.md', '不改行不行')
+  // 角色卡：只有本人能改自己的（老板 2026-10-30 当面立）
+  has('scripts/note-work.mjs', '这张卡归')
+  has('lib/rules-block.js', '自己只能改自己的')
+  has('docs/改动留痕.md', '角色卡')
+  const prot2 = JSON.parse(fs.readFileSync(path.join(ROOT, '不可改清单.json'), 'utf8'))
+  assert.ok(Object.keys(prot2).some((k) => k.startsWith('_角色卡特别规矩')), '清单里没写角色卡规矩')
+  return '六件+一条有字段、有闸、有查询、有每轮提醒；角色卡只有本人能改'
+})
+
+// 89. 2026-10-30 老板要"测她什么时候能自己管账"：光看得见不够，得能自己记、自己定上限。
+// 加的是**能力**不是闸：手记不参与余额（余额按真实流水现算，别重复扣）；她定的上限只摆数、不拦。
+const { budgetView, recordSpend, setDailyLimit } = await import(pathToFileURL(path.join(ROOT, 'lib/budget-book.js')).href)
+ok('她自己那本账：看得见、记得了、能自己定上限，但没人拦她', () => {
+  has('lib/budget-book.js', 'export function budgetView')
+  has('lib/budget-book.js', 'export function recordSpend')
+  has('lib/budget-book.js', 'export function setDailyLimit')
+  has('dayu/index.js', "a === 'spend'")
+  has('dayu/index.js', "'budget', 'spend', 'limit'")
+  has('lib/cost.js', '你自己定的日上限')
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-budget-'))
+  const old = process.env.DSH_HOME
+  try {
+    process.env.DSH_HOME = tmp
+    const dir = path.join(tmp, 'dayu', 'runtime', 'xiaoyu')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'budget.json'), JSON.stringify({ role: 'xiaoyu', 总额: 10, 明细: [] }), 'utf8')
+    const before = budgetView('xiaoyu')
+    assert.equal(before.本期给, 10)
+    assert.equal(before.手记.length, 0)
+    recordSpend('xiaoyu', { amount: 0.3, what: '测试', why: '验证' })
+    setDailyLimit('xiaoyu', 0.5)
+    const after = budgetView('xiaoyu')
+    assert.equal(after.手记.length, 1, '手记没写进去')
+    assert.equal(after.手记[0].花了多少, 0.3)
+    assert.equal(after.我定的日上限, 0.5)
+    assert.equal(after.现在剩, before.现在剩, '手记不该改动余额（余额按真实流水算，别重复扣）')
+    setDailyLimit('xiaoyu', 0)
+    assert.equal(budgetView('xiaoyu').我定的日上限, null, '0 应该能取消')
+  } finally {
+    if (old === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = old
+    try { fs.rmSync(tmp, { recursive: true, force: true }) } catch { /* 删不掉就算了 */ }
+  }
+  return '看/记/定上限都有；手记不参与余额；上限只摆数'
+})
+
+// 90. 2026-10-30 老板定「每日自净」：注入里不许再有与实况相反的过期句，体积只许降。
+// 基线（2026-10-30 首轮）：dragon 9619 字 / 265 行 / 61 段。
+const INJECT_BASELINE = 9800
+const { buildSceneText } = await import(pathToFileURL(path.join(ROOT, 'lib/soul.js')).href)
+ok('注入里没有过期话，体积不回升', () => {
+  const t = buildSceneText('dragon', 'desk')
+  assert.ok(t.length > 1000, '注入没生成，测了个寂寞')
+  for (const bad of ['没在电脑前', '你没有眼睛和手', '工具没挂上', '你还没有身体']) {
+    assert.ok(!t.includes(bad), `过期句还在注入里：${bad}`)
+  }
+  assert.ok(t.length <= INJECT_BASELINE, `注入涨到 ${t.length} 字（基线 9619，上限 ${INJECT_BASELINE}）：先删再加`)
+  const paras = t.split(/\n{2,}/).filter(Boolean).length
+  return `${t.length} 字 / ${t.split('\n').length} 行 / ${paras} 段；没有过期句`
 })
 
 console.log(`\n回归：通过 ${pass}，失败 ${fail}${skipped ? `，跳过 ${skipped}（环境不给子进程）` : ''}`)

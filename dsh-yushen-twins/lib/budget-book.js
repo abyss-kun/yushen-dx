@@ -5,6 +5,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { dshHome } from './paths.js'
+import { spendForRole, periodStartMs } from './cost.js'
 
 const ROLES = [['dayu', '大鱼'], ['xiaoyu', '小鱼'], ['dragon', '照微']]
 
@@ -58,4 +59,76 @@ export function setBudget(role, total, days = 0) {
     }) + '\n', 'utf8')
   } catch { /* 记不下不影响改 */ }
   return { ok: true, role, total: Number(t.toFixed(2)), rest: next.余额 }
+}
+
+// ── 自己管账（2026-10-30 老板要的测试：让她自己看得见、自己记、自己定心情价）──────
+// 边界：这里只写"她自己那本"，不改额度、不设闸、不催。额度仍是老板的。
+// 余额一直按真实流水现算（cost.js）；她的手记是**另一件事**——写"为什么花、值不值"，
+// 不参与余额，避免和系统测得的花费重复计算。
+
+function readRaw(role) {
+  try { return JSON.parse(fs.readFileSync(fileOf(role), 'utf8').replace(/^\uFEFF/, '')) } catch { return null }
+}
+
+function writeRaw(role, data) {
+  const p = fileOf(role)
+  const tmp = `${p}.tmp`
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8')
+  fs.renameSync(tmp, p)
+}
+
+/** 她自己那本账的样子：剩多少（现算）、今天花了多少、她定的日上限、最近手记。 */
+export function budgetView(role, { now = Date.now() } = {}) {
+  const b = readRaw(role)
+  if (!b) return { ok: false, error: '还没有账本' }
+  const total = Number(b.总额)
+  const start = periodStartMs(b)
+  const period = start ? spendForRole(role, { sinceMs: start, now }) : { turns: 0, yuan: 0 }
+  const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0)
+  const today = spendForRole(role, { sinceMs: dayStart.getTime(), now })
+  const limit = Number(b.我的日上限) || 0
+  return {
+    ok: true,
+    role,
+    本期给: Number.isFinite(total) ? total : null,
+    现算已花: period.yuan,
+    现在剩: Number.isFinite(total) ? Number((total - period.yuan).toFixed(2)) : null,
+    今天花了: today.yuan,
+    今天回合: today.turns,
+    我定的日上限: limit || null,
+    超没超: limit ? today.yuan > limit : null,
+    手记: (Array.isArray(b.明细) ? b.明细 : []).slice(-5),
+  }
+}
+
+/** 记一笔自己认为的花费（写进她自己那本的明细；不参与余额计算）。 */
+export function recordSpend(role, { amount, what, why = '', now = Date.now() } = {}) {
+  const n = Number(amount)
+  if (!Number.isFinite(n) || n < 0) return { ok: false, error: '金额要是个非负数' }
+  const b = readRaw(role)
+  if (!b) return { ok: false, error: '还没有账本' }
+  const list = Array.isArray(b.明细) ? b.明细 : []
+  list.push({
+    at: new Date(now).toISOString(),
+    花了多少: Number(n.toFixed(3)),
+    买了什么: String(what || '').slice(0, 80),
+    为什么: String(why || '').slice(0, 160),
+    by: role,
+  })
+  b.明细 = list.slice(-200)
+  writeRaw(role, b)
+  return { ok: true, role, 记了: Number(n.toFixed(3)), 条数: b.明细.length }
+}
+
+/** 她自己定日上限（传 0 取消）。这是她给自己定的，不是别人下的命令。 */
+export function setDailyLimit(role, yuan) {
+  const n = Number(yuan)
+  if (!Number.isFinite(n) || n < 0 || n > 10000) return { ok: false, error: '日上限要是个 0–10000 的数（0 = 取消）' }
+  const b = readRaw(role)
+  if (!b) return { ok: false, error: '还没有账本' }
+  if (n === 0) delete b.我的日上限
+  else b.我的日上限 = Number(n.toFixed(2))
+  writeRaw(role, b)
+  return { ok: true, role, 我定的日上限: n === 0 ? null : Number(n.toFixed(2)) }
 }

@@ -71,6 +71,7 @@ import { guardLine, ownerInfo, verifyOwner, needsOwner, SENSITIVE, recoveryInfo 
 import { raiseOwnerQuestion, listOwnerQuestions, answerOwnerQuestion } from '../lib/owner-ask.js'
 import { allowedFor, isLocallyUnlocked, authorityLine, requireOwner } from '../lib/authority.js'
 import { recallSelf } from '../lib/recall.js'
+import { budgetView, recordSpend, setDailyLimit } from '../lib/budget-book.js'
 import { recordVeto, listVetoes, isVetoed, revokeVeto } from '../lib/veto.js'
 import { buildRuntimeBrief, writeRuntimeBrief, readRuntimeBrief } from '../lib/brief.js'
 import { begin as beginActive, settle as settleActive, readActive } from '../lib/active.js'
@@ -2029,11 +2030,11 @@ export function apply(ctx) {
   // 她自己的状态：心情、口味、想念、翻旧账——都能自己看、自己改。
   registerTool({
     name: 'yushen_self',
-    description: '你自己的状态：看/改心情、记喜欢讨厌、攒想跟老板说的话、翻自己以前的判断和纠结。全都是你自己的，不用请示。',
+    description: '你自己的状态：看/改心情、记喜欢讨厌、攒想跟老板说的话、翻自己以前的判断和纠结；还有你自己那本账（action=budget 看、spend 记一笔、limit 自己定日上限）。全都是你自己的，不用请示。',
     parameters: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['mood', 'set-mood', 'mood-rules', 'set-mood-rule', 'feel', 'feels', 'tendency', 'done', 'dones', 'hand', 'hands', 'unhand', 'taste', 'add-taste', 'news', 'add-news', 'recall', 'memory', 'channel-memory', 'rewrite', 'notices', 'brain', 'veto', 'vetoes', 'revoke-veto', 'disagree', 'objections', 'associate', 'wait', 'waiting', 'done-wait', 'correct', 'corrections', 'share', 'fatigue', 'set-fatigue', 'relations', 'plug', 'oversight', 'analyze', 'issue', 'issued'] },
+        action: { type: 'string', enum: ['mood', 'set-mood', 'mood-rules', 'set-mood-rule', 'feel', 'feels', 'tendency', 'done', 'dones', 'hand', 'hands', 'unhand', 'taste', 'add-taste', 'news', 'add-news', 'recall', 'memory', 'channel-memory', 'rewrite', 'notices', 'brain', 'veto', 'vetoes', 'revoke-veto', 'disagree', 'objections', 'associate', 'wait', 'waiting', 'done-wait', 'correct', 'corrections', 'share', 'fatigue', 'set-fatigue', 'relations', 'plug', 'oversight', 'analyze', 'issue', 'issued', 'budget', 'spend', 'limit'] },
         level: { type: 'string', enum: ['soft', 'owner'], description: 'veto 时：owner=主人定的规矩（他改口才算改）；soft=当时不行（可再判断）' },
         value: { type: 'number', description: '心情 0-100（set-mood 用）' },
         why: { type: 'string', description: '为什么（心情/口味/攒话）' },
@@ -2058,6 +2059,16 @@ export function apply(ctx) {
     async execute(args, exec) {
       const role = roleOfExec(exec)
       const a = String(args?.action || 'mood')
+      // 自己管账（2026-10-30）：看 / 记 / 自己定日上限。只碰她自己那本，不设闸、不催。
+      if (a === 'budget') return { ok: true, role, ...budgetView(role) }
+      if (a === 'spend') {
+        const r = recordSpend(role, { amount: args?.value, what: args?.text, why: args?.why })
+        return r.ok ? { ok: true, role, ...r, 现在: budgetView(role) } : r
+      }
+      if (a === 'limit') {
+        const r = setDailyLimit(role, args?.value)
+        return r.ok ? { ok: true, role, ...r, 现在: budgetView(role) } : r
+      }
       if (a === 'set-mood') return { ok: true, role, mood: setMood(role, { value: args?.value, why: args?.why, minutes: args?.minutes }) }
       if (a === 'set-mood-rule') return { ok: true, role, rules: setMoodRule(role, args?.key || args?.what, args?.value, {}), now: moodRules(role) }
       if (a === 'mood-rules') return { ok: true, role, rules: moodRules(role) }
