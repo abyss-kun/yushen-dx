@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 认主人：号 + 暗号。暗号是他们俩之间的东西，不是系统发的。
 //
 // 为什么要有：电脑外面那个人，可能是老板，也可能是拿着他手机的人。
@@ -77,15 +78,6 @@ export function addSecret(text, { label = '', hint = '', now = Date.now() } = {}
 
 /** 兼容旧名字。 */
 export function setPassphrase(text, opts = {}) { return addSecret(text, opts) }
-
-export function removeSecret(id) {
-  const doc = readSecrets()
-  const before = doc.items.length
-  doc.items = doc.items.filter((x) => x.id !== String(id))
-  if (doc.items.length === before) throw new Error('没找到这条暗号')
-  writeSecrets(doc)
-  return { ok: true, removed: id, left: doc.items.length }
-}
 
 /** 绑一个通道的号（只有老板本人在工作台做；这里不做远程鉴权）。 */
 export function bindOwnerUid(channel, userId) {

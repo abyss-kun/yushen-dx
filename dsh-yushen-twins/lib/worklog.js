@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 工作记录：我（开发侧）每动一步，都要落到鱼神的账上，能被小鱼搜到。
 // 数据：~/.dsh/dayu/worklog.jsonl
 //

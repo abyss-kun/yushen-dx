@@ -11,6 +11,6 @@
 
 需要商业授权，联系作者：
 
-`000000 [at] qq [dot] com`（`[at]`→`@`）
+`1194474355 [at] qq [dot] com`（`[at]`→`@`）
 
 完整条款见 [LICENSE](LICENSE)。

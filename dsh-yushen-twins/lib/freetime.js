@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 自由活动：没人派活的时候，她自己决定做点什么。
 // 这里只做"该不该叫她"的账，不调用模型；叫醒由入口用她的常驻身体去做。
 import fs from 'node:fs'
@@ -52,6 +53,9 @@ export function shouldRun(role, { now = Date.now(), lastActiveAt = '', intervalH
   }
   const row = read().roles?.[role] || {}
   const last = Date.parse(row.lastAt || '')
+  // 2026-10-31 老板纠：别用固定偏移去「错开」——错开解决不了问题。
+  // 真正要补的是**分得清这一趟是谁叫的**：她约的（wait 到点）还是兜底定时器叫的。
+  // 那句区分在提示里写（dayu/index.js 的 freeTimePrompt），这里只按原间隔记账。
   if (Number.isFinite(last) && now - last < intervalHours * 3600 * 1000) return false
   const count = row.day === today(now) ? Number(row.count || 0) : 0
   return count < dailyCap

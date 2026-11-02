@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 账：三个人各自的额度、已用、剩余。2026-10-29 从桌面气泡搬进面板时新建。
 //
 // 为什么放这儿：老板说「算账的可以放到后台，小鱼里面界面可以填空那种」。
@@ -7,7 +8,15 @@ import path from 'node:path'
 import { dshHome } from './paths.js'
 import { spendForRole, periodStartMs } from './cost.js'
 
-const ROLES = [['dayu', '大鱼'], ['xiaoyu', '小鱼'], ['dragon', '照微']]
+// 2026-10-31：原来写死三个人。出厂包只有 dayu + xiaoyu（照微是作者本机的角色），
+// 于是用户的账本里会凭空多出一行「照微 0 元」。改成按已装名册取；名册读不到再退回路里写死的那几个。
+import { getCharacter, listCharacters } from './characters.js'
+const ROLES = (() => {
+  try {
+    const rows = listCharacters().map((c) => [c.id, c.name])
+    return rows.length ? rows : [['dayu', '大鱼'], ['xiaoyu', '小鱼']]
+  } catch { return [['dayu', '大鱼'], ['xiaoyu', '小鱼']] }
+})()
 
 function fileOf(role) {
   return path.join(dshHome(), 'dayu', 'runtime', role, 'budget.json')

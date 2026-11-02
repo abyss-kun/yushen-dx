@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 import { characterIds } from './characters.js'
 // 移动端网关：配对与设备令牌只存本机，不复用 DSH 管理令牌。
 import fs from 'node:fs'
@@ -9,8 +10,16 @@ const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DATA = path.join(HOME, 'dayu')
 const FILE = path.join(DATA, 'mobile-devices.json')
 const CODE_TTL = 5 * 60 * 1000
-// 角色从名册读（2026-10-27）：接入第 4 个人自动有效
-function roleList() { try { return characterIds() } catch { return [] } }
+// 角色从名册读（2026-10-27）：接入第 4 个人自动有效。
+// 2026-10-31：名册读不到（新家目录、还没点化）时原来返回空表——手机一发消息就
+// 被静默当成大鱼。改成退回三个常驻角色：路由不会认错人。
+const RESIDENT_FALLBACK = ['dayu', 'xiaoyu', 'dragon']
+function roleList() {
+  let l = []
+  try { l = characterIds() || [] } catch { l = [] }
+  // 常驻三个永远有效；名册里加了第 4 个人也自动进来。
+  return [...new Set([...l, ...RESIDENT_FALLBACK])]
+}
 
 function read() {
   try {

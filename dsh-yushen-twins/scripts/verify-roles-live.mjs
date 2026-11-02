@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 重启后的真机验收：叫醒三个人，各问一句，看她自己的回话。
 // 跑法：ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" scripts/verify-roles-live.mjs [dayu|xiaoyu|dragon ...]
 // 只做本地 HTTP，不碰 QQ/B站；结果同时写到 ~/.dsh/dayu/三人验收-latest.md。

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 原始对话事实档案：按角色/通道/会话隔离。存储不等于理解；不调用模型。
 import fs from 'node:fs'
 import { characterIds } from './characters.js'

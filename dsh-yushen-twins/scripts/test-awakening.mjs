@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 点化 / 收回：新角色默认休眠；点化才注入、才有身体；收回后回到一张卡，不删用户文件。
 import fs from 'node:fs'
 import os from 'node:os'

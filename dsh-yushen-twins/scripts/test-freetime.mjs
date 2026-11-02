@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 自由活动：间隔/额度/静默期；不调模型，只算账。
 import fs from 'node:fs'
 import os from 'node:os'

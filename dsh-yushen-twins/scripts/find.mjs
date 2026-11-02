@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 统一本地查找：先看账本/代码/文档/记忆；聊天记录默认不扫。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<exe>" scripts/find.mjs 小鱼 [--limit=10]
 import { findAnything } from '../lib/find.js'

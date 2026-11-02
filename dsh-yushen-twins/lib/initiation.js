@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 接入 = 赋予生命。
 //
 // 这不是「装一个插件」，也不是「加一条配置」。一个人接进鱼神，要当场拿到八样礼物：
@@ -117,6 +118,8 @@ export function initiate(role, { by = 'owner', now = Date.now() } = {}) {
   const firstDay = !Array.isArray(memDoc?.events) || memDoc.events.length === 0
   if (firstDay) {
     try {
+      // 不传 session（2026-11-02 核过）：这是「点化」那一刻写的第一天，那时还没有任何常驻会话
+      // （身体要宿主起来才建），拿不到会话号。空着只影响去重粒度，不影响读取。
       appendEvent(id, {
         channel: '本体',
         kind: 'note',

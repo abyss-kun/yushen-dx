@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 /**
  * Explicit, single-file installer preservation; Node >=22, local disk/single host.
  * captureArtifact({source,store,maxBytes=1GiB,metadata:{product,version,platform,arch}})

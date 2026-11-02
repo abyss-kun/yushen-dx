@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 心念本地存储（纯本地、无模型、无定时器、无网络）
 //
 // 只做“已由调用方显式记录”的数据：兴趣、疑问、承诺、主人偏好观察。
@@ -743,24 +744,12 @@ export function recordInterest(role, input = {}) {
   return recordMindItem(role, { ...input, kind: 'interest' })
 }
 
-/** 显式记录疑问。 */
-export function recordQuestion(role, input = {}) {
-  return recordMindItem(role, { ...input, kind: 'question' })
-}
 
 /** 显式记录承诺。 */
 export function recordPromise(role, input = {}) {
   return recordMindItem(role, { ...input, kind: 'promise' })
 }
 
-/**
- * 显式记录对主人偏好的观察。默认 inferred。
- * repeated_observation 只能作为推断证据（提高 confidence），不能把条目变成 confirmed；
- * 只有 explicit_statement（本人明确说过）才可能 confirmed。
- */
-export function recordOwnerPreference(role, input = {}) {
-  return recordMindItem(role, { ...input, kind: 'owner_preference' })
-}
 
 /**
  * 观察层统一写入口：将B站/QQ/工作台/图片等真实来源转成已有心念类型。
@@ -771,15 +760,6 @@ export function recordObservedMind(role, { kind = 'interest', text, detail = '',
   return recordMindItem(role, { kind, text, detail, source, scope, epistemic, confidence, weight, halfLifeDays, dueAt, confirmation })
 }
 
-/** 读取单条；必须带完全匹配的 scope，否则按不存在处理（不泄露存在性）。 */
-export function getMindItem(role, id, { scope, now } = {}) {
-  const r = assertRole(role)
-  const sc = scopeOf(scope)
-  const atMs = nowMs(now)
-  const { doc } = load(r)
-  const item = findScoped(doc, r, id, sc)
-  return decorate(item, atMs)
-}
 
 /** 她自己的全部心念（跟着人走，不按窗口分）；默认只看 active。 */
 export function listMindItems(role, { scope, kinds, statuses, limit = 20 } = {}) {
@@ -1040,135 +1020,7 @@ function pushHistory(item, action, reason, sourceQuote, changes, at) {
   item.history.push({ at, action, reason, sourceQuote, changes })
 }
 
-/** 变更一条 active 心念；旧值进 history，不覆盖历史。 */
-export function reviseMindItem(role, id, { scope, patch, reason, source } = {}) {
-  const r = assertRole(role)
-  const sc = scopeOf(scope)
-  const request = plain({ scope, patch, reason, source }, '变更请求')
-  onlyKeys(request, REVISE_INPUT_KEYS, '变更请求')
-  const changePatch = plain(patch, 'patch')
-  onlyKeys(changePatch, PATCH_KEYS, 'patch')
-  if (!Object.keys(changePatch).length) fail('MIND_INVALID', 'patch 至少改一个字段')
-  const why = inlineText(reason, 'reason', MAX_REASON)
-  const newSource = sourceOf(source)
-  return withLock(r, () => {
-  const now = nowIso()
-  const { file, doc, raw } = load(r)
-  const item = activeItem(doc, r, id, sc)
-  const changes = []
 
-  if (changePatch.text !== undefined) {
-    const next = inlineText(changePatch.text, 'text', MAX_TEXT)
-    if (next !== item.text) {
-      changes.push(change('text', item.text, next))
-      item.text = next
-    }
-  }
-  if (changePatch.detail !== undefined) {
-    const next = blockText(changePatch.detail, 'detail', MAX_DETAIL, { required: false })
-    if (next !== item.detail) {
-      changes.push(change('detail', item.detail, next))
-      item.detail = next
-    }
-  }
-  if (changePatch.confidence !== undefined) {
-    const next = confidenceOf(changePatch.confidence, item.confidence)
-    if (next !== item.confidence) {
-      changes.push(change('confidence', item.confidence, next))
-      item.confidence = next
-    }
-  }
-  if (changePatch.weight !== undefined) {
-    if (item.kind !== 'interest') fail('MIND_INVALID', 'weight 只适用于 interest')
-    if (!Number.isInteger(changePatch.weight) || changePatch.weight < 1 || changePatch.weight > 5) {
-      fail('MIND_INVALID', 'weight 必须是 1~5 的整数')
-    }
-    if (changePatch.weight !== item.interest.weight) {
-      changes.push(change('interest.weight', item.interest.weight, changePatch.weight))
-      item.interest.weight = changePatch.weight
-    }
-  }
-  if (changePatch.halfLifeDays !== undefined) {
-    if (item.kind !== 'interest') fail('MIND_INVALID', 'halfLifeDays 只适用于 interest')
-    const next = changePatch.halfLifeDays
-    if (!Number.isInteger(next) || next < INTEREST_MIN_HALF_LIFE_DAYS || next > INTEREST_MAX_HALF_LIFE_DAYS) {
-      fail('MIND_INVALID', `halfLifeDays 必须是 ${INTEREST_MIN_HALF_LIFE_DAYS}~${INTEREST_MAX_HALF_LIFE_DAYS} 的整数`)
-    }
-    if (next !== item.interest.halfLifeDays) {
-      changes.push(change('interest.halfLifeDays', item.interest.halfLifeDays, next))
-      item.interest.halfLifeDays = next
-    }
-  }
-  if (changePatch.dueAt !== undefined) {
-    if (item.kind !== 'promise') fail('MIND_INVALID', 'dueAt 只适用于 promise')
-    const next = changePatch.dueAt === null || changePatch.dueAt === '' ? '' : timestamp(changePatch.dueAt, 'dueAt')
-    if (next !== item.promise.dueAt) {
-      changes.push(change('promise.dueAt', item.promise.dueAt, next))
-      item.promise.dueAt = next
-    }
-  }
-  if (changePatch.confirmation !== undefined) {
-    if (item.kind !== 'owner_preference') fail('MIND_INVALID', 'confirmation 只能用于 owner_preference 的变更')
-    const parsedConfirmation = confirmationOf(changePatch.confirmation)
-    if (parsedConfirmation.basis !== 'explicit_statement') {
-      fail('MIND_INVALID', '变更时的 confirmation 只能是 explicit_statement；重复观察不能把推断变成事实')
-    }
-    const next = { ...parsedConfirmation, at: now }
-    if (item.epistemic !== 'confirmed' || JSON.stringify(item.confirmation) !== JSON.stringify(next)) {
-      changes.push(change('epistemic', item.epistemic, 'confirmed'))
-      changes.push(change('confirmation', item.confirmation, next))
-      item.epistemic = 'confirmed'
-      item.confirmation = next
-    }
-  }
-  if (changes.length === 0) fail('MIND_NO_CHANGE', 'patch 没有产生实际变化')
-
-  const textChanged = changes.some((entry) => entry.field === 'text')
-  if (item.kind === 'owner_preference' && item.epistemic === 'confirmed' && textChanged && changePatch.confirmation === undefined) {
-    changes.push(change('epistemic', item.epistemic, 'inferred'))
-    changes.push(change('confirmation', item.confirmation, null))
-    item.epistemic = 'inferred'
-    item.confirmation = null
-    item.confidence = Math.min(item.confidence, 0.5)
-  }
-  if (item.kind === 'interest') item.interest.anchorAt = now
-  const previousQuote = item.source.quote
-  if (changes.some((entry) => entry.field === 'text')) {
-    changes.push(change('source.quote', previousQuote, newSource.quote))
-    item.source = newSource
-  }
-  item.revision += 1
-  item.updatedAt = now
-  pushHistory(item, 'revise', why, newSource.quote, changes, now)
-  doc.updatedAt = now
-  save(r, doc, raw)
-  return { ok: true, role: r, file, item: decorate(item, Date.parse(now)), changes }
-  })
-}
-
-/** 撤销一条 active 心念；不删除，保留原文和撤销理由。 */
-export function revokeMindItem(role, id, { scope, reason } = {}) {
-  const r = assertRole(role)
-  const sc = scopeOf(scope)
-  const request = plain({ scope, reason }, '撤销请求')
-  onlyKeys(request, REVOKE_INPUT_KEYS, '撤销请求')
-  const why = inlineText(reason, 'reason', MAX_REASON)
-  return withLock(r, () => {
-    const now = nowIso()
-    const { file, doc, raw } = load(r)
-    const item = activeItem(doc, r, id, sc)
-    item.status = 'revoked'
-    item.resolution = { action: 'revoked', at: now, reason: why, evidence: '', verified: false, verification: '' }
-    item.updatedAt = now
-    pushHistory(item, 'revoke', why, '', [
-      change('status', 'active', 'revoked'),
-      change('resolution', null, item.resolution),
-    ], now)
-    doc.updatedAt = now
-    save(r, doc, raw)
-    return { ok: true, role: r, file, item: decorate(item, Date.parse(now)) }
-  })
-}
 
 /**
  * 确认/加强一条 inferred。

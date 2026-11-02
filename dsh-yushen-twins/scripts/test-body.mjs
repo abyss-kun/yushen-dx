@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 编码：UTF-8 严格解；GBK/GB18030 兜底；替换符要能识别。
 import assert from 'node:assert/strict'
 import { decodeBody, hasReplacement } from '../lib/body.js'

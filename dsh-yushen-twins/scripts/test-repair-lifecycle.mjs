@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Isolated real-process exits: never simulate 'exit' in the test runner.
 import assert from 'node:assert/strict'
 import fs from 'node:fs'

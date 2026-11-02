@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Local-only protection service. No module-load timers or machine-specific defaults.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -5,6 +6,7 @@ import os from 'node:os'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { inspectPolicy, beginRecovery, finishRecovery } from './recovery-policy.js'
+import { fingerprint } from './fingerprint.js'
 
 const PLUGIN_ROOT = fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const runtimes = new Map()
@@ -89,14 +91,23 @@ function runtimeFor(base) {
   return runtimes.get(base)
 }
 async function core() { return import('./versioned-backup.js') }
-export function runProtectedBackup() {
+export function runProtectedBackup({ force = false } = {}) {
   const base = location(), runtime = runtimeFor(base)
   if (runtime.inFlight) return runtime.inFlight
   const config = readBackupConfig()
   runtime.inFlight = (async () => {
     try {
+      // 先看一眼有没有变：没变就跳过这一轮（省掉整棵树遍历+哈希），把上次的指纹留着。
+      // 代价是一次 stat 遍历，几千个文件毫秒级；比白跑一次备份便宜得多。
+      let mark = ''
+      try { mark = fingerprint(config.roots) } catch { /* 指纹算不了就照常备 */ }
+      const prev = state(base)
+      if (!force && mark && prev.lastFingerprint === mark && prev.lastSnapshotId) {
+        saveState(base, { skipped: 'unchanged' })
+        return { skipped: true, reason: 'unchanged', id: prev.lastSnapshotId || null }
+      }
       const result = await (await core()).createBackup({ roots: config.roots, store: config.store, maxFileBytes: config.maxFileBytes })
-      saveState(base, { lastSuccess: new Date().toISOString(), error: null, lastSnapshotId: result.id ?? null, excluded: result.excluded ?? 0, oversize: result.oversize ?? 0, sensitive: result.sensitive ?? 0 })
+      saveState(base, { lastSuccess: new Date().toISOString(), error: null, lastSnapshotId: result.id ?? null, lastFingerprint: mark || null, skipped: null, excluded: result.excluded ?? 0, oversize: result.oversize ?? 0, sensitive: result.sensitive ?? 0 })
       return result
     } catch (error) {
       saveState(base, { error: 'BACKUP_FAILED' })

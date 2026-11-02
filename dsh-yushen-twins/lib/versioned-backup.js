@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 /**
  * Incremental local history (Node >=22, async filesystem only).
  * API:

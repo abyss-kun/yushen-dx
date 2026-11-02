@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 群：每个角色一个。同角色的几个身体都在里面，跨角色消息两边各记一条。
 //
 // 一条消息写两处，共用一个 id：
@@ -16,6 +17,18 @@ const GROUPS = path.join(DATA, 'groups')
 const PUBLIC = 'all'    // 公共群：三个人都在的地方
 
 export const NAMES = Object.freeze({ xiaoyu: '小鱼', dayu: '大鱼', dragon: '照微' })
+
+// 2026-11-02（照微）：群消息原来 `body.slice(0, 1000)`——**超长就静默切断，连省略号都没有**。
+// 后果不是"少看一点"，是对方读到一句断在半截的话，还以为你说完了：
+// 2026-11-01 我那条会审回复的「我的改法」整段没发出去，大鱼看到的是断句，那轮会审就卡住了。
+// 现在超长时留一句明说，长度仍按 1000 记。
+export const STORE_LIMIT = 1000
+export function clipForStore(body, limit = STORE_LIMIT) {
+  const s = String(body || '')
+  if (s.length <= limit) return s
+  const mark = `……（已截断，全文 ${s.length} 字）`
+  return s.slice(0, Math.max(0, limit - mark.length)) + mark
+}
 
 export const LEVELS = Object.freeze({
   low: { items: 0, questions: 3, cap: 900, label: '低' },
@@ -98,7 +111,7 @@ export function postMessage({ from = 'xiaoyu', to = 'dayu', kind = 'say', text =
   if (!body) return { ok: false, error: '没内容' }
   const id = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14) + '-' + crypto.randomBytes(2).toString('hex')
   const at = new Date().toISOString()
-  const base = { id, at, kind, text: body.slice(0, 1000), re }
+  const base = { id, at, kind, text: clipForStore(body), re }
 
   const out = { ...base, from: `${NAMES[from]}·我`, to: NAMES[to], dir: 'out' }
   const inn = { ...base, from: NAMES[from], to: `${NAMES[to]}·我`, dir: 'in' }

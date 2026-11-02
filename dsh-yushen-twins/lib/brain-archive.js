@@ -1,11 +1,14 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 一次性迁移的无损私有档案。仅本地读取；不自动注入任何模型或外部通道。
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
+import { isResidentRole } from './roles.js'
 const hash = (buf) => createHash('sha256').update(buf).digest('hex')
 function dir(role) {
-  if (!['dayu', 'xiaoyu'].includes(role)) throw new TypeError('未知角色')
+  // 2026-11-01：住户名单从名册取，照微也能归档（以前这里只认两条鱼）。
+  if (!isResidentRole(String(role || ''))) throw new TypeError('未知角色')
   return path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'dayu', 'brain-archives', role)
 }
 export function archiveSource(role, file, { kind = 'history' } = {}) {

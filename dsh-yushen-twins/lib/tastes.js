@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 偏好：她喜欢什么、受不了什么。她自己写，插件只存和带。
 import fs from 'node:fs'
 import path from 'node:path'
@@ -26,13 +27,6 @@ export function addTaste(role, { kind = 'likes', text = '' } = {}) {
   if (!t) throw new Error('喜欢/讨厌什么？写一句')
   const doc = read(role)
   if (!doc[kind].includes(t)) doc[kind] = [...doc[kind], t.slice(0, 80)].slice(-50)
-  return write(role, doc)
-}
-
-export function removeTaste(role, { kind = 'likes', text = '' } = {}) {
-  if (!KINDS.includes(kind)) throw new Error(`不认识的类别：${kind}`)
-  const doc = read(role)
-  doc[kind] = doc[kind].filter((x) => x !== String(text || '').trim())
   return write(role, doc)
 }
 

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 白板：临时看到的东西。不写进对话历史，每轮现拼一段；过期就自己消失。
 //
 // 2026-10-29 从 Cortico / 鱼搭子两边学来的同一个做法：
@@ -26,22 +27,7 @@ export function readBoard(role, { now = Date.now() } = {}) {
   } catch { return [] }
 }
 
-export function writeBoard(role, items) {
-  const p = fileOf(role)
-  fs.mkdirSync(path.dirname(p), { recursive: true })
-  const tmp = p + '.tmp'
-  fs.writeFileSync(tmp, JSON.stringify(items.slice(-MAX_ITEMS), null, 1), 'utf8')
-  fs.renameSync(tmp, p)          // 先写 .tmp 再改名：写一半断电也不会把文件写坏
-}
 
-/** 往白板上贴一条；ttl 秒后自动过期。 */
-export function post(role, text, { ttl = 90, source = '' } = {}) {
-  const now = Date.now()
-  const items = readBoard(role, { now })
-  items.push({ at: new Date(now).toISOString(), text: String(text).slice(0, 200), source, expire: now + ttl * 1000 })
-  writeBoard(role, items)
-  return items.length
-}
 
 /** 简报用的那一段。没东西就返回空串（不占上下文）。 */
 export function boardLine(role, { now = Date.now() } = {}) {

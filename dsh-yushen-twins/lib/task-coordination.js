@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Detect duplicate/conflicting in-flight work before dispatch; lexical and conservative.
 export const ACTIVE_TASK_STATUSES = new Set(['dispatched', 'redispatched', 'returned'])
 

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 查重 CLI（全知的一次查询）：node scripts/dup-audit.mjs
 import { scanDuplicates } from '../lib/dup.js'
 

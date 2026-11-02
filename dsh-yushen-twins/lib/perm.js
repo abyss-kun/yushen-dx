@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 权限分层：软件内部随便动；动到系统（可能让电脑不好用）要先申请。
 // 申请单：~/.dsh/dayu/approvals.json；老板同意才放行，执行后记账。
 
@@ -36,10 +37,6 @@ function write(list) {
 
 export function listApprovals(limit = 20) {
   return read().slice(0, limit)
-}
-
-export function getApproval(id) {
-  return read().find((a) => a.id === id) || null
 }
 
 /** 申请一条系统级权限：同一命令 10 分钟内不重复开单。 */

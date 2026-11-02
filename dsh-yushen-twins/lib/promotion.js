@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 晋升系统
 // 只看“干得怎么样”，不自动升权限：
 //   · evaluatePromotion 汇总 XP/任务/证据/经验/事故，给出 readiness 与 reasons；
@@ -14,8 +15,10 @@ import path from 'node:path'
 import { status as growthStatus, adjust as growthAdjust } from './growth.js'
 import { listExperience } from './task-experience.js'
 import { CAPS, setCap } from './authz.js'
+import { residentRoleIds } from './roles.js'
 
-export const PROMOTION_ROLES = Object.freeze(['dayu', 'xiaoyu'])
+// 2026-11-01：名单从名册取，不再写死两条鱼。
+export function promotionRoles() { return residentRoleIds() }
 
 export const PROMOTION_RULES = Object.freeze({
   minTasks: 3,
@@ -60,8 +63,8 @@ function cleanText(value, max) {
 
 function assertRole(role) {
   const r = typeof role === 'string' ? role : null
-  if (!PROMOTION_ROLES.includes(r)) {
-    throw new Error(`未知角色：${String(role)}（只允许 ${PROMOTION_ROLES.join(' / ')}）`)
+  if (!promotionRoles().includes(r)) {
+    throw new Error(`未知角色：${String(role)}（只允许 ${promotionRoles().join(' / ')}）`)
   }
   return r
 }
@@ -284,15 +287,15 @@ export function requestPromotion(role, { selfAssessment = '' } = {}) {
 // ---------- 查询 ----------
 
 export function listPromotions() {
-  return PROMOTION_ROLES.map((role) => readPromotionFile(role)).filter(Boolean)
+  return promotionRoles().map((role) => readPromotionFile(role)).filter(Boolean)
 }
 
 /** 按角色（dayu / xiaoyu）或申请 id 取；找不到返回 null。 */
 export function getPromotion(roleOrId) {
   const key = typeof roleOrId === 'string' ? roleOrId : ''
   if (!key) return null
-  if (PROMOTION_ROLES.includes(key)) return readPromotionFile(key)
-  for (const role of PROMOTION_ROLES) {
+  if (promotionRoles().includes(key)) return readPromotionFile(key)
+  for (const role of promotionRoles()) {
     const row = readPromotionFile(role)
     if (row && row.id === key) return row
   }
@@ -336,7 +339,7 @@ export function approvePromotion(id, { ownerApproved = false, approvedBy = '', n
   }
   const approver = cleanText(approvedBy, 40)
   if (!approver) throw new Error('缺少批准人 approvedBy')
-  if (approver === r || PROMOTION_ROLES.includes(approver)) {
+  if (approver === r || promotionRoles().includes(approver)) {
     throw new Error('不能自己批准自己的晋升')
   }
   if (record.status !== 'pending') {

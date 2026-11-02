@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // core · 她只需要的六样能力（宿主契约）
 // 一个宿主 = 实现 send / registerTool / onEvent / read / write（serve、auth 可选）。
 

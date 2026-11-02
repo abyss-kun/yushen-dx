@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Portable entry: node scripts/protection.mjs status|run|list|verify ID|preview ID|restore ID --confirm
 import { backupStatus, runProtectedBackup, listProtectedSnapshots, verifyProtectedSnapshot, restoreProtectedSnapshot } from '../lib/backup-service.js'
 const [cmd='status',id,...flags]=process.argv.slice(2)

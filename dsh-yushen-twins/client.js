@@ -1876,10 +1876,30 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       const [err, setErr] = React.useState('')
       const [filter, setFilter] = React.useState('all')
       React.useEffect(() => {
-        fetch('/api/token-budget/data', { credentials: 'same-origin' })
-          .then((r) => r.json())
-          .then((d) => { if (d?.today) setData(d); else setErr(d?.error || 'token 账本没有数据') })
-          .catch((e) => setErr(String(e?.message ?? e)))
+        // 2026-10-31 23:0x：以前直接调 `/api/token-budget/data`（别人插件的路由），
+        // 那个插件没挂上就回 `not found`，这里 JSON.parse 报「Unexpected token 'o'」。
+        // 现在先问我们自己的 `/api/dayu/token-budget`，拿不到才退回旧路由，两条都失败把原因写清。
+        const load = async () => {
+          const tries = [
+            ['/api/dayu/token-budget', '我们自己的流水'],
+            ['/api/token-budget/data', 'dsh-token-budget 插件'],
+          ]
+          const whys = []
+          for (const [url, who] of tries) {
+            try {
+              const r = await fetch(url, { credentials: 'same-origin' })
+              const text = await r.text()
+              if (!r.ok) { whys.push(`${who}：HTTP ${r.status}`); continue }
+              let d = null
+              try { d = JSON.parse(text) } catch { whys.push(`${who}：返回的不是 JSON（${text.slice(0, 40)}）`); continue }
+              if (d?.today) return d
+              whys.push(`${who}：${d?.error || '没有 today 字段'}`)
+            } catch (e) { whys.push(`${who}：${String(e?.message || e)}`) }
+          }
+          setErr(whys.join('；') || '没有数据源')
+          return null
+        }
+        load().then((d) => { if (d) setData(d) })
       }, [])
       const fmt = (n) => {
         const v = Number(n) || 0
@@ -3855,15 +3875,54 @@ if (typeof document !== 'undefined') {
           fetch('/api/dayu/overview', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
           fetch('/dsh-whale/balance.json', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         ])
-        const cost = Number(ov?.account?.cost || 0)
-        const bal = Number(wh?.totalBalance ?? wh?.balance ?? NaN)
+        // 2026-10-31：宿主账本会停（实测停过 14 小时）。停了就用审计过的当日合计与余额，并标明。
+        const audit = ov?.account?.audit || null
+        const stale = Boolean(ov?.account?.stale)
+        const liveCost = Number(ov?.account?.cost || 0)
+        const cost = liveCost > 0 ? liveCost : Number(audit?.total || 0)
+        const balRaw = wh?.totalBalance ?? wh?.balance
+        // 2026-10-31 老板选了「从账号接口取余额」：服务端 account.live 有时，优先用它（真·账号余额）。
+        const liveBal = Number(ov?.account?.live?.balance)
+        const hasLive = Number.isFinite(liveBal)
+        const bal = hasLive ? liveBal : (Number.isFinite(Number(balRaw)) ? Number(balRaw) : Number(audit?.balance ?? NaN))
+        // 2026-10-31 22:3x 老板：气泡里的余额是 13:00 读的数，之后 QQ 又花了 2.35、还在当现值显示。
+        // 从审计来的余额不是实时的：把「几时读的」摆出来，超过一小时就标旧——宁可说清，不冒充实时。
+        const balFromAudit = !hasLive && !Number.isFinite(Number(balRaw)) && Boolean(audit?.at)
+        let balStamp = ''
+        if (hasLive) {
+          const at = ov?.account?.live?.at ? new Date(ov.account.live.at) : null
+          const srcName = ov?.account?.live?.source === 'account' ? '账号登录' : (ov?.account?.live?.source === 'key' ? 'API key' : '账号接口')
+          if (at && !Number.isNaN(at.getTime())) {
+            const hhmm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+            balStamp = `<span style="font-size:11px;color:#2f9e6b;font-weight:600">　${srcName} · ${hhmm}</span>`
+          } else {
+            balStamp = `<span style="font-size:11px;color:#2f9e6b;font-weight:600">　${srcName}</span>`
+          }
+        }
+        if (balFromAudit) {
+          const at = new Date(String(audit.at))
+          if (!Number.isNaN(at.getTime())) {
+            const old = Date.now() - at.getTime() > 3600 * 1000
+            const hhmm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+            balStamp = `<span style="font-size:11px;color:${old ? '#b45309' : '#64748b'};font-weight:600">　${hhmm} 读的${old ? '·旧' : ''}</span>`
+          }
+        }
         const parts = []
         // 2026-10-30：照鲸鱼那个层级重排——标签小、金额大；峰时那行最小。
         if (Number.isFinite(bal)) {
-          parts.push(`<div style="line-height:1.1"><span style="font-size:11px;color:#4a7ba6;letter-spacing:.08em">余额</span><div style="font-size:31px;font-weight:800;color:#0f3d63;letter-spacing:-.5px">¥${bal.toFixed(2)}</div></div>`)
+          parts.push(`<div style="line-height:1.1"><span style="font-size:11px;color:#4a7ba6;letter-spacing:.08em">余额</span>${balStamp}<div style="font-size:31px;font-weight:800;color:#0f3d63;letter-spacing:-.5px">¥${bal.toFixed(2)}</div></div>`)
         }
-        if (cost > 0) parts.push(`<div style="margin-top:4px;font-size:15px;color:#b45309;font-weight:600">今天花了 ¥${cost.toFixed(2)}</div>`)
-        if (!parts.length) parts.push('<div style="color:#64748b;font-size:13px">账还没读到</div>')
+        // 2026-10-31 老板：昨天有「今天花了」，修了一下就没了——整行消失跟"没花钱"长得一样。
+        // 现在永远画这一行：实时 → 审计 → 后端合计（todayCost），一个都没有才说"没数"。
+        const total = Number(ov?.todayCost || 0)
+        const spend = cost > 0 ? cost : (Number(audit?.total || 0) > 0 ? Number(audit.total) : total)
+        const src = cost > 0 ? '' : (ov?.todaySource ? `（${ov.todaySource}）` : '')
+        parts.push(`<div style="margin-top:4px;font-size:15px;color:${spend > 0 ? '#b45309' : '#64748b'};font-weight:600">今天花了 ¥${spend.toFixed(2)}${src}</div>`)
+        if (!parts.length) {
+          parts.push(stale
+            ? '<div style="color:#64748b;font-size:13px">账本停了，审计也没有今天的</div>'
+            : '<div style="color:#64748b;font-size:13px">账还没读到</div>')
+        }
         const pi = peakInfo()
         const tone = pi.peak ? '#d9483f' : '#2f9e6b'
         const badge = `<span style="display:inline-block;padding:0 5px;border-radius:4px;background:${tone};color:#fff;font-size:10px;font-weight:700;margin-right:5px">${pi.peak ? '峰' : '谷'}</span>`
@@ -3889,14 +3948,27 @@ if (typeof document !== 'undefined') {
     }
     const pollLiveNow = async () => {
       try {
-        const d = await fetch('/api/dayu/live', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        const [d, ov] = await Promise.all([
+          fetch('/api/dayu/live', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+          fetch('/api/dayu/overview', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        ])
         const rows = (Array.isArray(d?.sessions) ? d.sessions : [])
           .filter((s) => s && s.lastAt && Date.now() - Date.parse(s.lastAt) < 3 * 60 * 1000)
-        const next = rows.length === 0
+        // 2026-10-31：QQ 那边在动也算「在跑」，说出来是谁——后台不能是个黑箱。
+        const q = ov?.qq
+        const qqAt = q?.at ? Date.parse(q.at) : 0
+        const qqActive = qqAt && Date.now() - qqAt < 2 * 60 * 1000
+        const qqLine = qqActive ? `QQ：${q.name || '有人'}刚说话` : ''
+        const busyLine = rows.length === 0
           ? ''
           : rows.length === 1
             ? `${liveLabel(rows[0])}：${liveWhat(rows[0])}`
             : `${rows.length} 条在跑 · ${liveLabel(rows[0])}：${liveWhat(rows[0])}`
+        // 2026-10-31 老板：看不见工具在跑，以为做完一个就停了。把她手头那条也说出来。
+        const d0 = ov?.doing
+        const dAt = d0?.since ? Date.parse(d0.since) : 0
+        const doingLine = d0?.what && (!dAt || Date.now() - dAt < 40 * 60 * 1000) ? `手上：${d0.what}` : ''
+        const next = [busyLine, qqLine, doingLine].filter(Boolean).join(' · ')
         if (next === liveLine) return
         const had = Boolean(liveLine)
         liveLine = next

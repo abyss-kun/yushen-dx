@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 移动端接口（/api/yushen/mobile/*）
 //
 // 设计边界（见 手机端-设计.md）：
@@ -138,8 +139,12 @@ export function createMobileRoutes(deps) {
       const messageId = text(body.messageId, 80) || `m-${Date.now()}`
       const seen = readJson(SEEN, { ids: [] })
       if ((seen.ids || []).includes(messageId)) return send(res, 200, { ok: true, duplicate: true })
+      // 2026-10-31：明确传了角色却认不出时，别静默改成大鱼——等于替她接了不该她接的话。
       let role = 'dayu'
-      try { role = gateway.validateRole(text(body.role, 20)) } catch { /* 保持默认 */ }
+      const wantRole = text(body.role, 20)
+      if (wantRole) {
+        try { role = gateway.validateRole(wantRole) } catch (e) { return send(res, 400, { ok: false, error: `不认识这个角色：${wantRole}` }) }
+      }
       const message = text(body.text)
       if (!message) return send(res, 400, { ok: false, error: '消息为空' })
 

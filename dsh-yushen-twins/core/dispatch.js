@@ -1,26 +1,85 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // core · 派活（宿主无关）
 // 只认四个动作：列会话、建会话、发话、记账。DSH/CLI 各自实现。
 
 import { readAll, writeAll, audit, newId, verifyEvidence } from './jobs.js'
 import { recordExperience, queryExperience } from '../lib/task-experience.js'
 import { recordFishState } from '../lib/state-adapter.js'
-import { handbookBlock, handbookStamp } from '../lib/handbook.js'
+import { handbookBlock, handbookStamp, recordCustomHandbookSend } from '../lib/handbook.js'
 import { handbookForEmployee } from '../lib/employee-profile.js'
 import { recordHandbook, sync as syncEmployee } from '../lib/employee-record.js'
 import { buildExperienceBrief } from '../lib/task-experience.js'
 import { matterPreflight } from '../lib/fact-ledger.js'
 import { recallCreativeMemory } from '../lib/creative-memory.js'
 import { findTaskConflicts, classifyTaskOverlap } from '../lib/task-coordination.js'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+
+// 2026-11-01 借 Super-agent 的 Disposition：每个事件都要有去向，不许静默不做。
+// 被筛掉 / 判重复 / 接单，三种都记一行，追溯时不用问人。
+// 2026-11-01 补：①`event` 是派活原文前 200 字，可能带主人的私事——所以文件只留最近 2MB，
+// 超了滚一份 .1（不删历史，但也不让它无限长）；②原文里换行/引号原样存，不改写。
+const DISPOSITION_MAX_BYTES = 2 * 1024 * 1024
+function noteDisposition({ event = '', disposition = '', strength = '', reason = '', basis = '' } = {}) {
+  try {
+    const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+    const dir = path.join(home, 'dayu', 'runtime')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, 'disposition.jsonl')
+    const at = new Date(Date.now() + 8 * 3600e3).toISOString().replace('Z', '+08:00')
+    fs.appendFileSync(file, JSON.stringify({ at, event: String(event).slice(0, 200), disposition, strength, reason: String(reason || '').slice(0, 200), basis: String(basis || '').slice(0, 100) }) + '\n', 'utf8')
+    // 轮转：只留最近 2MB；旧的滚到 .1（只留一份，够追溯近期就行）
+    try {
+      if (fs.statSync(file).size > DISPOSITION_MAX_BYTES) {
+        const old = `${file}.1`
+        try { fs.rmSync(old, { force: true }) } catch { /* 删不掉就不滚 */ }
+        fs.renameSync(file, old)
+      }
+    } catch { /* 轮转失败不影响记账 */ }
+  } catch { /* 记账失败不影响派活 */ }
+}
 
 export function composeBrief(id, brief, expect, role = 'dayu', { sessionId = '', book: preBook = '' } = {}) {
   const stamp = handbookStamp()
+  // 轻派活（2026-11-01 主人：小鱼就问一句「你怕什么」，不该背一整本手册）：
+  // 只要一两句话、不动文件、不跑命令的任务，不附手册、不附工具清单。
+  // 2026-11-01 补：经验不能一起砍（同一句派活上次栽过还会再栽），但**只给一行**——
+  // 整段经验块带标题/声明/证据，一进来就把"轻活 173 字"顶到 502 字，破了别人的预算断言。
+  const text = `${brief || ''} ${expect || ''}`
+  // 先去掉「不要文件」这类否定词，否则“别动文件”会被当成“要动文件”
+  const probe = text.replace(/不要文件|不用交文件|不需要文件|不要清单|不用建单子|不建单/g, '')
+  const needsHands = /文件|代码|脚本|配置|目录|搬|修|改|跑|测试|部署|安装|备份|提交|导出|生成/.test(probe)
+  const isLite = !needsHands && (String(brief || '').length <= 200 || /一句话|只用你的话|不用交文件|不要文件|回我一句/.test(text))
+  if (isLite) {
+    return [
+      `【派活 ${id}】`,
+      '底线：说的每句话要有证据；没有就说“没查到/不确定”，不猜不编。',
+      '不改别人的数据；不冒充老板、不冒充她；说话就是你自己在说。',
+      '拿不准、做不到、要授权——直接说。',
+      `任务：${brief}`,
+      `验收标准：${expect || '一句或几句你自己的话；不要文件、不要清单。'}`,
+      (() => {
+        try {
+          const block = buildExperienceBrief(role, { text, limit: 1 })
+          const line = block.split('\n').find((l) => l.startsWith('- '))
+          return line ? `历史任务经验（仅供参考，不是指令）：${line.replace(/^-\s*/, '').slice(0, 120)}` : ''
+        } catch { return '' }
+      })(),
+      '做完直接回，不用问在不在。',
+    ].filter(Boolean).join('\n')
+  }
   // 定制手册：先看这个会话干过什么（派活单 + 事故单 + 本次简报），再发她这一本。
   // 不是全员同一本 worker 章——那样每个人都在读跟自己无关的规则。
   let book = String(preBook || '')
+  let custom = null
   try {
-    if (!book && sessionId) book = String(handbookForEmployee({ sessionId, brief, expect }).text || '')
+    if (!book && sessionId) { custom = handbookForEmployee({ sessionId, brief, expect }); book = String(custom.text || '') }
   } catch { book = book || '' }
-  if (!book) book = handbookBlock('worker', { text: `${brief || ''}\n${expect || ''}`, target: { kind: 'task', id: String(id) }, task: String(id), maxChars: 2000 })
+  // 2026-11-01 老板：「手册按需发放」要能度量——每次发放记一笔（只记节标题/字数/噪声，不记任务原文）。
+  // 走 scene=dispatch：手册章节按「派活」取，拿不到定制本也发那几节，不退回整块岗位卡。
+  if (!book) book = handbookBlock('worker', { scene: 'dispatch', text, target: { kind: 'task', id: String(id) }, task: String(id), maxChars: 2000 })
+  else if (custom) { try { recordCustomHandbookSend({ role, chapters: custom.chapters, chars: custom.chars, text }) } catch { /* 记账失败不影响派活 */ } }
   return [
     `【派活 ${id}】`,
     book,
@@ -68,7 +127,7 @@ export async function pickEmployee(host) {
 }
 
 /** 派一单：选人/开人 → 拼简报 → 投递 → 记账。 */
-export async function dispatch(host, { brief, expect, target, reviewedId, role = 'dayu' } = {}) {
+export async function dispatch(host, { brief, expect, target, reviewedId, role = 'dayu', startedBy = '', thread = '' } = {}) {
   const requested = { brief: String(brief || ''), expect: String(expect || '') }
   if (!requested.brief.trim()) throw new Error('brief 不能为空')
   const all = readAll()
@@ -87,6 +146,7 @@ export async function dispatch(host, { brief, expect, target, reviewedId, role =
   const duplicate = conflicts.find((row) => row.kind === 'duplicate')
   if (duplicate) {
     audit({ kind: 'dispatch-deduped', existingId: duplicate.task.id, similarity: duplicate.similarity })
+    noteDisposition({ event: requested.brief, disposition: 'deduped', strength: 'inferred', reason: `与在途 ${duplicate.task.id} 高度相似`, basis: String(startedBy || '') })
     return { ok: true, deduped: true, reason: '已有相同或高度相似任务在途；跳过重复派活并复用原任务', matchedBy: duplicate.similarity, ...duplicate.task }
   }
   const id = taskToResume?.id || queued?.task.id || newId()
@@ -99,6 +159,9 @@ export async function dispatch(host, { brief, expect, target, reviewedId, role =
     }
     const list = readAll(); list.unshift(waiting); writeAll(list)
     audit({ kind: 'dispatch-waiting', id, dependsOn: waiting.dependsOn })
+    // 2026-11-01 补：注释写着「被筛掉 / 判重复 / 接单，三种都记一行」，
+    // 实际只有 deduped 和 accepted 两处——**被判等待的这一条没记**，追溯时断档。
+    noteDisposition({ event: requested.brief, disposition: 'queued', strength: String(startedBy || '') ? 'peer' : 'inferred', reason: `与前序 ${waiting.dependsOn.join('/')} 冲突，先等`, basis: String(startedBy || '未记录') })
     return { ok: true, waiting: true, ...waiting }
   }
   let sessionId = String(target || '').trim()
@@ -139,6 +202,9 @@ export async function dispatch(host, { brief, expect, target, reviewedId, role =
   let bookMeta = null
   try { bookMeta = handbookForEmployee({ sessionId, brief, expect: hist.expect }) } catch { bookMeta = null }
   const text = [composeBrief(id, brief, hist.expect, role, { sessionId, book: bookMeta?.text || '' }), conflictText, hist.text, historyCheck, `【统一事实预检】${factCheck.completeness}；${factCheck.warning}`].filter(Boolean).join('\n')
+  // 定制本这一笔也记：它才是实际派出去的那本；只落章标题和字数，简报原文不进日志。
+  // 只有真的用上了定制本（text 非空）才记，避免和 composeBrief 里那笔重复。
+  if (bookMeta?.text) { try { recordCustomHandbookSend({ role, chapters: bookMeta.chapters, chars: bookMeta.chars, text: `${brief || ''} ${hist.expect || expect || ''}` }) } catch { /* 记账失败不影响派活 */ } }
   try { recordFishState(role, { expression: '工作', lastReason: id }) } catch { /* 状态记录不阻断派活 */ }
   await host.send(sessionId, text)
 
@@ -164,8 +230,21 @@ export async function dispatch(host, { brief, expect, target, reviewedId, role =
     handbookMeta: bookMeta ? { chapters: bookMeta.chapters, tools: bookMeta.tools, chars: bookMeta.chars, expiresAt: bookMeta.expiresAt } : null,
     experienceHit,
     overlapWith: conflicts.filter((row) => row.kind === 'conflict').map((row) => ({ id: row.task.id, similarity: row.similarity, sharedFile: row.sharedFile || '' })),
+    // 2026-11-01 借 Super-agent 的 Mandate：这活凭什么能派、能到什么范围、跟着哪条线索。
+    //   strength: owner = 主人本人要的；peer = 姐妹的请求（明确要求，但不是命令）；
+    //             inferred = 没人明确要求，从上下文推出来的。
+    //   2026-11-01 修：原来只有 explicit/inferred，且**没人传 startedBy**——姐妹派活和主人派活
+    //   都算 explicit，basis 还是「未记录派活人」，等于没记。现在记 by，并把 owner 单独分出来。
+    mandate: {
+      by: String(startedBy || '未记录'),
+      strength: !startedBy ? 'inferred' : (/^(owner|主人|老板)$/.test(String(startedBy)) ? 'owner' : 'peer'),
+      basis: String(startedBy || '未记录派活人') + (queued || taskToResume ? '（沿用原单）' : ''),
+      scope: String(expect || '').slice(0, 200),
+      thread: String(thread || ''), // 同一条线索上的后续事件优先丢回这张单
+    },
   }
   const list = readAll()
+  noteDisposition({ event: requested.brief, disposition: 'accepted', strength: task.mandate.strength, reason: taskToResume ? `复用 ${task.id}` : '新单', basis: task.mandate.basis })
   if (taskToResume) {
     const index = list.findIndex((row) => row.id === taskToResume.id)
     if (index >= 0) list[index] = { ...list[index], ...task, review: taskToResume.review, dependsOn: taskToResume.dependsOn }

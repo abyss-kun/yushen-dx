@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 崩溃留痕：插件崩了、路由抛了、启动没挂上，都要留一条，别让下一次靠猜。
 // 数据：~/.dsh/dayu/crash.jsonl（只追加，不覆盖）。
 
@@ -34,11 +35,6 @@ export function listCrashes(limit = 20) {
   } catch { return [] }
 }
 
-/** 同一处最近 10 分钟崩了几次：连着崩就升级成事故单。 */
-export function recentCount(scope, windowMs = 10 * 60 * 1000) {
-  const since = Date.now() - windowMs
-  return listCrashes(200).filter((row) => row.scope === scope && Date.parse(row.at) > since).length
-}
 
 /** 包一层路由：抛错不把进程带走，先留痕，再回 500。 */
 export function guard(scope, handler) {

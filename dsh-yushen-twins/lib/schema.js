@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 数据版本与迁移：升级前先备份，迁移可重入；版本对不上不硬跑。
 // 数据：~/.dsh/dayu/schema.json · 备份：~/.dsh/dayu/backups/migrate-<时间>/
 
@@ -71,51 +72,6 @@ const STEPS = {
   },
 }
 
-/**
- * 升级前跑一次：版本旧就备份 + 逐版迁移；已是最新就什么都不做。
- * 成功返回 { ok: true, version, migrated, from, backup, notes }（与旧接口一致）。
- * 失败返回 { ok: false, migrated: false, version: from, from, backup, failedStep, notes, error }，
- * 且不写 schema.json：版本号只前进到“全部步骤都成功之后”，失败不提交。
- */
-export function ensureSchema() {
-  const before = readSchema()
-  const from = Number(before.version) || 0
-  if (from >= CURRENT_SCHEMA) return { ok: true, version: from, migrated: false, notes: [] }
-  const { dir: backupDir, errors: backupErrors } = backup()
-  if (backupErrors.length) {
-    return {
-      ok: false,
-      migrated: false,
-      version: from,
-      from,
-      backup: backupDir,
-      failedStep: 0,
-      notes: backupErrors.slice(),
-      error: `备份失败，未迁移：${backupErrors[0]}`,
-    }
-  }
-  const notes = []
-  const fail = (step, message) => {
-    notes.push(message)
-    return { ok: false, migrated: false, version: from, from, backup: backupDir, failedStep: step, notes, error: message }
-  }
-  for (let v = from + 1; v <= CURRENT_SCHEMA; v += 1) {
-    const step = STEPS[v]
-    if (typeof step !== 'function') return fail(v, `缺少迁移步骤 ${v}`)
-    try {
-      const stepNotes = step({ from, to: v })
-      if (Array.isArray(stepNotes)) notes.push(...stepNotes)
-    } catch (e) {
-      return fail(v, `迁移 ${v} 失败：${e?.message || e}`)
-    }
-  }
-  try {
-    writeSchema({ version: CURRENT_SCHEMA, at: new Date().toISOString(), from, backup: backupDir })
-  } catch (e) {
-    return fail(CURRENT_SCHEMA, `schema 写入失败：${e?.message || e}`)
-  }
-  return { ok: true, version: CURRENT_SCHEMA, migrated: true, from, backup: backupDir, notes }
-}
 
 /** 卸载前看看有什么；默认只看不删。
  *

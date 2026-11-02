@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 半自主补丁：她可以写、可以自测，落地必须老板点头（按钮）。
 // 数据：~/.dsh/dayu/patches/<id>/{meta.json,new/<file>}
 // 落地：先备份 → 覆盖 → 跑 smoke → 失败自动回滚。

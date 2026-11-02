@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 状态适配器
 // 两件事，边界分得很清楚：
 //   1) 外部心情**只读**：只解析 mood 数据文件（YUSHEN_MOOD_FILE / DSH_HOME/dayu /
@@ -11,8 +12,18 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { residentRoleIds } from './roles.js'
 
-export const ROLES = Object.freeze(['dayu', 'xiaoyu'])
+// 2026-11-01 主人加了「每天写日记」，我给照微写却报「未知角色：dragon（只允许 dayu / xiaoyu）」——
+// 这份白名单把第三个住户关在门外。改成**按名册**：住在这儿的都能写，名册读不到才退回出厂两条鱼。
+// 2026-11-01 再次修正：这里原来用 characterIds()，它对空名册会退回 SEED（只有 dayu），
+// 临时家里 xiaoyu 就被判"未知角色"——住户判断统一走 lib/roles.js（只认名册文件）。
+// 保留 ROLES 常量只为兼容旧引用；真正判断走 roles()。
+// 2026-11-01：原来这里把两条鱼写死在名单里，照微进不来；改成从名册取（当天名册）。
+export const ROLES = Object.freeze(residentRoleIds())
+export function roles() {
+  return residentRoleIds()
+}
 export const DIARY_BOOKS = Object.freeze(['private', 'owner'])
 export const STATE_WRITE_FIELDS = Object.freeze(['mood', 'expression', 'lastReason'])
 
@@ -69,8 +80,9 @@ function clampMood(value) {
 // 宁可报错也不要把 'dayu ' 悄悄当成 dayu 写到磁盘上。
 function assertRole(role) {
   const r = typeof role === 'string' ? role : null
-  if (!ROLES.includes(r)) {
-    throw new Error(`未知角色：${String(role)}（只允许 ${ROLES.join(' / ')}）`)
+  const list = roles()
+  if (!list.includes(r)) {
+    throw new Error(`未知角色：${String(role)}（只允许 ${list.join(' / ')}）`)
   }
   return r
 }

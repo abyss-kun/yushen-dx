@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 名册的通用性：换成别人自己的角色也能活；绝不动已有文件。
 import fs from 'node:fs'
 import os from 'node:os'

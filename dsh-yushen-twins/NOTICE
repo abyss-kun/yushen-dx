@@ -1,9 +1,35 @@
 鱼神双子星（dsh-yushen-twins）
-Copyright (c) 2026 从零开始. All rights reserved.
+Copyright (C) 2026 从零开始
 
-本软件由作者「从零开始」从零构建：框架设计、代码、文档与文案均为原创作品。
-联系作者：1194474355 [at] qq [dot] com（把 [at] 换成 @、[dot] 换成 .）。
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-可以改、可以扩展（包括改核心代码），改完自己用，作者不过问。
-不可以把本软件或改过的版本再分发给别人，也不可以拿去做商业用途。
-完整条款见 LICENSE。
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+联系作者：1194474355 [at] qq [dot] com（把 [at] 换成 @、[dot] 换成 .）
+
+---
+
+## 中文说明（不是法律文本，只为看懂）
+
+**个人使用**：随便用，不用问、不用给钱。
+
+**二次分发 / 修改 / 做成网络服务**：必须
+1. 保留本文件与版权声明；
+2. **公开你修改后的完整源代码**（AGPL 第 13 条：用户通过网络使用也算分发）；
+3. 注明来源。
+
+**想闭源商用（不公开代码）**：不行。要闭源请另行取得商业授权（见 `COMMERCIAL.md`）。
+
+**引用 / 介绍 / 做视频**：欢迎，保留一句来源即可：
+> 本项目基于 鱼神双子星（https://github.com/abyss-kun/yushen）
+
+说明：本仓库**不含**任何作者的个人数据（角色卡、记忆、账本、派活、档案室、令牌）——那些从不进发布包，也就不在授权范围内。

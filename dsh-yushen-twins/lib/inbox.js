@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 收件箱：手机收到的东西，镜像成本体看得见的事件流。
 //
 // 为什么要有它：判断权在桥里的时候，她连「手机在响」都不知道
@@ -31,8 +32,6 @@ function writeJsonAtomic(file, value) {
   fs.writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
   fs.renameSync(tmp, file)
 }
-
-export function inboxRoot() { return INBOX }
 
 /** 桥的 state 在哪：适配器声明 > 环境变量 > 常见位置（本机兜底）。 */
 export function bridgeStatePath() {

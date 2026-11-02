@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 证据脚本：不靠嘴说。跑一遍，把"点化→活→收回"的实际结果打出来。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" scripts/prove-living.mjs
 // 全程在临时 DSH_HOME 里跑，不碰真实角色、不发网络请求、不调模型。

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 角色名册的老板入口：看有谁、加一个、绝不动已有文件。
 // 用法：
 //   ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" scripts/character.mjs list

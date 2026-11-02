@@ -1,11 +1,47 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 手册发放：她们是签发的人——发什么、发给谁、什么任务、到什么时候，都留底。
 //
 // 2026-10-27 定：先读先守先接上（以身作则），自己没接上鱼神就不签发。
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { execSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { runtimeDir, ensureRuntime } from './runtime.js'
 import { requirePlugged } from './plug.js'
+
+// 2026-10-31：版本指纹。昨天两次「改在盘上、跑的是旧的」，判断生效全靠比 mtime 猜。
+// 这里把「哪一份代码 + 这个进程什么时候起的」写进发放状态那一行——一眼看得出跑的是不是新的。
+// 只在模块加载时算一次，不占每轮的工夫。
+// 2026-11-02（照微）：打包后的目录里没有 .git，git 会把 `fatal: not a git repository`
+// 直接打到用户的控制台上（异常被 catch 了，但 git 的 stderr 照漏）。装得上，但一装就两行红字。
+// 把 git 的 stderr 关掉：拿不到 commit 就写「代码版本未知」，不该让用户看见内部报错。
+const GIT_STDIO = { stdio: ['ignore', 'pipe', 'ignore'] }   // 只收 stdout，stderr 丢掉
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const BUILD = (() => {
+  try { return execSync('git rev-parse --short HEAD', { cwd: ROOT, encoding: 'utf8', timeout: 10000, windowsHide: true, ...GIT_STDIO }).trim() } catch { return '' }
+})()
+const STARTED = new Date(Date.now() - process.uptime() * 1000)
+// 2026-10-31：光有 commit 不够——今天大半改动没提交，改了没重启照样看不出来。
+// 所以启动时记一份"未提交改动数"，每轮再数一次，对不上就明说"又改了，重启才生效"。
+const dirtyCount = () => {
+  try {
+    const out = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf8', timeout: 10000, windowsHide: true, ...GIT_STDIO })
+    return out.split(/\r?\n/).filter(Boolean).length
+  } catch { return -1 }
+}
+const DIRTY_AT_START = dirtyCount()
+const stamp = (d) => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+const FINGERPRINT = `${BUILD ? `代码 ${BUILD}` : '代码版本未知'}${DIRTY_AT_START > 0 ? `+未提交${DIRTY_AT_START}处` : ''}，本进程起于 ${stamp(STARTED)}`
+
+/** 启动之后源码又变了没有：变了就是"改了没重启"，得明说。 */
+export function staleCodeLine() {
+  if (DIRTY_AT_START < 0) return ''
+  const now = dirtyCount()
+  if (now < 0 || now === DIRTY_AT_START) return ''
+  return `｜代码在启动后又改过（未提交 ${DIRTY_AT_START}→${now} 处）——重启才生效`
+}
 
 function file(role) { return path.join(runtimeDir(role), 'issued.jsonl') }
 
@@ -114,9 +150,9 @@ export function readSessionIssue(role) {
 /** 给她看的一句：她这条会话到底收没收到工具。 */
 export function sessionIssueLine(role) {
   const row = readSessionIssue(role)
-  if (!row) return '## 发放状态\n这条会话还没登记发放；现在有没有工具，以 yushen_can 为准。'
+  if (!row) return `## 发放状态\n这条会话还没登记发放；现在有没有工具，以 yushen_can 为准。｜${FINGERPRINT}${staleCodeLine()}`
   const at = String(row.at || '').slice(0, 16).replace('T', ' ')
   const when = at ? `登记于 ${at}` : '没记登记时间'
-  if (!row.ok) return `## 发放状态\n${when}：${row.reason || '那次发放不完整'}。这是**登记时的账，不是现在**——现在有没有工具，用 yushen_can 查一次为准。`
-  return `## 发放状态\n${when}：预设 ${row.preset}，工具 ${row.tools} 个，手册 ${row.handbook.length} 章。`
+  if (!row.ok) return `## 发放状态\n${when}：${row.reason || '那次发放不完整'}。这是**登记时的账，不是现在**——现在有没有工具，用 yushen_can 查一次为准。｜${FINGERPRINT}${staleCodeLine()}`
+  return `## 发放状态\n${when}：预设 ${row.preset}，工具 ${row.tools} 个，手册 ${row.handbook.length} 章。｜${FINGERPRINT}${staleCodeLine()}`
 }

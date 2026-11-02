@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 账：今天花了多少、云端一次大概多少、本地回是免费的。
 //
 // 用途只有一个：**把数摆给她看**——不是拿它当闸门，也不是替她决定花不花。
@@ -72,8 +73,17 @@ function ownBudgetLine(role, now) {
     const limitLine = limit
       ? `\n你自己定的日上限 ${limit.toFixed(2)} 元，今天已经 ${today.yuan.toFixed(2)}（${today.yuan > limit ? '超了' : '还没到'}）。`
       : ''
-    return `\n**你自己的那份：还剩 ${rest.toFixed(2)} 元**（本期给 ${total.toFixed(2)}${end ? `，到 ${end}` : ''}，已花 ${used.toFixed(2)}；按真实流水现算，每轮都会变）`
-      + `\n今天你名下 ${today.yuan.toFixed(2)} 元（${today.turns} 回合）——QQ 那侧的账，工作台回合没署名，分不到人。${limitLine}`
+    // 宿主账本停了就别拿 0 冒充数（2026-10-31 实撞：停了 15 小时，工作台花费全是 0）。
+    let staleLine = ''
+    try {
+      const wb = usageBetween(now - 6 * 3600 * 1000, now)
+      if (wb.stale && wb.lastAt) {
+        const hours = Math.floor((now - wb.lastAt) / 3600 / 1000)
+        staleLine = `\n（工作台那边的账本停在 ${hours} 小时前，所以上面只有 QQ 侧的数；那边的花费看不见，不是没花。）`
+      }
+    } catch { /* 读不到就不说 */ }
+    return `\n**你的钱：还剩 ${rest.toFixed(2)} 元**（本期 ${total.toFixed(2)}${end ? `，到 ${end}` : ''}，已花 ${used.toFixed(2)}，实时）`
+      + `\n今天你名下 ${today.yuan.toFixed(2)} 元（${today.turns} 回合，QQ 侧）${limitLine}${staleLine}`
   } catch { return '' }
 }
 
@@ -103,6 +113,129 @@ function readRows() {
     try { const r = JSON.parse(line); if (r?.k === 'turn' && r?.b) rows.push(r) } catch { /* 坏行跳过 */ }
   }
   return rows
+}
+
+// ── 工作台那侧的花费，归到人头上（2026-10-30）─────────────────────────
+// 事实：宿主的 usage 事件只有 {ts, day, model, tokens, cost}，没有 session、没有角色。
+// 所以只能"按回合窗口估"：
+//   起回合时记一笔 pending（谁、什么时候），落账时把这段窗口里多出来的花费
+//   记到当时唯一在跑的那个角色头上；两个角色同时跑就记「未署名」，不硬认。
+// 自己的账（runtime/<role>/花费/<day>.json）里每条都带 source，看得见是估的。
+const TRACK = path.join(HOME, 'dayu', 'runtime', 'dayu', '花费追踪.json')
+
+function readTrack() {
+  try { return JSON.parse(fs.readFileSync(TRACK, 'utf8').replace(/^\uFEFF/, '')) } catch { return { lastAt: Date.now(), lastCost: totalCost(), pending: [] } }
+}
+
+function writeTrack(doc) {
+  try {
+    fs.mkdirSync(path.dirname(TRACK), { recursive: true })
+    const tmp = `${TRACK}.tmp`
+    fs.writeFileSync(tmp, JSON.stringify(doc, null, 1), 'utf8')
+    fs.renameSync(tmp, TRACK)
+  } catch { /* 记不下不影响说话 */ }
+}
+
+/** 全量累计花费（所有行），给窗口差用。 */
+function totalCost() {
+  let c = 0
+  for (const r of readRows()) {
+    const b = r.b || {}
+    c += (Number(b.cacheHit) || 0) / 1e6 * PRICE.hit
+      + (Number(b.cacheMiss) || 0) / 1e6 * PRICE.miss
+      + (Number(b.cacheWrite) || 0) / 1e6 * PRICE.write
+      + (Number(b.output) || 0) / 1e6 * PRICE.out
+  }
+  return c
+}
+
+/**
+ * 某段时间里工作台这侧花了多少。
+ * 数据源是宿主的 `~/.dsh/.dshw-usage.json`（每条 {ts, day, model, tokens, cost}）。
+ * 实测对得上：今天它合计 51.158 + QQ 那侧 1.24 = 审计总数 52.40——**这一份里不含 QQ**，
+ * 所以拿它算工作台正好，不会跟桥的账重复。
+ */
+export function usageBetween(fromMs, toMs = Date.now()) {
+  let events = []
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(HOME, '.dshw-usage.json'), 'utf8'))
+    events = Array.isArray(j?.events) ? j.events : []
+  } catch { return { calls: 0, tokens: 0, cost: 0, stale: true, lastAt: 0 } }
+  let cost = 0
+  let tokens = 0
+  let calls = 0
+  let lastAt = 0
+  for (const e of events) {
+    const t = Number(e.ts) || 0
+    if (t > lastAt) lastAt = t
+    if (!(t > fromMs && t <= toMs)) continue
+    calls += 1
+    tokens += Number(e.tokens) || 0
+    cost += Number(e.cost) || 0
+  }
+  // 2026-10-31：这份账是宿主写的，会停（实测从 10-30 22:18 起停了 15 小时）。
+  // 停了还照样返回 0，看着就像"今天没花钱"——那是假数。这里如实标出来。
+  const stale = !lastAt || (toMs - lastAt) > 3 * 3600 * 1000
+  return { calls, tokens, cost: Number(cost.toFixed(6)), stale, lastAt }
+}
+
+/** 起一个回合：记下"谁在跑"。落账时靠它认人。 */
+export function noteTurnStart(role, { now = Date.now() } = {}) {
+  if (!role) return
+  const doc = readTrack()
+  doc.pending = [...(doc.pending || []).slice(-20), { role, at: now }]
+  writeTrack(doc)
+}
+
+/**
+ * 落账：把上次到现在多出来的花费，记给当时唯一在跑的那个角色。
+ * 一次跑账只认一个；同时有两个就记「未署名」，并把候选人写进去。
+ */
+export function settleSpend({ now = Date.now() } = {}) {
+  const doc = readTrack()
+  const since = Number(doc.lastAt) || now
+  if (now - since < 60 * 1000) return { ok: true, skipped: '太短，先不结' }
+  const delta = usageBetween(since, now)
+  const pending = (doc.pending || []).filter((p) => Number(p.at) >= since - 30 * 1000)
+  const roles = [...new Set(pending.map((p) => p.role))]
+  const who = roles.length === 1 ? roles[0] : ''
+  if (delta.cost > 0.0005) {
+    const day = dayKey(now)
+    const file = path.join(HOME, 'dayu', 'runtime', who || 'dayu', '花费', `${day}.json`)
+    let doc2 = { day, items: [], sum: 0 }
+    try { doc2 = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')) } catch { /* 新的一天 */ }
+    doc2.items = [...(doc2.items || []).slice(-200), {
+      at: new Date(now).toISOString(),
+      from: new Date(since).toISOString(),
+      to: new Date(now).toISOString(),
+      cost: Number(delta.cost.toFixed(4)),
+      calls: delta.calls,
+      tokens: delta.tokens,
+      who: who || '未署名',
+      candidates: roles,
+      source: roles.length === 1 ? '估算·回合窗口' : '估算·多角色混合',
+    }]
+    doc2.sum = Number(doc2.items.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(4))
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      const tmp = `${file}.tmp`
+      fs.writeFileSync(tmp, JSON.stringify(doc2, null, 1), 'utf8')
+      fs.renameSync(tmp, file)
+    } catch { /* 写不进就算了 */ }
+  }
+  doc.lastAt = now
+  doc.pending = []
+  writeTrack(doc)
+  return { ok: true, cost: delta.cost, who: who || '未署名', candidates: roles }
+}
+
+/** 某天某人名下记了多少（工作台那侧的估算）。 */
+export function attributedFor(role, day = dayKey(Date.now())) {
+  const file = path.join(HOME, 'dayu', 'runtime', role, '花费', `${day}.json`)
+  try {
+    const d = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''))
+    return { day, sum: Number(d.sum) || 0, items: d.items || [] }
+  } catch { return { day, sum: 0, items: [] } }
 }
 
 /** 今天（按本地日期）花了多少，以及最后一次回合的 token。 */
@@ -150,4 +283,80 @@ export function costLine({ now = Date.now(), cache = null, role = '' } = {}) {
   const line = `## 钱的事\nQQ 那边今天一共 ${s.yuan} 元（${s.turns} 回合）；一次云端回合大约 ${per} 元；本地回 0 元，不回也 0 元。`
     + ownBudgetLine(role, now) + failQuotaLine(role, now) + alerts
   return line
+}
+
+/**
+ * 「Token 回」面板的数据（2026-10-31 23:0x）。
+ * 原来这个面板调别人的接口 `/api/token-budget/data`（dsh-token-budget 插件），
+ * 宿主一重启/插件没挂上，就回一句 `not found`，面板报「Unexpected token 'o'」——
+ * 我们自己的页面不该靠别人插件的路由活着。这里用我们自己的流水算同一份形状：
+ *   today{cost,balance,turns,calls,tokens,perCall} / sources[] / items[]
+ */
+export function tokenView({ now = Date.now(), balance = null } = {}) {
+  const day = dayKey(now)
+  const srcName = (key) => {
+    const k = String(key || '')
+    if (k.includes('黑话')) return '黑话学习'
+    if (k.startsWith('private:')) return '私聊'
+    if (k.startsWith('group:')) return '群聊'
+    return k || '其他'
+  }
+  const rows = readRows().filter((r) => {
+    const t = Number(r.t) || 0
+    return t && dayKey(t) === day
+  })
+  const turns = new Map()
+  for (const r of rows) {
+    const b = r.b || {}
+    const inTok = (Number(b.cacheHit) || 0) + (Number(b.cacheMiss) || 0) + (Number(b.cacheWrite) || 0)
+    const outTok = Number(b.output) || 0
+    const price = (Number(b.cacheHit) || 0) / 1e6 * PRICE.hit
+      + (Number(b.cacheMiss) || 0) / 1e6 * PRICE.miss
+      + (Number(b.cacheWrite) || 0) / 1e6 * PRICE.write
+      + outTok / 1e6 * PRICE.out
+    const sk = `${r.sid || '?'}|${r.turn || 0}`
+    const cur = turns.get(sk) || {
+      sid: String(r.sid || ''), turn: Number(r.turn) || 0, source: srcName(r.key),
+      calls: 0, tokens: 0, input: 0, output: 0, cost: 0,
+      first: Number(r.t) || 0, last: Number(r.t) || 0,
+    }
+    cur.calls += 1
+    cur.input += inTok
+    cur.output += outTok
+    cur.tokens += inTok + outTok
+    cur.cost += price
+    cur.first = Math.min(cur.first, Number(r.t) || cur.first)
+    cur.last = Math.max(cur.last, Number(r.t) || cur.last)
+    turns.set(sk, cur)
+  }
+  const items = [...turns.values()].sort((a, b) => b.last - a.last).map((it) => ({ ...it, cost: Number(it.cost.toFixed(6)) }))
+  const calls = rows.length
+  const totalTokens = items.reduce((a, x) => a + x.tokens, 0)
+  const totalCost = items.reduce((a, x) => a + x.cost, 0)
+  const bySource = new Map()
+  for (const it of items) {
+    const cur = bySource.get(it.source) || { name: it.source, turns: 0, calls: 0, tokens: 0, cost: 0 }
+    cur.turns += 1
+    cur.calls += it.calls
+    cur.tokens += it.tokens
+    cur.cost += it.cost
+    bySource.set(it.source, cur)
+  }
+  const sources = [...bySource.values()]
+    .map((s) => ({ ...s, cost: Number(s.cost.toFixed(6)) }))
+    .sort((a, b) => b.cost - a.cost)
+  return {
+    day,
+    source: 'yushen', // 这份是我们自己算的；不是别人插件的数
+    today: {
+      cost: Number(totalCost.toFixed(4)),
+      balance: balance === null ? null : Number(balance),
+      turns: items.length,
+      calls,
+      tokens: totalTokens,
+      perCall: calls ? Number((totalCost / calls).toFixed(6)) : 0,
+    },
+    sources,
+    items,
+  }
 }

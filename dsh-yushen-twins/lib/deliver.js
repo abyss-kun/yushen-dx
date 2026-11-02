@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 完成声明：她报"做完了"的时候，必须留下能验的东西。
 //
 // 为什么：今天文字版渲出来了，我报"完成"，结尾其实被截断。
@@ -60,10 +61,14 @@ export function listDeliveries(role, { limit = 10 } = {}) {
   } catch { return [] }
 }
 
-/** 简报里的一行：最近三条完成的活，带验法。 */
-export function deliveriesLine(role, { limit = 3 } = {}) {
+/** 简报里的一行：最近一条完成的活，带验法。
+ *  2026-10-31 自净：原来三条整段（1170 字）每轮都带着，可"我干过什么"她自己翻 dones 更快。
+ *  只留最近一条当锚，其余一行指路——注入不回升。 */
+export function deliveriesLine(role, { limit = 1 } = {}) {
   const rows = listDeliveries(role, { limit })
   if (!rows.length) return ''
-  const items = rows.map((r) => `${r.what}（${r.how}→${r.evidence}）`).join('；')
-  return `## 你最近交付的活\n${items}\n（这些都是验过的；没验的别报完成）`
+  const r = rows[rows.length - 1]
+  const clip = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n)
+  return `## 你最近交付的活\n${clip(r.what, 70)}（详情：yushen_self action=dones；没验的别报完成）`
 }
+

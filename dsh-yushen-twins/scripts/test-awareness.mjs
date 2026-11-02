@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 知情：最近软件事件的摘要；有上限、能读空、不碰别的文件。
 import fs from 'node:fs'
 import os from 'node:os'

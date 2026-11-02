@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 死出口：一个函数导出了，但没有任何**别的文件把它 import 进去**。
 //
 // 2026-10-30 从一条真事长的：lib/active.js 的 begin/settle、lib/people.js 的
@@ -120,6 +121,10 @@ function resolveSpec(fromFile, spec) {
  * days：只看最近几天动过的文件（0 = 全都看）。
  * 这个参数是给"刚造完的东西接没接上"用的——全量扫会有很多
  * 本来就留给外部用的口子（adapter、给别的插件的 API），噪音盖住真问题。
+ *
+ * 2026-10-30：加了豁免表 `scripts/dead-exports.allow.json`。
+ * 扫描器只认 import，认不出「scripts/ 或测试直接调用」——那些是接线不是死码。
+ * 豁免要写理由；没理由的别往里塞。返回值里 dead 只留**没解释的**。
  */
 export function scanDeadExports({ root = ROOT, days = 0, scope = 'lib/' } = {}) {
   const files = walk(root)
@@ -172,7 +177,13 @@ export function scanDeadExports({ root = ROOT, days = 0, scope = 'lib/' } = {}) 
     }
   }
   rows.sort((a, b) => (a.file === b.file ? a.line - b.line : a.file.localeCompare(b.file)))
-  return { root, scanned: fresh.size, dead: rows }
+
+  // 豁免：scripts/ 或测试直接调用的，扫描器看不见 import。如实分开报，不藏。
+  let allow = {}
+  try { allow = JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'dead-exports.allow.json'), 'utf8'))?.items || {} } catch { allow = {} }
+  const allowed = rows.filter((r) => Object.hasOwn(allow, r.name)).map((r) => ({ ...r, why: allow[r.name] }))
+  const unexplained = rows.filter((r) => !Object.hasOwn(allow, r.name))
+  return { root, scanned: fresh.size, dead: unexplained, allowed, total: rows.length }
 }
 
 export default scanDeadExports

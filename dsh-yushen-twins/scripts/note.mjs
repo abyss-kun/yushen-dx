@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 零模型记账：把一条事实写进工作账本，不叫模型、不花 token。
 // 用法：
 //   ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" scripts/note.mjs "修好了 XX" [--files=a,b] [--evidence=...] [--kind=fix]

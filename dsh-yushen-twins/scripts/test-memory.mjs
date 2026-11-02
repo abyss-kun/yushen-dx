@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 记忆回写：按人、带通道、去重、限量，且不碰摘要/习惯/关系。
 import fs from 'node:fs'
 import os from 'node:os'

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 神念：自己决定看多细。零模型、只读、脱敏。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<exe>" scripts/look.mjs [headline|skim|read] [--limit=10] [--q=关键词]
 import { look, awarenessIndex } from '../lib/awareness.js'

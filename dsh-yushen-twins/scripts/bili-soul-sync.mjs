@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 把她的本体同步进刷B站的 personaPrompt。
 // 用法：
 //   ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" scripts/bili-soul-sync.mjs            # 实际写（自动备份）

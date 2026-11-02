@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // CLI 适配器：没有 DSH 也能活——投一句话就是打印，工具就是本地函数表。
 
 import { attach, createFileHost } from '../core/host.js'

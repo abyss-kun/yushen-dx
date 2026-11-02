@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 角色卡体检：只读判断，不改卡。
 // 用途：新建角色后提示“还缺哪几节没填”；接入别人的卡时判断能不能直接用。
 import { CARD_SECTIONS } from './card-template.js'

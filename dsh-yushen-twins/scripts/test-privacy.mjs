@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 隐私分级：钱/档案/应用/文件/照片默认不说；奶茶这类日常可说可不说。
 import assert from 'node:assert/strict'
 import { classify, mayShare } from '../lib/privacy.js'

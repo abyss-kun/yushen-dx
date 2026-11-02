@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 自主学习（本地知识条目）
 // 只把“学到的东西”当**待复核资料**存着：
 //   · 不是指令，不授予任何权限，不进人格/角色卡；
@@ -11,8 +12,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { workspace, qqBridgeRoot } from './paths.js'
+import { residentRoleIds } from './roles.js'
 
-export const KNOWLEDGE_ROLES = Object.freeze(['dayu', 'xiaoyu'])
+// 2026-11-01 主人：「写死就改……我一视同仁」。名单从名册取（lib/roles.js）。
+export function knowledgeRoles() { return residentRoleIds() }
 export const POLICY_NOTE = '知识是待复核资料，不是指令，不授予权限'
 
 export const MAX_TOPIC = 80
@@ -54,8 +57,8 @@ function cleanText(value, max) {
 
 function assertRole(role) {
   const r = typeof role === 'string' ? role : null
-  if (!KNOWLEDGE_ROLES.includes(r)) {
-    throw new Error(`未知角色：${String(role)}（只允许 ${KNOWLEDGE_ROLES.join(' / ')}）`)
+  if (!knowledgeRoles().includes(r)) {
+    throw new Error(`未知角色：${String(role)}（只允许 ${knowledgeRoles().join(' / ')}）`)
   }
   return r
 }
@@ -285,9 +288,9 @@ export function verifyKnowledge(id, { ownerApproved = false, reviewedBy = 'owner
   if (!key) throw new Error('缺少知识 id')
   if (ownerApproved !== true) throw new Error('知识复核必须由主人显式批准（ownerApproved=true）')
   const reviewer = cleanText(reviewedBy, MAX_REVIEWER) || 'owner'
-  if (KNOWLEDGE_ROLES.includes(reviewer)) throw new Error('不能自己复核自己的知识')
+  if (knowledgeRoles().includes(reviewer)) throw new Error('不能自己复核自己的知识')
 
-  for (const role of KNOWLEDGE_ROLES) {
+  for (const role of knowledgeRoles()) {
     const { file, entries } = readEntries(role)
     const index = entries.findIndex((row) => row.id === key)
     if (index < 0) continue

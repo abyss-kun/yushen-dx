@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 运行时：她「活着」的那一层。
 //
 // 定位（框架 §4.6）：卡是脸，点化是命。脸归插件，命归鱼神。
@@ -56,7 +57,6 @@ export function safeRole(role) {
   return id.replace(/[\\/:*?"<>|\s]/g, '_').slice(0, 40)
 }
 
-export function runtimeRoot() { return ROOT }
 export function runtimeDir(role) { return path.join(ROOT, safeRole(role)) }
 
 function readJson(file, fallback) {

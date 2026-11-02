@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 收件箱镜像：幂等、不吞自己的话、断层能标出来。
 import fs from 'node:fs'
 import os from 'node:os'

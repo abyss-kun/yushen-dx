@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Offline integration: real residence delivery -> scoped mind lookup -> transport text.
 import assert from 'node:assert/strict'
 import fs from 'node:fs'

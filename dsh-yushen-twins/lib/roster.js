@@ -1,3 +1,4 @@
+// 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 名册：只读地看“公司里有谁、谁会什么”。
 // 数据源：profile 的 package.json（依赖 + bundles）+ node_modules 里的 package.json。

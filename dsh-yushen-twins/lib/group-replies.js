@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Correlate only host-confirmed exact user inputs within a turn. Never claim by FIFO.
 import { markReplied } from './group-outbox.js'
 

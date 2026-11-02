@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 设定基线检查：把“老板亲口定的地基”写成断言，改丢了就报错。
 // 运行：node scripts/verify-settings.mjs
 

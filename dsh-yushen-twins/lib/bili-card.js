@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // B站链接识别与只读卡片元数据边界；不发布、不互动。
 export function extractBiliVideo(text) {
   const m = String(text || '').match(/(?:https?:\/\/)?(?:www\.)?bilibili\.com\/video\/(BV[0-9A-Za-z]+)|\b(BV[0-9A-Za-z]{6,})\b/i)

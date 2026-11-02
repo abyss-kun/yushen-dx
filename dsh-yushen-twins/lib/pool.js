@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 分身池：提前养几条待命的员工会话，派活时直接取，不用每次现开。
 // 只记“谁待命”；会话本身归 DSH，宿主重启后按 id 对不上就丢弃。
 
@@ -28,13 +29,6 @@ export function addWorker({ id, name }) {
   const v = read()
   if (v.workers.some((w) => w.id === id)) return v.workers
   v.workers = [{ id, name: String(name || '').slice(0, 40), at: new Date().toISOString(), status: 'idle' }, ...(v.workers || [])].slice(0, MAX)
-  write(v)
-  return v.workers
-}
-
-export function removeWorker(id) {
-  const v = read()
-  v.workers = (v.workers || []).filter((w) => w.id !== id)
   write(v)
   return v.workers
 }

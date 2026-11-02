@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 翻译器：把「别人说的话」翻成她能读懂的观察。
 //
 // 分工（2026-10-26 定）：
@@ -7,6 +8,7 @@
 //
 // 后端可选：local / remote / off（`runtime/backends.json` 或环境变量）。
 // 探测不到本地引擎就回落，并且**如实说**，不假装看懂了。
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'

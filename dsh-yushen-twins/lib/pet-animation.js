@@ -1,3 +1,4 @@
+// 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 桌宠动画体检：只读解析 dsh-dafeiyu 的 assets/pet-manifest.json。
 //

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 手：不用模型也能干活的那些动作。
 //
 // 为什么要有这一层：
@@ -277,22 +278,3 @@ export function listHands({ limit = 10 } = {}) {
   return readLedger(Math.max(1, Number(limit) || 10))
 }
 
-/** 简报一行：手上有什么、最近跑成没成、哪只废了。 */
-export function handsLine() {
-  const q = readHands()
-  const items = q.items || []
-  if (!items.length) return ''
-  const on = items.filter((x) => x.enabled !== false)
-  const rows = readLedger()
-  const last = rows.slice(-3)
-  const ls = last.length
-    ? '；最近：' + last.map((r) => `${r.id}${r.ok ? (r.report ? '⚠' : '✓') : '✗'}`).join(' ')
-    : ''
-  const broken = on
-    .map((x) => ({ id: x.id, n: failStreak(x.id, { rows }) }))
-    .filter((x) => x.n >= FAIL_ALERT_AT)
-  const bs = broken.length
-    ? '\n废了：' + broken.map((x) => `${x.id}（连败 ${x.n}）`).join(' · ')
-    : ''
-  return `## 你的手（不用模型也能做）\n${on.map((x) => x.id).join(' · ')}${ls}${bs}`
-}

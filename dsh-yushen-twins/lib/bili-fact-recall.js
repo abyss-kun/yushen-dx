@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Recall Bilibili raw facts by trusted source scope. This is source context, not a mind item.
 import fs from 'node:fs'
 import path from 'node:path'

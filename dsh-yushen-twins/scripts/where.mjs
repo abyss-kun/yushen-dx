@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 规定在哪：按关键词定位到文件+行号。只读本地，不调模型。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<exe>" scripts/where.mjs 问不到
 import fs from 'node:fs'

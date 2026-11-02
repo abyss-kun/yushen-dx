@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 权重：主人这边的入口（她自己用 yushen_weight 工具，接入的插件没有入口）。
 //
 //   node scripts/weights.mjs --role dayu

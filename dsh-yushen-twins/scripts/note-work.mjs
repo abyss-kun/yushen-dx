@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 记一步：node scripts/note-work.mjs "改了什么" --files a.js,b.js --evidence "smoke 11/0" --tq "①…②…③…"
 //          --by "大鱼·工作台" --auth "主人" --why "为什么" --where "lib/x.js:12" --mutable "是/否/需老板点头"
 // 每改一步就跑一次；小鱼靠它搜"你修了什么"。
@@ -102,7 +103,11 @@ if (files.length) {
     const j = JSON.parse(fs.readFileSync(path.join(ROOT, '不可改清单.json'), 'utf8'))
     const items = Object.keys(j.items || {})
     const hit = items.find((p) => files.some((f) => f === p || f.endsWith(p) || p.includes(f)))
-    if (hit && !auth.includes('主人')) {
+    // 2026-10-31：这条清单项原文是「只能加，删改要老板点头」。加一条新断言不算改。
+    // 判据：命中项带 #已有断言，且 --mutable 里写了「只增」——才放行；其余照旧要主人。
+    const additive = hit && /#已有断言$/.test(hit) && /只增|只加|新增第/.test(mutable)
+    if (additive) console.log(`[留痕] ${hit.split('#')[0]}：只增不改，按清单原文放行`)
+    if (hit && !additive && !auth.includes('主人')) {
       console.error([
         `这条动的是不可改清单里的东西：${hit}`,
         `理由：${j.items[hit]}`,

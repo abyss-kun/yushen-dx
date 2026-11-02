@@ -1,3 +1,4 @@
+// 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 台账：按天落盘，从装上那天起一直留着；想看多久以前的都查得到。
 // 目录：~/.dsh/dayu/events/YYYY-MM-DD.jsonl

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 角色名册
 // 「谁住在这套软件里」只由这份名册决定：每个角色一张卡、一份记忆、一条常驻会话。
 // 发行版不覆盖用户已有的角色：只读用户目录，写入时一律「已存在就拒绝」。
@@ -5,6 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { blankCard } from './card-template.js'
+import { assertWritable } from './immutables.js'
 
 export const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 export const DATA = path.join(HOME, 'dayu')
@@ -152,6 +154,20 @@ export function characterIds() {
   return listCharacters().map((c) => c.id)
 }
 
+/**
+ * 只读名册文件里的 id：没有名册就是 []，**不退回 SEED**。
+ * 2026-10-31 老板：出厂让用户自己选，不能偷偷塞一个"大鱼"进去。
+ * characterIds() 带 SEED 兜底（那是"认识的角色目录"，不是"住户"），
+ * 所以"能不能建/算不算已占用"这类判断必须用这个，别用 characterIds()。
+ */
+export function rosterIds() {
+  try {
+    const raw = readJson(MANIFEST)
+    const rows = Array.isArray(raw?.characters) ? raw.characters : []
+    return rows.map((r) => String(r?.id || '').trim()).filter(Boolean)
+  } catch { return [] }
+}
+
 export function getCharacter(id) {
   const key = String(id || '').trim()
   const hit = listCharacters().find((c) => c.id === key)
@@ -175,7 +191,7 @@ function writeAtomic(file, text) {
 export function addCharacter(input = {}) {
   const id = String(input.id || '').trim()
   if (!ID_RE.test(id)) fail(`角色 id 不合法：${id}`)
-  if (characterIds().includes(id)) fail(`已经有这个角色：${id}（不覆盖）`)
+  if (rosterIds().includes(id)) fail(`已经有这个角色：${id}（不覆盖）`)
   const name = String(input.name || '').trim()
   if (!name) fail('角色 name 不能为空')
   const cardRel = String(input.cardRel || `cards/${id}.desk.md`)
@@ -192,6 +208,9 @@ export function addCharacter(input = {}) {
   // 先写数据文件（新建，绝不覆盖），再写名册；名册失败就把新文件收回来。
   const created = []
   try {
+    // 2026-11-01：写之前先过不可改清单的**事前**闸——cardRel 是调用方给的，
+    // 万一指到别人那张卡（比如 cards/dayu.desk.md），这里当场拒，不等写完再审计。
+    assertWritable(cardPath, { by: id })
     if (typeof input.card === 'string' && input.card.trim()) {
       fs.mkdirSync(path.dirname(cardPath), { recursive: true })
       fs.writeFileSync(cardPath, input.card, { encoding: 'utf8', flag: 'wx' })

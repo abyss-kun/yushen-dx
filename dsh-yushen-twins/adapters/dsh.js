@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // DSH 适配器：把宿主能力映射成 core 的六能力契约。
 // 只做接线，不写业务；core 里不许 import 这个文件。
 
