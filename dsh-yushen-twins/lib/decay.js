@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 记忆衰减：会忘才像人。
 //
 // 只算"现在还剩多强"，不改原文；承诺（promise）永不衰减。
@@ -20,11 +21,3 @@ export function strength(entry = {}, { now = Date.now(), kind = '' } = {}) {
   return Math.pow(0.5, days / hl)
 }
 
-/** 按强度排序，弱的往后；低于阈值的可选剔除。 */
-export function rank(entries = [], { now = Date.now(), min = 0, kind = '' } = {}) {
-  return entries
-    .map((e) => ({ entry: e, s: strength(e, { now, kind }) }))
-    .filter((x) => x.s >= min)
-    .sort((a, b) => b.s - a.s)
-    .map((x) => x.entry)
-}

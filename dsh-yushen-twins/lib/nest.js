@@ -1,3 +1,4 @@
+// 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 import { characterIds } from './characters.js'
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 鱼窝：两只鱼当前的形象 + 名字。

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 想念：只记事实，不设阈值——找不找老板，是她的事。
 //
 // 事实有两样：多久没跟他说话；她攒了几件"想跟他说"的事。
@@ -24,7 +25,6 @@ export function addNews(role, { what = '', now = Date.now() } = {}) {
 }
 
 export function listNews(role) { return readNews(role).items || [] }
-export function clearNews(role) { return writeNews(role, { items: [] }) }
 
 /** 上次跟老板说话是多久前（从收件箱里他自己的消息算，不猜）。 */
 export function hoursSinceOwner(role, { now = Date.now(), days = 3 } = {}) {

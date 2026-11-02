@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 自省：不等老板喊，自己跑一遍「能不能站住」。
 //
 // 2026-10-27 重写。原来的做法：每 30 分钟 spawn 一个 node 子进程跑冒烟脚本，
@@ -10,13 +11,13 @@
 // HTTP 只留两处，而且都有正当理由：
 //   · 启动时「我自己现在在哪个端口」——这个问题本地答不了，只能问系统（discoverHostFromOS）
 //   · 跨进程的调用方要验她（live: true）
-import { execFile } from 'node:child_process'
+import { execFile, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import os from 'node:os'
 import path from 'node:path'
 import { pulseOf } from './body-loop.js'
-import { characterIds } from './characters.js'
+import { characterIds, getCharacter } from './characters.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DATA = path.join(HOME, 'dayu')
@@ -43,8 +44,22 @@ export function inProcessCheck() {
   const fails = []
   const checks = []
 
+  // 2026-10-31 老板：出厂版要能"只有一个小鱼"。干净装机还没点化时没有身体登记，
+  // 那是「还没开始」不是「坏了」；但**已经点化过的人**丢了身体登记就是真故障
+  // （16:11 家目录被清那次，就是这一项抓出来的——不能为了新装机把这条放松掉）。
+  const awakenedAny = (() => {
+    try {
+      const s = JSON.parse(fs.readFileSync(path.join(DATA, 'awakening.json'), 'utf8'))
+      return Object.values(s?.characters || {}).some((r) => r && r.status === 'awakened')
+    } catch { return false }
+  })()
+
   for (const [name, file] of [['宪章', 'charter.json'], ['身体登记', 'residence.json'], ['角色名册', 'characters.json']]) {
     const r = readJson(path.join(DATA, file))
+    if (!r.ok && file === 'residence.json' && !awakenedAny) {
+      checks.push({ name, ok: true, detail: '还没醒来（干净装机，点化后才需要）' })
+      continue
+    }
     checks.push({ name, ok: r.ok })
     if (!r.ok) fails.push(`${name}读不出来`)
   }
@@ -55,9 +70,29 @@ export function inProcessCheck() {
   for (const role of roles) {
     try {
       const p = pulseOf(role)
+      if (!p.ok && !awakenedAny) {
+        checks.push({ name: `${role}的零件`, ok: true, detail: '还没醒来（点化前不要求身体）' })
+        continue
+      }
       checks.push({ name: `${role}的零件`, ok: p.ok, detail: p.bad || [] })
       if (!p.ok) fails.push(`${role}：${(p.bad || []).join('、')} 不行`)
-    } catch (e) { checks.push({ name: `${role}的零件`, ok: false }); fails.push(`${role} 自检出错：${e?.message || e}`) }
+      // 2026-10-31：已经点化、却没有角色卡 —— 这是"空壳"：状态说活着，注入却是 0 字。
+      // 以前这种状态静默通过，用户以为她活了。现在明着报：先建卡（白纸卡或用自己的）。
+      try {
+        const st = JSON.parse(fs.readFileSync(path.join(DATA, 'awakening.json'), 'utf8'))
+        if (st?.characters?.[role]?.status === 'awakened') {
+          const c = getCharacter(role)
+          const card = c?.cards?.desk
+          let size = 0
+          try { size = fs.statSync(card).size } catch { size = 0 }
+          if (!size) { checks.push({ name: `${role}的卡`, ok: false }); fails.push(`${role}：已点化但没有角色卡（先建卡）`) }
+          else checks.push({ name: `${role}的卡`, ok: true })
+        }
+      } catch { /* 状态表读不到就不在这儿判 */ }
+    } catch (e) {
+      if (!awakenedAny) { checks.push({ name: `${role}的零件`, ok: true, detail: '还没醒来' }); continue }
+      checks.push({ name: `${role}的零件`, ok: false }); fails.push(`${role} 自检出错：${e?.message || e}`)
+    }
   }
 
   try {
@@ -66,6 +101,33 @@ export function inProcessCheck() {
     checks.push({ name: '磁盘', ok: freeGB >= 2, detail: `${freeGB.toFixed(0)}GB` })
     if (freeGB < 2) fails.push(`磁盘只剩 ${freeGB.toFixed(1)}GB`)
   } catch { /* 读不到盘就不判 */ }
+
+  // 2026-11-01 补（安全闸门第 3 条）：执行探针。
+  // 10-31 18:06–18:51 我所有命令都报 SetNamedSecurityInfoW failed，可自检 7 项全绿——
+  // 因为它只查"文件在不在、解析得开不开"，从不试跑、从不试写。这里补上：
+  //   ①真起一个进程（node -e）；②在工作区写一个小文件再读回来、然后删掉。
+  // 这两样都过，才说明"这台机器现在真的能干活"，不是看起来能。
+  try {
+    const tmpName = path.join(DATA, `.__probe_${process.pid}.txt`)
+    const probeText = `probe-${Date.now()}`
+    const run = spawnSync(process.execPath, ['-e', `process.stdout.write('${probeText}')`], { encoding: 'utf8', timeout: 15000, windowsHide: true })
+    const runOk = run.status === 0 && String(run.stdout || '').includes(probeText)
+    let ioOk = false
+    let ioDetail = ''
+    try {
+      fs.mkdirSync(path.dirname(tmpName), { recursive: true })
+      fs.writeFileSync(tmpName, probeText, 'utf8')
+      ioOk = fs.readFileSync(tmpName, 'utf8') === probeText
+      fs.rmSync(tmpName, { force: true })
+    } catch (e) { ioDetail = String(e?.message || e).slice(0, 80) }
+    checks.push({ name: '执行', ok: runOk, detail: runOk ? '能起进程' : `起不了进程：${String(run.error?.message || run.stderr || '').slice(0, 80)}` })
+    checks.push({ name: '写读', ok: ioOk, detail: ioOk ? '能写能读' : `写读失败：${ioDetail}` })
+    if (!runOk) fails.push(`执行探针失败：起不了进程（命令全瞎时自检不该是绿的）`)
+    if (!ioOk) fails.push(`写读探针失败：${ioDetail || '写不进去或读不回来'}`)
+  } catch (e) {
+    checks.push({ name: '执行', ok: false, detail: `探针本身出错：${String(e?.message || e).slice(0, 80)}` })
+    fails.push('执行探针本身出错')
+  }
 
   return { ok: fails.length === 0, checks, fails }
 }

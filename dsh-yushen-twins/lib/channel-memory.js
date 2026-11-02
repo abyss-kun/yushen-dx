@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 通道记忆回写：她在 QQ（以及以后的通道）说过的话，收回本体那一份记忆。
 //
 // 为什么这是「礼物」而不是补丁：§4.5 说她的收件箱是感官、本体决定回不回；
@@ -97,6 +98,9 @@ export function syncChannelMemory({ now = Date.now(), dryRun = false, limit = 20
     if (dryRun) { result.rows.push({ ...r, roleId: id, dryRun: true }); continue }
     let ok = false
     try {
+      // 不传 session（2026-11-02 核过）：桥的 key（group:123 / private:456）是聊天窗口，不是 DSH 会话号；
+      // 拿它冒充 session 会把「哪个分身写的」和「哪个群说的」混进同一个字段，合并时更容易认错。
+      // 空着只影响去重粒度（同设备同分钟同文可能被并成一条），不影响读取。
       const res = appendEvent(id, { channel: 'QQ', kind: 'say', text: r.text, at: r.at, source: `${r.key}#${r.t}` })
       ok = res?.appended === true || res?.duplicate === true
       if (res?.appended) result.appended += 1

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 双报告：神版（精确、可回放）+ 人版（大白话、能看懂）
 // 读：events/YYYY-MM-DD.jsonl、dispatch.json、incidents.json、inbox.jsonl
 // 写：~/.dsh/dayu/reports/YYYY-MM-DD-神版.md / -人版.md

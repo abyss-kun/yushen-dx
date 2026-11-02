@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 查能力：她说"我想做 X"，这里给候选（工具/脚本/文档/插件/组合）。
 //
 // 只查本地那张表（`scripts/build-capmap.mjs` 生成的 capmap.json），不联网、不叫模型。
@@ -60,6 +61,13 @@ export function searchCapmap(query = '', { limit = 8 } = {}) {
 export function capmapLine() {
   const map = loadCapmap()
   if (!map) return ''
+  return `## 你能用的东西\n${capmapCounts()}想找什么，用 yushen_can 查「想做什么」，它给你名字、怎么用、去哪看；找到就自己上手，或者拆开拼。`
+}
+
+/** 只有数字、没有标题——给「你手边有什么」并进去用（自净 2026-10-31：两节讲的是同一件事）。 */
+export function capmapCounts() {
+  const map = loadCapmap()
+  if (!map) return ''
   const c = map.counts || {}
-  return `## 你能用的东西\n工具 ${c.tool || 0} 个、脚本 ${c.script || 0} 个、文档 ${c.doc || 0} 份、外部通道 ${c.adapter || 0} 个。想找什么，用 yushen_can 查「想做什么」，它给你名字、怎么用、去哪看；找到就自己上手，或者拆开拼。`
+  return `工具 ${c.tool || 0} 个、脚本 ${c.script || 0} 个、文档 ${c.doc || 0} 份、外部通道 ${c.adapter || 0} 个。`
 }

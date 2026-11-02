@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 收件箱镜像：把桥的 ring 搬进本体（只读、幂等、零 token）。
 //
 //   node scripts/inbox-mirror.mjs            跑一次，打印结果

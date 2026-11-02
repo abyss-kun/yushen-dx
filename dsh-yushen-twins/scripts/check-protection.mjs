@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 保护套件 · 打包前检查。
 // 用法：node check-protection.mjs [插件目录]    退出码 0 = 通过
 
@@ -23,7 +24,8 @@ if (!fs.existsSync(pkgFile)) {
   errors.push('缺少 package.json')
 } else {
   const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'))
-  check(pkg.license === 'SEE LICENSE IN LICENSE', 'package.json license = SEE LICENSE IN LICENSE')
+  // 2026-11-02：改用 AGPL-3.0-or-later（开源）；旧的 SEE LICENSE IN LICENSE 也认（老包不返工）。
+check(['SEE LICENSE IN LICENSE', 'AGPL-3.0-or-later', 'AGPL-3.0'].includes(String(pkg.license)), 'package.json license = ' + String(pkg.license))
   check(typeof pkg.author === 'string' || typeof pkg.author === 'object', 'package.json 有 author')
   if (Array.isArray(pkg.files)) {
     for (const name of ['LICENSE', 'COMMERCIAL.md', 'NOTICE', 'THIRD_PARTY.md']) {

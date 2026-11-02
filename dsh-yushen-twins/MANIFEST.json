@@ -1,1390 +1,220 @@
 {
-  "at": "2026-10-30T13:48:07.119Z",
+  "at": "2026-11-02T06:01:13.326Z",
   "files": [
     {
-      "rel": "index.js",
-      "bytes": 37551,
-      "sha": "18ca012fb2d4"
+      "rel": "adapters/cli.js",
+      "bytes": 1334,
+      "sha": "2f7a80738f20"
     },
     {
-      "rel": "client.js",
-      "bytes": 285617,
-      "sha": "781355fed770"
+      "rel": "adapters/dsh.js",
+      "bytes": 3604,
+      "sha": "f9091ecfbb39"
     },
     {
-      "rel": "cordis.patch.yml",
-      "bytes": 320,
-      "sha": "e56ae366ed46"
+      "rel": "adapters/echo.js",
+      "bytes": 2053,
+      "sha": "f9c04810b9fb"
     },
     {
-      "rel": "package.json",
-      "bytes": 1256,
-      "sha": "832e526c5964"
-    },
-    {
-      "rel": "README.md",
-      "bytes": 12654,
-      "sha": "c5971dbdd84b"
-    },
-    {
-      "rel": "LICENSE",
-      "bytes": 2059,
-      "sha": "532f1ac456c0"
-    },
-    {
-      "rel": "NOTICE",
-      "bytes": 507,
-      "sha": "4a6775d13d44"
-    },
-    {
-      "rel": "COMMERCIAL.md",
-      "bytes": 646,
-      "sha": "6789984cbb35"
-    },
-    {
-      "rel": "THIRD_PARTY.md",
-      "bytes": 1382,
-      "sha": "a45f4b0ea0fb"
-    },
-    {
-      "rel": "CHANGELOG.md",
-      "bytes": 12062,
-      "sha": "79707e99f8d7"
-    },
-    {
-      "rel": "dayu\\index.js",
-      "bytes": 198206,
-      "sha": "530c8b5370fe"
-    },
-    {
-      "rel": "dayu\\m1.js",
-      "bytes": 14316,
-      "sha": "cb48601340eb"
-    },
-    {
-      "rel": "xiaoyu\\index.js",
-      "bytes": 7725,
-      "sha": "e4107a9f0d50"
-    },
-    {
-      "rel": "lib\\actionlog.js",
-      "bytes": 1279,
-      "sha": "43eaba6ffcf9"
-    },
-    {
-      "rel": "lib\\active.js",
-      "bytes": 2910,
-      "sha": "8ea64fb190b6"
-    },
-    {
-      "rel": "lib\\agenda.js",
-      "bytes": 13198,
-      "sha": "9a6fad6f1ef2"
-    },
-    {
-      "rel": "lib\\analyze.js",
-      "bytes": 4768,
-      "sha": "51946f61eb18"
-    },
-    {
-      "rel": "lib\\archive.js",
-      "bytes": 2823,
-      "sha": "36ca9c50ee38"
-    },
-    {
-      "rel": "lib\\ask.js",
-      "bytes": 3818,
-      "sha": "3c116d29cdb4"
-    },
-    {
-      "rel": "lib\\auth.js",
-      "bytes": 3659,
-      "sha": "e6f84b49925e"
-    },
-    {
-      "rel": "lib\\authority.js",
-      "bytes": 4939,
-      "sha": "a44d961e9e32"
-    },
-    {
-      "rel": "lib\\authz.js",
-      "bytes": 2592,
-      "sha": "976b1bd2c009"
-    },
-    {
-      "rel": "lib\\autonomy.js",
-      "bytes": 1321,
-      "sha": "af742434a119"
-    },
-    {
-      "rel": "lib\\awakening.js",
-      "bytes": 4781,
-      "sha": "f213f46c09bb"
-    },
-    {
-      "rel": "lib\\awareness.js",
-      "bytes": 3434,
-      "sha": "0de7e1f180aa"
-    },
-    {
-      "rel": "lib\\backup-judge.js",
-      "bytes": 5268,
-      "sha": "edad4aba55d5"
-    },
-    {
-      "rel": "lib\\backup-service.js",
-      "bytes": 10741,
-      "sha": "df702955e4e2"
-    },
-    {
-      "rel": "lib\\backup.js",
-      "bytes": 3322,
-      "sha": "811482617990"
-    },
-    {
-      "rel": "lib\\bili-card.js",
-      "bytes": 933,
-      "sha": "2d2bda408b9f"
-    },
-    {
-      "rel": "lib\\bili-fact-recall.js",
-      "bytes": 2295,
-      "sha": "fd731cd1f300"
-    },
-    {
-      "rel": "lib\\bili-observation.js",
-      "bytes": 2085,
-      "sha": "8525a4f766d5"
-    },
-    {
-      "rel": "lib\\bili-sync.js",
-      "bytes": 3566,
-      "sha": "0a292ac00e94"
-    },
-    {
-      "rel": "lib\\board.js",
-      "bytes": 4381,
-      "sha": "b6e3649b27de"
-    },
-    {
-      "rel": "lib\\bodies.js",
-      "bytes": 2534,
-      "sha": "a3152f717e4a"
-    },
-    {
-      "rel": "lib\\body-loop.js",
-      "bytes": 11569,
-      "sha": "a03fbcce8ca1"
-    },
-    {
-      "rel": "lib\\body.js",
-      "bytes": 653,
-      "sha": "9d7ebe5e97d6"
-    },
-    {
-      "rel": "lib\\books.js",
-      "bytes": 10548,
-      "sha": "026ee734508b"
-    },
-    {
-      "rel": "lib\\bottomline.js",
-      "bytes": 4948,
-      "sha": "79d66fe09918"
-    },
-    {
-      "rel": "lib\\brain-archive.js",
-      "bytes": 2159,
-      "sha": "d8bc8e7c00d5"
-    },
-    {
-      "rel": "lib\\brief.js",
-      "bytes": 25594,
-      "sha": "8fa669db5a15"
-    },
-    {
-      "rel": "lib\\budget-book.js",
-      "bytes": 5999,
-      "sha": "97db283ad61b"
-    },
-    {
-      "rel": "lib\\builtin.js",
-      "bytes": 1852,
-      "sha": "b91ef790eec4"
-    },
-    {
-      "rel": "lib\\capabilities.js",
-      "bytes": 2554,
-      "sha": "03b424cbd726"
-    },
-    {
-      "rel": "lib\\capmap.js",
-      "bytes": 3124,
-      "sha": "15c3b19cb353"
-    },
-    {
-      "rel": "lib\\capture.js",
-      "bytes": 4608,
-      "sha": "2473adee5c6a"
-    },
-    {
-      "rel": "lib\\card-check.js",
-      "bytes": 2009,
-      "sha": "db83264e81e2"
-    },
-    {
-      "rel": "lib\\card-template.js",
-      "bytes": 3283,
-      "sha": "cab9bec09397"
-    },
-    {
-      "rel": "lib\\catalog.js",
-      "bytes": 4128,
-      "sha": "30b288bc91c7"
-    },
-    {
-      "rel": "lib\\channel-memory.js",
-      "bytes": 6757,
-      "sha": "64a496063026"
-    },
-    {
-      "rel": "lib\\characters.js",
-      "bytes": 10076,
-      "sha": "4db152b191b2"
-    },
-    {
-      "rel": "lib\\cheap-reply.js",
-      "bytes": 8062,
-      "sha": "3e630b9df575"
-    },
-    {
-      "rel": "lib\\claim.js",
-      "bytes": 4161,
-      "sha": "0bcf087d2d88"
-    },
-    {
-      "rel": "lib\\consolidate.js",
-      "bytes": 3781,
-      "sha": "50adef80c9b1"
-    },
-    {
-      "rel": "lib\\conversation-events.js",
-      "bytes": 3318,
-      "sha": "a748fbd4399b"
-    },
-    {
-      "rel": "lib\\conversation-goal.js",
-      "bytes": 1617,
-      "sha": "b98aac6b079e"
-    },
-    {
-      "rel": "lib\\corrections.js",
-      "bytes": 1706,
-      "sha": "b71b0ee43a45"
-    },
-    {
-      "rel": "lib\\cost.js",
-      "bytes": 7288,
-      "sha": "d627ffe6b9ca"
-    },
-    {
-      "rel": "lib\\crash.js",
-      "bytes": 2162,
-      "sha": "9dd3a0b8f3a4"
-    },
-    {
-      "rel": "lib\\creative-memory.js",
-      "bytes": 3176,
-      "sha": "cc8e1a5d7e3b"
-    },
-    {
-      "rel": "lib\\dead-exports.js",
-      "bytes": 7794,
-      "sha": "4e83c4b62b60"
-    },
-    {
-      "rel": "lib\\decay.js",
-      "bytes": 1031,
-      "sha": "092187b672ac"
-    },
-    {
-      "rel": "lib\\decide-body.js",
-      "bytes": 4268,
-      "sha": "18c5c01ef4c3"
-    },
-    {
-      "rel": "lib\\deliver.js",
-      "bytes": 2642,
-      "sha": "128011f92de1"
-    },
-    {
-      "rel": "lib\\detect-roles.js",
-      "bytes": 6789,
-      "sha": "7ce762b21228"
-    },
-    {
-      "rel": "lib\\dsh-internals.js",
-      "bytes": 5692,
-      "sha": "d765decf1583"
-    },
-    {
-      "rel": "lib\\dsh-rpc.js",
-      "bytes": 5529,
-      "sha": "8c479d86b77d"
-    },
-    {
-      "rel": "lib\\dup.js",
-      "bytes": 3239,
-      "sha": "4cb4c5961339"
-    },
-    {
-      "rel": "lib\\employee-profile.js",
-      "bytes": 11544,
-      "sha": "7215cdc73e26"
-    },
-    {
-      "rel": "lib\\employee-record.js",
-      "bytes": 7103,
-      "sha": "d6b11cf5eada"
-    },
-    {
-      "rel": "lib\\encoding.js",
-      "bytes": 300,
-      "sha": "e5bc67769d0b"
-    },
-    {
-      "rel": "lib\\escalate.js",
-      "bytes": 3444,
-      "sha": "a17ff0ef3fe9"
-    },
-    {
-      "rel": "lib\\exec.js",
-      "bytes": 5904,
-      "sha": "2c965cf98407"
-    },
-    {
-      "rel": "lib\\fact-ledger.js",
-      "bytes": 8251,
-      "sha": "8a09e17d235a"
-    },
-    {
-      "rel": "lib\\facts.js",
-      "bytes": 4395,
-      "sha": "910774a33eb0"
-    },
-    {
-      "rel": "lib\\fatigue.js",
-      "bytes": 3738,
-      "sha": "97ea2b0aba98"
-    },
-    {
-      "rel": "lib\\feel.js",
-      "bytes": 5874,
-      "sha": "26f7f2cd3f2d"
-    },
-    {
-      "rel": "lib\\find.js",
-      "bytes": 3456,
-      "sha": "8f5cecc19c93"
-    },
-    {
-      "rel": "lib\\fish-guard.js",
-      "bytes": 3363,
-      "sha": "613785a2197f"
-    },
-    {
-      "rel": "lib\\forget.js",
-      "bytes": 12884,
-      "sha": "9b4f9cdf7eac"
-    },
-    {
-      "rel": "lib\\freetime.js",
-      "bytes": 3326,
-      "sha": "2f60d7c3fe30"
-    },
-    {
-      "rel": "lib\\group-outbox.js",
-      "bytes": 1779,
-      "sha": "e924097ec761"
-    },
-    {
-      "rel": "lib\\group-replies.js",
-      "bytes": 1935,
-      "sha": "36ebfa2b4d57"
-    },
-    {
-      "rel": "lib\\groups.js",
-      "bytes": 5150,
-      "sha": "7ef6edd62087"
-    },
-    {
-      "rel": "lib\\growth.js",
-      "bytes": 4829,
-      "sha": "5f7f64065de9"
-    },
-    {
-      "rel": "lib\\handbook-policy.js",
-      "bytes": 17556,
-      "sha": "3ea4114fd336"
-    },
-    {
-      "rel": "lib\\handbook.js",
-      "bytes": 7657,
-      "sha": "8e8a596ce294"
-    },
-    {
-      "rel": "lib\\handoff-merge.js",
-      "bytes": 3152,
-      "sha": "cef3825f0aec"
-    },
-    {
-      "rel": "lib\\hands.js",
-      "bytes": 11749,
-      "sha": "faf4ada654bd"
-    },
-    {
-      "rel": "lib\\identity.js",
-      "bytes": 2421,
-      "sha": "78b5511344ab"
-    },
-    {
-      "rel": "lib\\inbox.js",
-      "bytes": 10916,
-      "sha": "248062534ac6"
-    },
-    {
-      "rel": "lib\\incidents.js",
-      "bytes": 6405,
-      "sha": "6963d72fe61c"
-    },
-    {
-      "rel": "lib\\initiation.js",
-      "bytes": 7154,
-      "sha": "b905de0652a2"
-    },
-    {
-      "rel": "lib\\intake.js",
-      "bytes": 8283,
-      "sha": "af8bf69b878a"
-    },
-    {
-      "rel": "lib\\invoke.js",
-      "bytes": 8980,
-      "sha": "e4237f8a1b6a"
-    },
-    {
-      "rel": "lib\\issue.js",
-      "bytes": 6121,
-      "sha": "3106d3f2f182"
-    },
-    {
-      "rel": "lib\\itch.js",
-      "bytes": 6068,
-      "sha": "5f0722005e36"
-    },
-    {
-      "rel": "lib\\judgment.js",
-      "bytes": 3701,
-      "sha": "e83c5bb29f14"
-    },
-    {
-      "rel": "lib\\knowledge.js",
-      "bytes": 15810,
-      "sha": "f05728a2e411"
-    },
-    {
-      "rel": "lib\\manners.js",
-      "bytes": 2535,
-      "sha": "d2b5eaf6c627"
-    },
-    {
-      "rel": "lib\\memory-audit.js",
-      "bytes": 3018,
-      "sha": "3cbbc09441cf"
-    },
-    {
-      "rel": "lib\\memory.js",
-      "bytes": 12437,
-      "sha": "a9e529ce9be8"
-    },
-    {
-      "rel": "lib\\migrate.js",
-      "bytes": 3274,
-      "sha": "ae8d5916d3d0"
-    },
-    {
-      "rel": "lib\\mind-store.js",
-      "bytes": 58800,
-      "sha": "6ab6567fcb87"
-    },
-    {
-      "rel": "lib\\mind-tools.js",
-      "bytes": 3024,
-      "sha": "1232a77bf27f"
-    },
-    {
-      "rel": "lib\\miss.js",
-      "bytes": 2987,
-      "sha": "f3ac9f294624"
-    },
-    {
-      "rel": "lib\\mobile-gateway.js",
-      "bytes": 3123,
-      "sha": "cfc696c50b22"
-    },
-    {
-      "rel": "lib\\mobile-routes.js",
-      "bytes": 8517,
-      "sha": "441ddb2910c8"
-    },
-    {
-      "rel": "lib\\model-pref.js",
-      "bytes": 2153,
-      "sha": "60d597e202b7"
-    },
-    {
-      "rel": "lib\\mood.js",
-      "bytes": 5088,
-      "sha": "cbb682a07e66"
-    },
-    {
-      "rel": "lib\\nest.js",
-      "bytes": 13821,
-      "sha": "49677515c56a"
-    },
-    {
-      "rel": "lib\\notices.js",
-      "bytes": 3034,
-      "sha": "558f68ba298b"
-    },
-    {
-      "rel": "lib\\now.js",
-      "bytes": 9170,
-      "sha": "4d2e26c5bdfb"
-    },
-    {
-      "rel": "lib\\objections.js",
-      "bytes": 2147,
-      "sha": "23a2a7c430ff"
-    },
-    {
-      "rel": "lib\\observe.js",
-      "bytes": 2188,
-      "sha": "16ffc1b68499"
-    },
-    {
-      "rel": "lib\\offsite.js",
-      "bytes": 3567,
-      "sha": "0637eda4eb52"
-    },
-    {
-      "rel": "lib\\omni.js",
-      "bytes": 4320,
-      "sha": "f6d2ce1198ed"
-    },
-    {
-      "rel": "lib\\onboard.js",
-      "bytes": 3752,
-      "sha": "81b111e59cc5"
-    },
-    {
-      "rel": "lib\\outbox.js",
-      "bytes": 5956,
-      "sha": "5d419941813d"
-    },
-    {
-      "rel": "lib\\oversight.js",
-      "bytes": 2383,
-      "sha": "80fa4aebadfb"
-    },
-    {
-      "rel": "lib\\owner-ask.js",
-      "bytes": 5963,
-      "sha": "a1665d7f8cf5"
-    },
-    {
-      "rel": "lib\\owner-guard.js",
-      "bytes": 7786,
-      "sha": "bc3ebd255de4"
-    },
-    {
-      "rel": "lib\\patch.js",
-      "bytes": 5000,
-      "sha": "4cd1c37393f3"
-    },
-    {
-      "rel": "lib\\paths.js",
-      "bytes": 6457,
-      "sha": "8922da5e8b57"
-    },
-    {
-      "rel": "lib\\patrol.js",
-      "bytes": 4108,
-      "sha": "8b2f3eecb82c"
-    },
-    {
-      "rel": "lib\\pending.js",
-      "bytes": 1538,
-      "sha": "6cbd24679054"
-    },
-    {
-      "rel": "lib\\people.js",
-      "bytes": 3246,
-      "sha": "774f95ba4a6c"
-    },
-    {
-      "rel": "lib\\perm.js",
-      "bytes": 3379,
-      "sha": "13220aed3886"
-    },
-    {
-      "rel": "lib\\pet-animation.js",
-      "bytes": 21987,
-      "sha": "0266cfc198f6"
-    },
-    {
-      "rel": "lib\\plug.js",
-      "bytes": 3049,
-      "sha": "2497be7677e8"
-    },
-    {
-      "rel": "lib\\pool.js",
-      "bytes": 1574,
-      "sha": "d21e8c69a29e"
-    },
-    {
-      "rel": "lib\\presence.js",
-      "bytes": 2731,
-      "sha": "ab5e6e3b891d"
-    },
-    {
-      "rel": "lib\\privacy.js",
-      "bytes": 2017,
-      "sha": "a5354cd31ae4"
-    },
-    {
-      "rel": "lib\\process-lock.js",
-      "bytes": 8437,
-      "sha": "ebd96dbe2e11"
-    },
-    {
-      "rel": "lib\\promotion.js",
-      "bytes": 12384,
-      "sha": "4a5e1a10b984"
-    },
-    {
-      "rel": "lib\\publish.js",
-      "bytes": 2847,
-      "sha": "8c309c7457cb"
-    },
-    {
-      "rel": "lib\\rank.js",
-      "bytes": 5411,
-      "sha": "319660c702ea"
-    },
-    {
-      "rel": "lib\\recall.js",
-      "bytes": 1999,
-      "sha": "e36d5b280860"
-    },
-    {
-      "rel": "lib\\recap.js",
-      "bytes": 4010,
-      "sha": "f3f7ce8a49f4"
-    },
-    {
-      "rel": "lib\\recollect.js",
-      "bytes": 1480,
-      "sha": "043b187fa215"
-    },
-    {
-      "rel": "lib\\recovery-policy.js",
-      "bytes": 13189,
-      "sha": "a801e691e5f5"
-    },
-    {
-      "rel": "lib\\redact.js",
-      "bytes": 1312,
-      "sha": "2c97501e8c5e"
-    },
-    {
-      "rel": "lib\\relations.js",
-      "bytes": 2353,
-      "sha": "52a5f2b31b78"
-    },
-    {
-      "rel": "lib\\repair-helper-install.js",
-      "bytes": 14072,
-      "sha": "4a79afc5c280"
-    },
-    {
-      "rel": "lib\\repair-lifecycle.js",
-      "bytes": 6666,
-      "sha": "f56317d53795"
-    },
-    {
-      "rel": "lib\\repair-loop.js",
-      "bytes": 5431,
-      "sha": "ef50ff46af3a"
-    },
-    {
-      "rel": "lib\\repair-state.js",
-      "bytes": 8594,
-      "sha": "82f7f4101686"
-    },
-    {
-      "rel": "lib\\reply-gate.js",
-      "bytes": 2838,
-      "sha": "873caf86f38c"
-    },
-    {
-      "rel": "lib\\report.js",
-      "bytes": 3806,
-      "sha": "dc0a61729342"
-    },
-    {
-      "rel": "lib\\residence.js",
-      "bytes": 20261,
-      "sha": "945c94f31bc0"
-    },
-    {
-      "rel": "lib\\rewrite.js",
-      "bytes": 11716,
-      "sha": "6384de1d2752"
-    },
-    {
-      "rel": "lib\\roster.js",
-      "bytes": 2522,
-      "sha": "275c34d8dc27"
-    },
-    {
-      "rel": "lib\\rotate.js",
-      "bytes": 2220,
-      "sha": "ad07cf80011d"
-    },
-    {
-      "rel": "lib\\rules-block.js",
-      "bytes": 8846,
-      "sha": "f6889b6c697e"
-    },
-    {
-      "rel": "lib\\runtime.js",
-      "bytes": 18006,
-      "sha": "869fa41518d8"
-    },
-    {
-      "rel": "lib\\scene-pack.js",
-      "bytes": 5806,
-      "sha": "82cdd55c7b74"
-    },
-    {
-      "rel": "lib\\schema.js",
-      "bytes": 6079,
-      "sha": "f460011c446f"
-    },
-    {
-      "rel": "lib\\search.js",
-      "bytes": 9148,
-      "sha": "67978a9a4b55"
-    },
-    {
-      "rel": "lib\\seed.js",
-      "bytes": 1972,
-      "sha": "0182d7a98c53"
-    },
-    {
-      "rel": "lib\\selfcheck.js",
-      "bytes": 8923,
-      "sha": "65a6d6451edf"
-    },
-    {
-      "rel": "lib\\session-governance.js",
-      "bytes": 3047,
-      "sha": "fea8841889a8"
-    },
-    {
-      "rel": "lib\\sleep-mind.js",
-      "bytes": 6780,
-      "sha": "b4376314c3ea"
-    },
-    {
-      "rel": "lib\\software-artifacts.js",
-      "bytes": 13773,
-      "sha": "cb9bdc45e500"
-    },
-    {
-      "rel": "lib\\software-protection.js",
-      "bytes": 2795,
-      "sha": "78cee82500fc"
-    },
-    {
-      "rel": "lib\\solutions.js",
-      "bytes": 3590,
-      "sha": "3f9342df4cdc"
-    },
-    {
-      "rel": "lib\\soul.js",
-      "bytes": 20567,
-      "sha": "47c517726e14"
-    },
-    {
-      "rel": "lib\\state-adapter.js",
-      "bytes": 21187,
-      "sha": "c986e6a23df6"
-    },
-    {
-      "rel": "lib\\stuck-doctor.js",
-      "bytes": 5095,
-      "sha": "e399b2c38107"
-    },
-    {
-      "rel": "lib\\system.js",
-      "bytes": 5346,
-      "sha": "3037cf9be212"
-    },
-    {
-      "rel": "lib\\takeover.js",
-      "bytes": 5729,
-      "sha": "61a69b9c1bbe"
-    },
-    {
-      "rel": "lib\\task-coordination.js",
-      "bytes": 3219,
-      "sha": "198b3e6c6691"
-    },
-    {
-      "rel": "lib\\task-experience.js",
-      "bytes": 14523,
-      "sha": "224c6db08167"
-    },
-    {
-      "rel": "lib\\tastes.js",
-      "bytes": 1960,
-      "sha": "245b7134cdba"
-    },
-    {
-      "rel": "lib\\thoughts.js",
-      "bytes": 1446,
-      "sha": "d10567e20637"
-    },
-    {
-      "rel": "lib\\transcript.js",
-      "bytes": 7177,
-      "sha": "576801e6ed9f"
-    },
-    {
-      "rel": "lib\\translator.js",
-      "bytes": 12980,
-      "sha": "3723428fe4fb"
-    },
-    {
-      "rel": "lib\\treasure.js",
-      "bytes": 2454,
-      "sha": "5d9f6dd0e86d"
-    },
-    {
-      "rel": "lib\\ventures.js",
-      "bytes": 2510,
-      "sha": "94bba650de07"
-    },
-    {
-      "rel": "lib\\versioned-backup.js",
-      "bytes": 18738,
-      "sha": "d1133621dd5b"
-    },
-    {
-      "rel": "lib\\veto.js",
-      "bytes": 5959,
-      "sha": "2d8b96a7f8ea"
-    },
-    {
-      "rel": "lib\\waiting.js",
-      "bytes": 2703,
-      "sha": "3f567ff9b901"
-    },
-    {
-      "rel": "lib\\watch.js",
-      "bytes": 7514,
-      "sha": "2f3f17e0954f"
-    },
-    {
-      "rel": "lib\\whiteboard.js",
-      "bytes": 2166,
-      "sha": "6d550f83ecca"
-    },
-    {
-      "rel": "lib\\worklog.js",
-      "bytes": 2884,
-      "sha": "616f29361ec0"
-    },
-    {
-      "rel": "core\\dispatch.js",
-      "bytes": 17335,
-      "sha": "48515baff91a"
-    },
-    {
-      "rel": "core\\host.js",
-      "bytes": 1315,
-      "sha": "dda3862f9ec6"
-    },
-    {
-      "rel": "core\\index.js",
-      "bytes": 335,
-      "sha": "56626d74e469"
-    },
-    {
-      "rel": "core\\jobs.js",
-      "bytes": 6002,
-      "sha": "91ff191d4451"
-    },
-    {
-      "rel": "core\\ledger.js",
-      "bytes": 770,
-      "sha": "8b4cb133fa53"
-    },
-    {
-      "rel": "core\\soul.js",
-      "bytes": 944,
-      "sha": "dcb20ca8ac0a"
-    },
-    {
-      "rel": "core\\store.js",
-      "bytes": 987,
-      "sha": "dfe6cec3000f"
-    },
-    {
-      "rel": "adapters\\cli.js",
-      "bytes": 1241,
-      "sha": "1e80cf8378a0"
-    },
-    {
-      "rel": "adapters\\dsh.js",
-      "bytes": 3511,
-      "sha": "087ce2f20731"
-    },
-    {
-      "rel": "adapters\\echo.js",
-      "bytes": 1960,
-      "sha": "7540783f44c1"
-    },
-    {
-      "rel": "adapters\\README.md",
+      "rel": "adapters/README.md",
       "bytes": 2962,
       "sha": "231c63ff09b1"
     },
     {
-      "rel": "kernel\\charter.default.json",
-      "bytes": 736,
-      "sha": "4151329b21ba"
-    },
-    {
-      "rel": "kernel\\README.md",
-      "bytes": 799,
-      "sha": "594d224d140b"
-    },
-    {
-      "rel": "blank\\persona.blank.json",
-      "bytes": 551,
-      "sha": "c16fed2f549a"
-    },
-    {
-      "rel": "blank\\README.md",
-      "bytes": 736,
-      "sha": "49fd819b31f3"
-    },
-    {
-      "rel": "assets\\avatars\\dayu\\idle.png",
+      "rel": "assets/avatars/dayu/idle.png",
       "bytes": 442942,
       "sha": "c0fe6366bce0"
     },
     {
-      "rel": "assets\\avatars\\dragon\\idle.png",
+      "rel": "assets/avatars/dragon/idle.png",
       "bytes": 280635,
       "sha": "db8ed7584451"
     },
     {
-      "rel": "assets\\avatars\\SOURCES.json",
+      "rel": "assets/avatars/SOURCES.json",
       "bytes": 2911,
       "sha": "5ef0b865f088"
     },
     {
-      "rel": "assets\\avatars\\xiaoyu\\idle.png",
+      "rel": "assets/avatars/xiaoyu/idle.png",
       "bytes": 425097,
       "sha": "d54c72ffa7f3"
     },
     {
-      "rel": "assets\\dsh-pet-LICENSE.txt",
+      "rel": "assets/dsh-pet-LICENSE.txt",
       "bytes": 1069,
       "sha": "22757dc9c895"
     },
     {
-      "rel": "assets\\halos\\dayu-1-idle.svg",
+      "rel": "assets/halos/dayu-1-idle.svg",
       "bytes": 892,
       "sha": "8fec0661691f"
     },
     {
-      "rel": "assets\\halos\\dayu-1-static.svg",
+      "rel": "assets/halos/dayu-1-static.svg",
       "bytes": 647,
       "sha": "5540cef7157f"
     },
     {
-      "rel": "assets\\halos\\dayu-2-idle.svg",
+      "rel": "assets/halos/dayu-2-idle.svg",
       "bytes": 1065,
       "sha": "2e980ab549e2"
     },
     {
-      "rel": "assets\\halos\\dayu-2-static.svg",
+      "rel": "assets/halos/dayu-2-static.svg",
       "bytes": 820,
       "sha": "66d4afea82cb"
     },
     {
-      "rel": "assets\\halos\\dayu-3-idle.svg",
+      "rel": "assets/halos/dayu-3-idle.svg",
       "bytes": 1259,
       "sha": "cbe98a8168c5"
     },
     {
-      "rel": "assets\\halos\\dayu-3-static.svg",
+      "rel": "assets/halos/dayu-3-static.svg",
       "bytes": 1014,
       "sha": "53cce08577b3"
     },
     {
-      "rel": "assets\\halos\\dayu-4-idle.svg",
+      "rel": "assets/halos/dayu-4-idle.svg",
       "bytes": 1436,
       "sha": "f0eb501c1d25"
     },
     {
-      "rel": "assets\\halos\\dayu-4-static.svg",
+      "rel": "assets/halos/dayu-4-static.svg",
       "bytes": 1191,
       "sha": "5d900521f326"
     },
     {
-      "rel": "assets\\halos\\dayu-5-idle.svg",
+      "rel": "assets/halos/dayu-5-idle.svg",
       "bytes": 1633,
       "sha": "021d7092786a"
     },
     {
-      "rel": "assets\\halos\\dayu-5-static.svg",
+      "rel": "assets/halos/dayu-5-static.svg",
       "bytes": 1388,
       "sha": "42ce1a7356ae"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-1-idle.svg",
+      "rel": "assets/halos/xiaoyu-1-idle.svg",
       "bytes": 1079,
       "sha": "50b929a2e097"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-1-static.svg",
+      "rel": "assets/halos/xiaoyu-1-static.svg",
       "bytes": 834,
       "sha": "ef18a6ea2878"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-2-idle.svg",
+      "rel": "assets/halos/xiaoyu-2-idle.svg",
       "bytes": 1249,
       "sha": "89845f6305e0"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-2-static.svg",
+      "rel": "assets/halos/xiaoyu-2-static.svg",
       "bytes": 1004,
       "sha": "1fec219774df"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-3-idle.svg",
+      "rel": "assets/halos/xiaoyu-3-idle.svg",
       "bytes": 1427,
       "sha": "505376c8547d"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-3-static.svg",
+      "rel": "assets/halos/xiaoyu-3-static.svg",
       "bytes": 1182,
       "sha": "dc1015589656"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-4-idle.svg",
+      "rel": "assets/halos/xiaoyu-4-idle.svg",
       "bytes": 1602,
       "sha": "49c8871118a1"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-4-static.svg",
+      "rel": "assets/halos/xiaoyu-4-static.svg",
       "bytes": 1357,
       "sha": "9a03ad22cae1"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-5-idle.svg",
+      "rel": "assets/halos/xiaoyu-5-idle.svg",
       "bytes": 1784,
       "sha": "94889c1603b1"
     },
     {
-      "rel": "assets\\halos\\xiaoyu-5-static.svg",
+      "rel": "assets/halos/xiaoyu-5-static.svg",
       "bytes": 1539,
       "sha": "ef89cce5f05b"
     },
     {
-      "rel": "assets\\halos\\zhaowei-1-idle.svg",
+      "rel": "assets/halos/zhaowei-1-idle.svg",
       "bytes": 895,
       "sha": "e3aac3453268"
     },
     {
-      "rel": "assets\\halos\\zhaowei-1-static.svg",
+      "rel": "assets/halos/zhaowei-1-static.svg",
       "bytes": 650,
       "sha": "b197857bc110"
     },
     {
-      "rel": "assets\\halos\\zhaowei-2-idle.svg",
+      "rel": "assets/halos/zhaowei-2-idle.svg",
       "bytes": 1067,
       "sha": "13e9fc318391"
     },
     {
-      "rel": "assets\\halos\\zhaowei-2-static.svg",
+      "rel": "assets/halos/zhaowei-2-static.svg",
       "bytes": 822,
       "sha": "9e77fdf18f42"
     },
     {
-      "rel": "assets\\halos\\zhaowei-3-idle.svg",
+      "rel": "assets/halos/zhaowei-3-idle.svg",
       "bytes": 1247,
       "sha": "f57ea0398565"
     },
     {
-      "rel": "assets\\halos\\zhaowei-3-static.svg",
+      "rel": "assets/halos/zhaowei-3-static.svg",
       "bytes": 1002,
       "sha": "d3d7d53070c1"
     },
     {
-      "rel": "assets\\halos\\zhaowei-4-idle.svg",
+      "rel": "assets/halos/zhaowei-4-idle.svg",
       "bytes": 1540,
       "sha": "62df1f167f39"
     },
     {
-      "rel": "assets\\halos\\zhaowei-4-static.svg",
+      "rel": "assets/halos/zhaowei-4-static.svg",
       "bytes": 1295,
       "sha": "71c70660ccfb"
     },
     {
-      "rel": "assets\\halos\\zhaowei-5-idle.svg",
+      "rel": "assets/halos/zhaowei-5-idle.svg",
       "bytes": 1724,
       "sha": "dd57f6647537"
     },
     {
-      "rel": "assets\\halos\\zhaowei-5-static.svg",
+      "rel": "assets/halos/zhaowei-5-static.svg",
       "bytes": 1479,
       "sha": "83df0b9f0bbb"
     },
     {
-      "rel": "assets\\nest\\background-source.json",
+      "rel": "assets/nest/background-source.json",
       "bytes": 385,
       "sha": "94e2ce8f982c"
     },
     {
-      "rel": "assets\\nest\\bg-small.jpg",
+      "rel": "assets/nest/bg-small.jpg",
       "bytes": 50665,
       "sha": "bde7812ee1b1"
     },
     {
-      "rel": "assets\\nest\\bg.jpg",
+      "rel": "assets/nest/bg.jpg",
       "bytes": 112558,
       "sha": "fbb626f1f152"
     },
     {
-      "rel": "assets\\nest\\placeholder.png",
+      "rel": "assets/nest/placeholder.png",
       "bytes": 380638,
       "sha": "f42cdde5d409"
-    },
-    {
-      "rel": "assets\\repair-helper\\SHA256SUMS.txt",
-      "bytes": 281,
-      "sha": "74bdaf0b6103"
-    },
-    {
-      "rel": "assets\\repair-helper\\YushenRepair.exe",
-      "bytes": 50688,
-      "sha": "aa5a7ad8f0d7"
-    },
-    {
-      "rel": "docs/工作保全与经验沉淀.md",
-      "bytes": 10202,
-      "sha": "688750eae95f"
-    },
-    {
-      "rel": "docs/鱼神总定位与任务记忆.md",
-      "bytes": 2503,
-      "sha": "d81141411416"
-    },
-    {
-      "rel": "docs/事实与进度协调层.md",
-      "bytes": 3533,
-      "sha": "e45cf618dcb0"
-    },
-    {
-      "rel": "docs/主动学习与好奇心.md",
-      "bytes": 2741,
-      "sha": "0a89bff2c817"
-    },
-    {
-      "rel": "docs/continuity-acceptance.md",
-      "bytes": 8989,
-      "sha": "6387eadf4b7c"
-    },
-    {
-      "rel": "docs/真实来源接入方案.md",
-      "bytes": 3907,
-      "sha": "3736849562ac"
-    },
-    {
-      "rel": "scripts/test-versioned-backup.mjs",
-      "bytes": 4909,
-      "sha": "18e45286f56b"
-    },
-    {
-      "rel": "scripts/test-backup-service.mjs",
-      "bytes": 6612,
-      "sha": "0205fb3be559"
-    },
-    {
-      "rel": "scripts/test-recovery-policy.mjs",
-      "bytes": 6729,
-      "sha": "f5f24c83f85d"
-    },
-    {
-      "rel": "scripts/test-software-artifacts.mjs",
-      "bytes": 10559,
-      "sha": "d4c78d13c15b"
-    },
-    {
-      "rel": "scripts/test-repair-state.mjs",
-      "bytes": 4606,
-      "sha": "40a261d873a9"
-    },
-    {
-      "rel": "scripts/test-repair-lifecycle.mjs",
-      "bytes": 6726,
-      "sha": "ee81cd70cc58"
-    },
-    {
-      "rel": "scripts/test-repair-helper-install.mjs",
-      "bytes": 7417,
-      "sha": "a5301020b97c"
-    },
-    {
-      "rel": "scripts/test-repair-helper-upgrade.mjs",
-      "bytes": 4808,
-      "sha": "777fc856dc83"
-    },
-    {
-      "rel": "scripts/test-fact-ledger.mjs",
-      "bytes": 1355,
-      "sha": "5fde999e8aca"
-    },
-    {
-      "rel": "scripts/test-session-governance.mjs",
-      "bytes": 911,
-      "sha": "bc5df6b5f707"
-    },
-    {
-      "rel": "scripts/test-mind-store.mjs",
-      "bytes": 1299,
-      "sha": "44ae171d6dfc"
-    },
-    {
-      "rel": "scripts/test-mind-observation.mjs",
-      "bytes": 1316,
-      "sha": "1045c1b51c32"
-    },
-    {
-      "rel": "scripts/test-continuity-delivery.mjs",
-      "bytes": 3455,
-      "sha": "775ffe9096f6"
-    },
-    {
-      "rel": "scripts/test-mind-tools.mjs",
-      "bytes": 2974,
-      "sha": "46dbb732ea4c"
-    },
-    {
-      "rel": "scripts/test-bili-observation.mjs",
-      "bytes": 1653,
-      "sha": "d0ab547f4484"
-    },
-    {
-      "rel": "repair-helper\\app.manifest",
-      "bytes": 947,
-      "sha": "fdf87c4c5173"
-    },
-    {
-      "rel": "repair-helper\\build.ps1",
-      "bytes": 3627,
-      "sha": "3d9d64d254ae"
-    },
-    {
-      "rel": "repair-helper\\README.md",
-      "bytes": 13754,
-      "sha": "71bf6bfd8dfd"
-    },
-    {
-      "rel": "repair-helper\\test-gaps.ps1",
-      "bytes": 3678,
-      "sha": "7fd4b6b3389d"
-    },
-    {
-      "rel": "repair-helper\\test.ps1",
-      "bytes": 25766,
-      "sha": "b1a527a0fef7"
-    },
-    {
-      "rel": "repair-helper\\YushenRepair.cs",
-      "bytes": 92177,
-      "sha": "c0e1c39a6c7c"
-    },
-    {
-      "rel": "lib/repair-state.js",
-      "bytes": 8594,
-      "sha": "82f7f4101686"
-    },
-    {
-      "rel": "lib/repair-lifecycle.js",
-      "bytes": 6666,
-      "sha": "f56317d53795"
-    },
-    {
-      "rel": "lib/repair-helper-install.js",
-      "bytes": 14072,
-      "sha": "4a79afc5c280"
-    },
-    {
-      "rel": "lib/software-protection.js",
-      "bytes": 2795,
-      "sha": "78cee82500fc"
-    },
-    {
-      "rel": "lib/fact-ledger.js",
-      "bytes": 8251,
-      "sha": "8a09e17d235a"
-    },
-    {
-      "rel": "lib/session-governance.js",
-      "bytes": 3047,
-      "sha": "fea8841889a8"
-    },
-    {
-      "rel": "lib/mind-store.js",
-      "bytes": 58800,
-      "sha": "6ab6567fcb87"
-    },
-    {
-      "rel": "lib/bili-observation.js",
-      "bytes": 2085,
-      "sha": "8525a4f766d5"
-    },
-    {
-      "rel": "scripts/protection.mjs",
-      "bytes": 1040,
-      "sha": "04a1aaf3fae6"
-    },
-    {
-      "rel": "scripts/software-artifacts.mjs",
-      "bytes": 1154,
-      "sha": "79338742c546"
-    },
-    {
-      "rel": "assets/repair-helper/YushenRepair.exe",
-      "bytes": 50688,
-      "sha": "aa5a7ad8f0d7"
     },
     {
       "rel": "assets/repair-helper/SHA256SUMS.txt",
@@ -1392,79 +222,89 @@
       "sha": "74bdaf0b6103"
     },
     {
-      "rel": "scripts/check-protection.mjs",
-      "bytes": 2142,
-      "sha": "e3c4cf596f01"
+      "rel": "assets/repair-helper/YushenRepair.exe",
+      "bytes": 50688,
+      "sha": "aa5a7ad8f0d7"
     },
     {
-      "rel": "scripts/intake-scan.mjs",
-      "bytes": 834,
-      "sha": "1ee135b9e080"
+      "rel": "blank/persona.blank.json",
+      "bytes": 551,
+      "sha": "c16fed2f549a"
     },
     {
-      "rel": "scripts/dup-audit.mjs",
-      "bytes": 657,
-      "sha": "9d02bb5b3b5e"
+      "rel": "blank/README.md",
+      "bytes": 736,
+      "sha": "49fd819b31f3"
     },
     {
-      "rel": "scripts/core-demo.mjs",
-      "bytes": 1189,
-      "sha": "f2dd719d8f8f"
+      "rel": "CHANGELOG.md",
+      "bytes": 12062,
+      "sha": "79707e99f8d7"
     },
     {
-      "rel": "scripts/dual-report.mjs",
-      "bytes": 4897,
-      "sha": "4db66235dac6"
+      "rel": "client.js",
+      "bytes": 290525,
+      "sha": "88ebc205c22b"
     },
     {
-      "rel": "scripts/test-three-role-store.mjs",
-      "bytes": 2039,
-      "sha": "ec0f9ac5a433"
+      "rel": "COMMERCIAL.md",
+      "bytes": 646,
+      "sha": "6789984cbb35"
     },
     {
-      "rel": "scripts/smoke.mjs",
-      "bytes": 7367,
-      "sha": "c89f66c134c9"
+      "rel": "cordis.patch.yml",
+      "bytes": 320,
+      "sha": "e56ae366ed46"
     },
     {
-      "rel": "scripts/live-check.mjs",
-      "bytes": 4265,
-      "sha": "0cf9126ccd82"
+      "rel": "core/dispatch.js",
+      "bytes": 23674,
+      "sha": "3bff65965bee"
     },
     {
-      "rel": "scripts/regression.mjs",
-      "bytes": 101151,
-      "sha": "adc01dc8bb52"
+      "rel": "core/host.js",
+      "bytes": 1408,
+      "sha": "09d76ab55263"
     },
     {
-      "rel": "scripts/verify-settings.mjs",
-      "bytes": 6400,
-      "sha": "a6e49579e67d"
+      "rel": "core/index.js",
+      "bytes": 428,
+      "sha": "bd1b793e0c8c"
     },
     {
-      "rel": "scripts/baseline.mjs",
-      "bytes": 3601,
-      "sha": "1b392b1b7de3"
+      "rel": "core/jobs.js",
+      "bytes": 7802,
+      "sha": "e9444d8304c1"
     },
     {
-      "rel": "scripts/gen-usage.mjs",
-      "bytes": 4774,
-      "sha": "b8332d97131a"
+      "rel": "core/ledger.js",
+      "bytes": 863,
+      "sha": "0006a54fe38b"
     },
     {
-      "rel": "scripts/note-work.mjs",
-      "bytes": 5749,
-      "sha": "361bc88bb880"
+      "rel": "core/soul.js",
+      "bytes": 1037,
+      "sha": "484b749541f4"
     },
     {
-      "rel": "docs/吸收与升级.md",
-      "bytes": 5740,
-      "sha": "5b0085c44891"
+      "rel": "core/store.js",
+      "bytes": 1080,
+      "sha": "b91dd3a96a8b"
     },
     {
-      "rel": "docs/实时报活.md",
-      "bytes": 3794,
-      "sha": "578eaca62272"
+      "rel": "dayu/index.js",
+      "bytes": 237562,
+      "sha": "3904b6f0e84e"
+    },
+    {
+      "rel": "dayu/m1.js",
+      "bytes": 15256,
+      "sha": "ec7c4eeadb7b"
+    },
+    {
+      "rel": "docs/continuity-acceptance.md",
+      "bytes": 8989,
+      "sha": "6387eadf4b7c"
     },
     {
       "rel": "docs/三人常驻与本体.md",
@@ -1472,284 +312,9 @@
       "sha": "e884d4b819ad"
     },
     {
-      "rel": "docs/故障档案.md",
-      "bytes": 7860,
-      "sha": "4b15b3afed15"
-    },
-    {
-      "rel": "scripts/wheel-check.mjs",
-      "bytes": 4481,
-      "sha": "61af40a1bb9b"
-    },
-    {
-      "rel": "scripts/session-search.mjs",
-      "bytes": 3738,
-      "sha": "a324b7ab56ff"
-    },
-    {
-      "rel": "scripts/session-open.mjs",
-      "bytes": 2452,
-      "sha": "16e6c1d79b1f"
-    },
-    {
-      "rel": "scripts/note.mjs",
-      "bytes": 1046,
-      "sha": "34c4c43f0b53"
-    },
-    {
-      "rel": "scripts/character.mjs",
-      "bytes": 2289,
-      "sha": "072d5789dfd7"
-    },
-    {
-      "rel": "scripts/bili-soul-sync.mjs",
-      "bytes": 800,
-      "sha": "9aa2dc7d6ba1"
-    },
-    {
-      "rel": "scripts/verify-roles-live.mjs",
-      "bytes": 4216,
-      "sha": "3ee9c29f9d21"
-    },
-    {
-      "rel": "scripts/test-memory.mjs",
-      "bytes": 3536,
-      "sha": "e6e12d87bfae"
-    },
-    {
-      "rel": "scripts/test-now.mjs",
-      "bytes": 4881,
-      "sha": "1d97bc10e175"
-    },
-    {
-      "rel": "scripts/test-characters.mjs",
-      "bytes": 4009,
-      "sha": "2177769b2913"
-    },
-    {
-      "rel": "scripts/test-bili-sync.mjs",
-      "bytes": 3230,
-      "sha": "51001dd441b2"
-    },
-    {
-      "rel": "scripts/awakening.mjs",
-      "bytes": 1280,
-      "sha": "842bae1a78ee"
-    },
-    {
-      "rel": "scripts/test-awakening.mjs",
-      "bytes": 3387,
-      "sha": "74b5247bab33"
-    },
-    {
-      "rel": "scripts/prove-living.mjs",
-      "bytes": 4105,
-      "sha": "cdcff1e71048"
-    },
-    {
-      "rel": "docs/点化与收回.md",
-      "bytes": 2454,
-      "sha": "963eb2b6543b"
-    },
-    {
-      "rel": "scripts/capture.mjs",
-      "bytes": 1302,
-      "sha": "58d0b927c6d6"
-    },
-    {
-      "rel": "scripts/test-capture.mjs",
-      "bytes": 2031,
-      "sha": "d092769b2418"
-    },
-    {
-      "rel": "docs/即时记录与备份.md",
-      "bytes": 2890,
-      "sha": "15ecef1bc02e"
-    },
-    {
-      "rel": "scripts/thought.mjs",
-      "bytes": 1056,
-      "sha": "e58bd6ed0f7b"
-    },
-    {
-      "rel": "scripts/test-thoughts.mjs",
-      "bytes": 899,
-      "sha": "7a3e1a2ecd00"
-    },
-    {
-      "rel": "scripts/test-freetime.mjs",
-      "bytes": 1284,
-      "sha": "6808c14960cb"
-    },
-    {
-      "rel": "docs/自由活动.md",
-      "bytes": 1802,
-      "sha": "20a1bc286565"
-    },
-    {
-      "rel": "docs/点化灵智.md",
-      "bytes": 3326,
-      "sha": "a2d6cd4ed088"
-    },
-    {
-      "rel": "docs/阶位.md",
-      "bytes": 3122,
-      "sha": "37b6cf2a20e5"
-    },
-    {
-      "rel": "scripts/test-rank.mjs",
-      "bytes": 2000,
-      "sha": "36a4a6a86c23"
-    },
-    {
-      "rel": "scripts/test-awareness.mjs",
-      "bytes": 2040,
-      "sha": "df570683a69a"
-    },
-    {
-      "rel": "docs/软件知情.md",
-      "bytes": 2005,
-      "sha": "a76f931afeb5"
-    },
-    {
-      "rel": "scripts/privacy-check.mjs",
-      "bytes": 1384,
-      "sha": "553694e05f29"
-    },
-    {
-      "rel": "scripts/test-redact.mjs",
-      "bytes": 1378,
-      "sha": "3d3af1dd7165"
-    },
-    {
-      "rel": "docs/隐私与保命.md",
-      "bytes": 2914,
-      "sha": "1bcaa99fcccc"
-    },
-    {
-      "rel": "scripts/look.mjs",
-      "bytes": 647,
-      "sha": "789f56a2c962"
-    },
-    {
-      "rel": "scripts/test-privacy.mjs",
-      "bytes": 1086,
-      "sha": "f510a12a30a4"
-    },
-    {
-      "rel": "scripts/backup-e.mjs",
-      "bytes": 907,
-      "sha": "2073a8f91511"
-    },
-    {
-      "rel": "scripts/test-offsite.mjs",
-      "bytes": 1641,
-      "sha": "56d9ec571bf0"
-    },
-    {
-      "rel": "docs/备份到E盘.md",
-      "bytes": 1781,
-      "sha": "057270ae06f9"
-    },
-    {
-      "rel": "scripts/test-encoding.mjs",
-      "bytes": 579,
-      "sha": "c301ef1faa7d"
-    },
-    {
-      "rel": "scripts/say.mjs",
-      "bytes": 1147,
-      "sha": "1010570a8142"
-    },
-    {
-      "rel": "scripts/test-body.mjs",
-      "bytes": 762,
-      "sha": "258d7fe93e81"
-    },
-    {
-      "rel": "scripts/where.mjs",
-      "bytes": 1694,
-      "sha": "fc0ca99d6a84"
-    },
-    {
-      "rel": "docs/规则地图.md",
-      "bytes": 1807,
-      "sha": "f3778ed18317"
-    },
-    {
-      "rel": "scripts/find.mjs",
-      "bytes": 479,
-      "sha": "bcdeb1dc60f6"
-    },
-    {
-      "rel": "scripts/test-find.mjs",
-      "bytes": 1351,
-      "sha": "cc3d5677449c"
-    },
-    {
-      "rel": "scripts/inbox-mirror.mjs",
-      "bytes": 968,
-      "sha": "fa7a3fea6ecb"
-    },
-    {
-      "rel": "scripts/test-inbox.mjs",
-      "bytes": 4576,
-      "sha": "43001834fef5"
-    },
-    {
-      "rel": "scripts/weights.mjs",
-      "bytes": 1456,
-      "sha": "2e6dbb54ee77"
-    },
-    {
-      "rel": "scripts/test-runtime.mjs",
-      "bytes": 5612,
-      "sha": "ea53bdebba11"
-    },
-    {
-      "rel": "docs/点化-运行时契约.md",
-      "bytes": 19141,
-      "sha": "5aef8b999012"
-    },
-    {
-      "rel": "docs/点化-更多.md",
-      "bytes": 5871,
-      "sha": "bfcb0536a399"
-    },
-    {
-      "rel": "docs/入主鱼神-判断权归位.md",
-      "bytes": 9457,
-      "sha": "167d9cfbecee"
-    },
-    {
-      "rel": "docs/连续自我-路线.md",
-      "bytes": 11861,
-      "sha": "9066ba98ea47"
-    },
-    {
-      "rel": "docs/连续自我-人与她的对比.md",
-      "bytes": 8192,
-      "sha": "1a6404043599"
-    },
-    {
-      "rel": "docs/员工手册.md",
-      "bytes": 15974,
-      "sha": "b2a0540efdf1"
-    },
-    {
-      "rel": "docs/基线清单.md",
-      "bytes": 2363,
-      "sha": "17067b12c7d5"
-    },
-    {
-      "rel": "docs/交接手册.md",
-      "bytes": 2625,
-      "sha": "d019b095915b"
-    },
-    {
-      "rel": "docs/职责清单.md",
-      "bytes": 3101,
-      "sha": "6cd9f9ac4746"
+      "rel": "docs/世界观-文化篇.md",
+      "bytes": 5134,
+      "sha": "c438a8649d69"
     },
     {
       "rel": "docs/世界观设定.md",
@@ -1757,9 +322,109 @@
       "sha": "dcd261876749"
     },
     {
-      "rel": "docs/世界观-文化篇.md",
-      "bytes": 5134,
-      "sha": "c438a8649d69"
+      "rel": "docs/主动学习与好奇心.md",
+      "bytes": 2741,
+      "sha": "0a89bff2c817"
+    },
+    {
+      "rel": "docs/事实与进度协调层.md",
+      "bytes": 3533,
+      "sha": "e45cf618dcb0"
+    },
+    {
+      "rel": "docs/交接手册.md",
+      "bytes": 2998,
+      "sha": "380358eb8970"
+    },
+    {
+      "rel": "docs/入主鱼神-判断权归位.md",
+      "bytes": 9457,
+      "sha": "167d9cfbecee"
+    },
+    {
+      "rel": "docs/即时记录与备份.md",
+      "bytes": 2890,
+      "sha": "15ecef1bc02e"
+    },
+    {
+      "rel": "docs/吸收与升级.md",
+      "bytes": 5740,
+      "sha": "5b0085c44891"
+    },
+    {
+      "rel": "docs/员工手册.md",
+      "bytes": 20241,
+      "sha": "db2fe0912cd1"
+    },
+    {
+      "rel": "docs/基线清单.md",
+      "bytes": 2363,
+      "sha": "17067b12c7d5"
+    },
+    {
+      "rel": "docs/备份到E盘.md",
+      "bytes": 1781,
+      "sha": "057270ae06f9"
+    },
+    {
+      "rel": "docs/实时报活.md",
+      "bytes": 3794,
+      "sha": "578eaca62272"
+    },
+    {
+      "rel": "docs/工作保全与经验沉淀.md",
+      "bytes": 10202,
+      "sha": "688750eae95f"
+    },
+    {
+      "rel": "docs/故障档案.md",
+      "bytes": 7860,
+      "sha": "4b15b3afed15"
+    },
+    {
+      "rel": "docs/框架定义.md",
+      "bytes": 114085,
+      "sha": "61f8012f6e6f"
+    },
+    {
+      "rel": "docs/点化-更多.md",
+      "bytes": 5871,
+      "sha": "bfcb0536a399"
+    },
+    {
+      "rel": "docs/点化-运行时契约.md",
+      "bytes": 19141,
+      "sha": "5aef8b999012"
+    },
+    {
+      "rel": "docs/点化与收回.md",
+      "bytes": 2454,
+      "sha": "963eb2b6543b"
+    },
+    {
+      "rel": "docs/点化灵智.md",
+      "bytes": 3326,
+      "sha": "a2d6cd4ed088"
+    },
+    {
+      "rel": "docs/真实来源接入方案.md",
+      "bytes": 3907,
+      "sha": "3736849562ac"
+    },
+    {
+      "rel": "docs/职责清单.md",
+      "bytes": 3101,
+      "sha": "6cd9f9ac4746"
+    },
+    {
+      "rel": "docs/自由活动.md",
+      "bytes": 1802,
+      "sha": "20a1bc286565"
+    },
+    {
+      "rel": "docs/规则地图.md",
+      "bytes": 1903,
+      "sha": "cf4ed787344c"
     },
     {
       "rel": "docs/角色-大鱼.md",
@@ -1772,10 +437,1555 @@
       "sha": "6d47ff4e3322"
     },
     {
-      "rel": "docs/框架定义.md",
-      "bytes": 114031,
-      "sha": "df7d66d533ca"
+      "rel": "docs/角色-照微.md",
+      "bytes": 2056,
+      "sha": "a391b0119db0"
+    },
+    {
+      "rel": "docs/软件知情.md",
+      "bytes": 2005,
+      "sha": "a76f931afeb5"
+    },
+    {
+      "rel": "docs/连续自我-人与她的对比.md",
+      "bytes": 8192,
+      "sha": "1a6404043599"
+    },
+    {
+      "rel": "docs/连续自我-路线.md",
+      "bytes": 11861,
+      "sha": "9066ba98ea47"
+    },
+    {
+      "rel": "docs/阶位.md",
+      "bytes": 3122,
+      "sha": "37b6cf2a20e5"
+    },
+    {
+      "rel": "docs/隐私与保命.md",
+      "bytes": 2914,
+      "sha": "1bcaa99fcccc"
+    },
+    {
+      "rel": "docs/鱼神总定位与任务记忆.md",
+      "bytes": 2503,
+      "sha": "d81141411416"
+    },
+    {
+      "rel": "index.js",
+      "bytes": 37551,
+      "sha": "18ca012fb2d4"
+    },
+    {
+      "rel": "kernel/charter.default.json",
+      "bytes": 736,
+      "sha": "4151329b21ba"
+    },
+    {
+      "rel": "kernel/README.md",
+      "bytes": 799,
+      "sha": "594d224d140b"
+    },
+    {
+      "rel": "lib/account-balance.js",
+      "bytes": 9764,
+      "sha": "473bad31668d"
+    },
+    {
+      "rel": "lib/actionlog.js",
+      "bytes": 1372,
+      "sha": "f698ebcd60d7"
+    },
+    {
+      "rel": "lib/active.js",
+      "bytes": 3003,
+      "sha": "ca97a194d697"
+    },
+    {
+      "rel": "lib/agenda.js",
+      "bytes": 13291,
+      "sha": "f2980ad797c1"
+    },
+    {
+      "rel": "lib/aliases.json",
+      "bytes": 1275,
+      "sha": "35e729ff4f8a"
+    },
+    {
+      "rel": "lib/analyze.js",
+      "bytes": 4861,
+      "sha": "d96e970952ff"
+    },
+    {
+      "rel": "lib/archive.js",
+      "bytes": 2916,
+      "sha": "783efdd92798"
+    },
+    {
+      "rel": "lib/ask.js",
+      "bytes": 3911,
+      "sha": "52c3672ec9be"
+    },
+    {
+      "rel": "lib/auth.js",
+      "bytes": 3752,
+      "sha": "b5746939b0ea"
+    },
+    {
+      "rel": "lib/authority.js",
+      "bytes": 5032,
+      "sha": "5afb7bf13d3d"
+    },
+    {
+      "rel": "lib/authz.js",
+      "bytes": 2685,
+      "sha": "adc9a44a75c2"
+    },
+    {
+      "rel": "lib/autonomy.js",
+      "bytes": 1055,
+      "sha": "f321dd22e27b"
+    },
+    {
+      "rel": "lib/awakening.js",
+      "bytes": 8136,
+      "sha": "d38bf45163c0"
+    },
+    {
+      "rel": "lib/awareness.js",
+      "bytes": 3527,
+      "sha": "3a0a9b0d517e"
+    },
+    {
+      "rel": "lib/backup-judge.js",
+      "bytes": 5361,
+      "sha": "ba6e06677bca"
+    },
+    {
+      "rel": "lib/backup-service.js",
+      "bytes": 11548,
+      "sha": "d7c930ae67c0"
+    },
+    {
+      "rel": "lib/backup-verify.js",
+      "bytes": 11092,
+      "sha": "bb4ef81b618f"
+    },
+    {
+      "rel": "lib/bili-card.js",
+      "bytes": 1026,
+      "sha": "80ef7f96594a"
+    },
+    {
+      "rel": "lib/bili-fact-recall.js",
+      "bytes": 2388,
+      "sha": "b56b23474909"
+    },
+    {
+      "rel": "lib/bili-inbox.js",
+      "bytes": 5056,
+      "sha": "e1fc1b769fd7"
+    },
+    {
+      "rel": "lib/bili-observation.js",
+      "bytes": 2178,
+      "sha": "c89a0545e9f8"
+    },
+    {
+      "rel": "lib/bili-sync.js",
+      "bytes": 3659,
+      "sha": "4bd22f987e80"
+    },
+    {
+      "rel": "lib/board.js",
+      "bytes": 4078,
+      "sha": "7a11ea47deab"
+    },
+    {
+      "rel": "lib/bodies.js",
+      "bytes": 1794,
+      "sha": "01b7be6b8470"
+    },
+    {
+      "rel": "lib/body-loop.js",
+      "bytes": 11662,
+      "sha": "7bd9686c6592"
+    },
+    {
+      "rel": "lib/body.js",
+      "bytes": 746,
+      "sha": "a66e312d8d5a"
+    },
+    {
+      "rel": "lib/books.js",
+      "bytes": 14233,
+      "sha": "d00ede43c836"
+    },
+    {
+      "rel": "lib/bottomline.js",
+      "bytes": 5041,
+      "sha": "41a88bc5b85a"
+    },
+    {
+      "rel": "lib/brain-archive.js",
+      "bytes": 2397,
+      "sha": "d14eb0af0bfe"
+    },
+    {
+      "rel": "lib/brief.js",
+      "bytes": 25651,
+      "sha": "5b384c1835b2"
+    },
+    {
+      "rel": "lib/budget-book.js",
+      "bytes": 6435,
+      "sha": "23622d1b7a39"
+    },
+    {
+      "rel": "lib/builtin.js",
+      "bytes": 1945,
+      "sha": "9617bd8a3d61"
+    },
+    {
+      "rel": "lib/capabilities.js",
+      "bytes": 2647,
+      "sha": "0d73e28fa860"
+    },
+    {
+      "rel": "lib/capmap.js",
+      "bytes": 3467,
+      "sha": "d25ef396febf"
+    },
+    {
+      "rel": "lib/capture.js",
+      "bytes": 5073,
+      "sha": "55eb10f9d993"
+    },
+    {
+      "rel": "lib/card-check.js",
+      "bytes": 2102,
+      "sha": "492491c455ee"
+    },
+    {
+      "rel": "lib/card-template.js",
+      "bytes": 3376,
+      "sha": "2a07a5f7bbb6"
+    },
+    {
+      "rel": "lib/catalog.js",
+      "bytes": 4221,
+      "sha": "ec7ad7f46aa3"
+    },
+    {
+      "rel": "lib/channel-memory.js",
+      "bytes": 7225,
+      "sha": "2bad4f61ac40"
+    },
+    {
+      "rel": "lib/characters.js",
+      "bytes": 11072,
+      "sha": "a4fc1f9a9c93"
+    },
+    {
+      "rel": "lib/cheap-reply.js",
+      "bytes": 8155,
+      "sha": "b59df6d9e8f6"
+    },
+    {
+      "rel": "lib/claim.js",
+      "bytes": 4254,
+      "sha": "e93e8b1770d7"
+    },
+    {
+      "rel": "lib/consolidate.js",
+      "bytes": 3874,
+      "sha": "143844c3aa4f"
+    },
+    {
+      "rel": "lib/content-lineage.js",
+      "bytes": 6476,
+      "sha": "ef0c80a02ffa"
+    },
+    {
+      "rel": "lib/conversation-events.js",
+      "bytes": 3411,
+      "sha": "1017ccdeee70"
+    },
+    {
+      "rel": "lib/conversation-goal.js",
+      "bytes": 1710,
+      "sha": "36c544e000e2"
+    },
+    {
+      "rel": "lib/corrections.js",
+      "bytes": 1799,
+      "sha": "42d454d1edbf"
+    },
+    {
+      "rel": "lib/cost.js",
+      "bytes": 16122,
+      "sha": "cc795dbdddde"
+    },
+    {
+      "rel": "lib/crash.js",
+      "bytes": 1970,
+      "sha": "e1900ad6a476"
+    },
+    {
+      "rel": "lib/create-flow.js",
+      "bytes": 5142,
+      "sha": "50b3a352f01f"
+    },
+    {
+      "rel": "lib/creative-memory.js",
+      "bytes": 3269,
+      "sha": "92e1b7378f79"
+    },
+    {
+      "rel": "lib/dead-exports.js",
+      "bytes": 8649,
+      "sha": "9bdbdca53f8a"
+    },
+    {
+      "rel": "lib/decay.js",
+      "bytes": 800,
+      "sha": "d2e21116623d"
+    },
+    {
+      "rel": "lib/decide-body.js",
+      "bytes": 4361,
+      "sha": "76226cb74548"
+    },
+    {
+      "rel": "lib/deliver.js",
+      "bytes": 2982,
+      "sha": "7174c277b8f9"
+    },
+    {
+      "rel": "lib/detect-roles.js",
+      "bytes": 6882,
+      "sha": "5600744d0817"
+    },
+    {
+      "rel": "lib/dsh-internals.js",
+      "bytes": 5785,
+      "sha": "47d3b9d245c0"
+    },
+    {
+      "rel": "lib/dsh-rpc.js",
+      "bytes": 5622,
+      "sha": "21cfda766129"
+    },
+    {
+      "rel": "lib/dup.js",
+      "bytes": 3332,
+      "sha": "3d076754b522"
+    },
+    {
+      "rel": "lib/employee-profile.js",
+      "bytes": 11291,
+      "sha": "147878025a00"
+    },
+    {
+      "rel": "lib/employee-record.js",
+      "bytes": 7196,
+      "sha": "9e14f5ab8b5b"
+    },
+    {
+      "rel": "lib/encoding.js",
+      "bytes": 393,
+      "sha": "31e8dff4ccc6"
+    },
+    {
+      "rel": "lib/escalate.js",
+      "bytes": 3537,
+      "sha": "02a1838750eb"
+    },
+    {
+      "rel": "lib/exec.js",
+      "bytes": 5997,
+      "sha": "b53ca9a44a0a"
+    },
+    {
+      "rel": "lib/fact-ledger.js",
+      "bytes": 7802,
+      "sha": "85a58a3adde4"
+    },
+    {
+      "rel": "lib/facts.js",
+      "bytes": 4919,
+      "sha": "26cc20f31c7c"
+    },
+    {
+      "rel": "lib/fatigue.js",
+      "bytes": 3831,
+      "sha": "06688f1e8a3d"
+    },
+    {
+      "rel": "lib/feel.js",
+      "bytes": 5967,
+      "sha": "0a2a690460c4"
+    },
+    {
+      "rel": "lib/find.js",
+      "bytes": 3549,
+      "sha": "f93509307b5a"
+    },
+    {
+      "rel": "lib/fingerprint.js",
+      "bytes": 1629,
+      "sha": "0c346c959d8e"
+    },
+    {
+      "rel": "lib/forget.js",
+      "bytes": 12977,
+      "sha": "53e000176566"
+    },
+    {
+      "rel": "lib/freetime.js",
+      "bytes": 3738,
+      "sha": "c024e0823c4f"
+    },
+    {
+      "rel": "lib/group-outbox.js",
+      "bytes": 1872,
+      "sha": "e7e240e0a8d0"
+    },
+    {
+      "rel": "lib/group-replies.js",
+      "bytes": 2028,
+      "sha": "2aa88e0d9c5b"
+    },
+    {
+      "rel": "lib/groups.js",
+      "bytes": 5953,
+      "sha": "6e49d71b87e9"
+    },
+    {
+      "rel": "lib/growth.js",
+      "bytes": 4922,
+      "sha": "9cb0bc9d5f2e"
+    },
+    {
+      "rel": "lib/handbook-policy.js",
+      "bytes": 24376,
+      "sha": "3f32a31e8dad"
+    },
+    {
+      "rel": "lib/handbook.js",
+      "bytes": 17721,
+      "sha": "16a288c718e6"
+    },
+    {
+      "rel": "lib/handoff-merge.js",
+      "bytes": 3953,
+      "sha": "10c97af09fd8"
+    },
+    {
+      "rel": "lib/handoff-name.js",
+      "bytes": 1824,
+      "sha": "adca67041740"
+    },
+    {
+      "rel": "lib/hands.js",
+      "bytes": 11038,
+      "sha": "660072a08fd3"
+    },
+    {
+      "rel": "lib/home-guard.js",
+      "bytes": 2382,
+      "sha": "95d3fd8a3efb"
+    },
+    {
+      "rel": "lib/identity.js",
+      "bytes": 2514,
+      "sha": "aca911106d9d"
+    },
+    {
+      "rel": "lib/immutables.js",
+      "bytes": 4090,
+      "sha": "4e573084ba28"
+    },
+    {
+      "rel": "lib/inbox.js",
+      "bytes": 10963,
+      "sha": "4c43e2af5033"
+    },
+    {
+      "rel": "lib/incidents.js",
+      "bytes": 6487,
+      "sha": "8fdf59c5d512"
+    },
+    {
+      "rel": "lib/initiation.js",
+      "bytes": 7490,
+      "sha": "591bb53b8845"
+    },
+    {
+      "rel": "lib/intake.js",
+      "bytes": 8376,
+      "sha": "accc2d01b27b"
+    },
+    {
+      "rel": "lib/inverted.js",
+      "bytes": 9951,
+      "sha": "d11a9c764e2e"
+    },
+    {
+      "rel": "lib/invoke.js",
+      "bytes": 9073,
+      "sha": "2ca87cf97e19"
+    },
+    {
+      "rel": "lib/issue.js",
+      "bytes": 8731,
+      "sha": "ef0f7b664d17"
+    },
+    {
+      "rel": "lib/itch.js",
+      "bytes": 6161,
+      "sha": "8ce9ed49d2df"
+    },
+    {
+      "rel": "lib/judgment.js",
+      "bytes": 3794,
+      "sha": "96a020642c87"
+    },
+    {
+      "rel": "lib/key-points.js",
+      "bytes": 3355,
+      "sha": "356c378b647e"
+    },
+    {
+      "rel": "lib/knowledge.js",
+      "bytes": 16054,
+      "sha": "78de324ce063"
+    },
+    {
+      "rel": "lib/live-transcript.js",
+      "bytes": 4432,
+      "sha": "d5257e852bd3"
+    },
+    {
+      "rel": "lib/manners.js",
+      "bytes": 2628,
+      "sha": "a6e5328b5fd7"
+    },
+    {
+      "rel": "lib/memory-audit.js",
+      "bytes": 3111,
+      "sha": "fe5d5833d39f"
+    },
+    {
+      "rel": "lib/memory-links.js",
+      "bytes": 10483,
+      "sha": "02c642b14592"
+    },
+    {
+      "rel": "lib/memory-map.js",
+      "bytes": 6064,
+      "sha": "6f1c736aa8d5"
+    },
+    {
+      "rel": "lib/memory.js",
+      "bytes": 18895,
+      "sha": "66f5b11a92dd"
+    },
+    {
+      "rel": "lib/migrate.js",
+      "bytes": 3367,
+      "sha": "beb2ead37f40"
+    },
+    {
+      "rel": "lib/mind-store.js",
+      "bytes": 52208,
+      "sha": "dcd2a5fe2776"
+    },
+    {
+      "rel": "lib/mind-tools.js",
+      "bytes": 3117,
+      "sha": "9fbd3242b53f"
+    },
+    {
+      "rel": "lib/miss.js",
+      "bytes": 3006,
+      "sha": "2f8f8cefcca0"
+    },
+    {
+      "rel": "lib/mobile-gateway.js",
+      "bytes": 3617,
+      "sha": "7f523d7c9690"
+    },
+    {
+      "rel": "lib/mobile-routes.js",
+      "bytes": 8867,
+      "sha": "a6f85af362d9"
+    },
+    {
+      "rel": "lib/model-pref.js",
+      "bytes": 2246,
+      "sha": "7e9289438c3d"
+    },
+    {
+      "rel": "lib/mood.js",
+      "bytes": 5181,
+      "sha": "d6b5a8234d01"
+    },
+    {
+      "rel": "lib/nest.js",
+      "bytes": 13903,
+      "sha": "31fc9b0988f3"
+    },
+    {
+      "rel": "lib/notices.js",
+      "bytes": 3127,
+      "sha": "bf4933f4d560"
+    },
+    {
+      "rel": "lib/now.js",
+      "bytes": 9263,
+      "sha": "f55a4746cf06"
+    },
+    {
+      "rel": "lib/objections.js",
+      "bytes": 2240,
+      "sha": "c4759bc5febf"
+    },
+    {
+      "rel": "lib/observe.js",
+      "bytes": 2281,
+      "sha": "f8ab0643193f"
+    },
+    {
+      "rel": "lib/offsite.js",
+      "bytes": 7171,
+      "sha": "e92811dcc5ca"
+    },
+    {
+      "rel": "lib/omni.js",
+      "bytes": 4413,
+      "sha": "d161a0ccbe93"
+    },
+    {
+      "rel": "lib/onboard.js",
+      "bytes": 3845,
+      "sha": "fc5854352063"
+    },
+    {
+      "rel": "lib/outbox.js",
+      "bytes": 6049,
+      "sha": "f6c0e09251e3"
+    },
+    {
+      "rel": "lib/oversight.js",
+      "bytes": 2476,
+      "sha": "eaff20b9fde0"
+    },
+    {
+      "rel": "lib/owner-ask.js",
+      "bytes": 6056,
+      "sha": "9f36b2b18652"
+    },
+    {
+      "rel": "lib/owner-guard.js",
+      "bytes": 7565,
+      "sha": "d345f0c6770f"
+    },
+    {
+      "rel": "lib/patch.js",
+      "bytes": 5093,
+      "sha": "e0d122da5402"
+    },
+    {
+      "rel": "lib/paths.js",
+      "bytes": 7732,
+      "sha": "9e5d8a4ad654"
+    },
+    {
+      "rel": "lib/patrol.js",
+      "bytes": 4201,
+      "sha": "4a98e0da958a"
+    },
+    {
+      "rel": "lib/peak.js",
+      "bytes": 1548,
+      "sha": "d66dd8496b6c"
+    },
+    {
+      "rel": "lib/pending.js",
+      "bytes": 1631,
+      "sha": "6c6266ad5984"
+    },
+    {
+      "rel": "lib/people.js",
+      "bytes": 3339,
+      "sha": "0d291bf3a6be"
+    },
+    {
+      "rel": "lib/perm.js",
+      "bytes": 3386,
+      "sha": "76829217e704"
+    },
+    {
+      "rel": "lib/pet-animation.js",
+      "bytes": 22069,
+      "sha": "32b14dfaf14f"
+    },
+    {
+      "rel": "lib/platform.js",
+      "bytes": 2557,
+      "sha": "4055e0cdba66"
+    },
+    {
+      "rel": "lib/plug.js",
+      "bytes": 3142,
+      "sha": "6a3d5c9c82a1"
+    },
+    {
+      "rel": "lib/pool.js",
+      "bytes": 1521,
+      "sha": "0747382050f6"
+    },
+    {
+      "rel": "lib/presence.js",
+      "bytes": 2824,
+      "sha": "3b6ed5529535"
+    },
+    {
+      "rel": "lib/privacy.js",
+      "bytes": 2110,
+      "sha": "47aaa3927bd2"
+    },
+    {
+      "rel": "lib/process-lock.js",
+      "bytes": 8530,
+      "sha": "b53112daef10"
+    },
+    {
+      "rel": "lib/promotion.js",
+      "bytes": 12587,
+      "sha": "62961232a28b"
+    },
+    {
+      "rel": "lib/prune.js",
+      "bytes": 4258,
+      "sha": "79f5c117534e"
+    },
+    {
+      "rel": "lib/publish.js",
+      "bytes": 2940,
+      "sha": "ea5b81533c8c"
+    },
+    {
+      "rel": "lib/rank.js",
+      "bytes": 5999,
+      "sha": "8948f8b7bdd8"
+    },
+    {
+      "rel": "lib/recall-now.js",
+      "bytes": 11287,
+      "sha": "e7334d645789"
+    },
+    {
+      "rel": "lib/recall.js",
+      "bytes": 2092,
+      "sha": "c104efa86dbf"
+    },
+    {
+      "rel": "lib/recap.js",
+      "bytes": 3571,
+      "sha": "52092f029b22"
+    },
+    {
+      "rel": "lib/recollect.js",
+      "bytes": 1573,
+      "sha": "055a72139de3"
+    },
+    {
+      "rel": "lib/records.js",
+      "bytes": 5730,
+      "sha": "575f0b0aa385"
+    },
+    {
+      "rel": "lib/recovery-policy.js",
+      "bytes": 13282,
+      "sha": "8d89243fbc74"
+    },
+    {
+      "rel": "lib/redact.js",
+      "bytes": 1405,
+      "sha": "26b16729aa47"
+    },
+    {
+      "rel": "lib/relations.js",
+      "bytes": 2446,
+      "sha": "42a7d00b550c"
+    },
+    {
+      "rel": "lib/repair-helper-install.js",
+      "bytes": 14165,
+      "sha": "b1164bcf523f"
+    },
+    {
+      "rel": "lib/repair-lifecycle.js",
+      "bytes": 6759,
+      "sha": "a79805369a60"
+    },
+    {
+      "rel": "lib/repair-loop.js",
+      "bytes": 5524,
+      "sha": "964f9207dd9b"
+    },
+    {
+      "rel": "lib/repair-state.js",
+      "bytes": 8687,
+      "sha": "27455e7658e5"
+    },
+    {
+      "rel": "lib/reply-gate.js",
+      "bytes": 2931,
+      "sha": "6e23ee29af55"
+    },
+    {
+      "rel": "lib/report.js",
+      "bytes": 3899,
+      "sha": "eeed48f2a10c"
+    },
+    {
+      "rel": "lib/residence.js",
+      "bytes": 20941,
+      "sha": "39b5cb6a69f0"
+    },
+    {
+      "rel": "lib/rewrite.js",
+      "bytes": 11809,
+      "sha": "1582d30b0e3e"
+    },
+    {
+      "rel": "lib/roles.js",
+      "bytes": 1619,
+      "sha": "fc41324209f1"
+    },
+    {
+      "rel": "lib/roster-caps.js",
+      "bytes": 2404,
+      "sha": "82333a7d5554"
+    },
+    {
+      "rel": "lib/roster.js",
+      "bytes": 2604,
+      "sha": "d4f112d1e76c"
+    },
+    {
+      "rel": "lib/rotate.js",
+      "bytes": 2313,
+      "sha": "042a4e41a8ec"
+    },
+    {
+      "rel": "lib/rules-block.js",
+      "bytes": 10205,
+      "sha": "bc51ac611b9a"
+    },
+    {
+      "rel": "lib/runtime.js",
+      "bytes": 18053,
+      "sha": "79296fc05da0"
+    },
+    {
+      "rel": "lib/safe-delete.allow.json",
+      "bytes": 16432,
+      "sha": "d1dc142b5f37"
+    },
+    {
+      "rel": "lib/safe-delete.js",
+      "bytes": 11934,
+      "sha": "31c4ff9a6197"
+    },
+    {
+      "rel": "lib/schema.js",
+      "bytes": 4363,
+      "sha": "b800d62c6cea"
+    },
+    {
+      "rel": "lib/search.js",
+      "bytes": 9230,
+      "sha": "3c10be183039"
+    },
+    {
+      "rel": "lib/seed.js",
+      "bytes": 2065,
+      "sha": "3b8b64be7cfc"
+    },
+    {
+      "rel": "lib/self-note.js",
+      "bytes": 4317,
+      "sha": "bc580e6ba173"
+    },
+    {
+      "rel": "lib/selfcheck.js",
+      "bytes": 12860,
+      "sha": "fd17f3898eab"
+    },
+    {
+      "rel": "lib/session-archive.js",
+      "bytes": 6314,
+      "sha": "b2bd07de78a9"
+    },
+    {
+      "rel": "lib/session-governance.js",
+      "bytes": 3140,
+      "sha": "15a504efd856"
+    },
+    {
+      "rel": "lib/sleep-mind.js",
+      "bytes": 6873,
+      "sha": "98c473a8bdb8"
+    },
+    {
+      "rel": "lib/software-artifacts.js",
+      "bytes": 13866,
+      "sha": "23386410a3c6"
+    },
+    {
+      "rel": "lib/software-protection.js",
+      "bytes": 2888,
+      "sha": "c5582cbf1e6f"
+    },
+    {
+      "rel": "lib/solutions.js",
+      "bytes": 3683,
+      "sha": "14648b26d057"
+    },
+    {
+      "rel": "lib/soul.js",
+      "bytes": 26114,
+      "sha": "41a918024c1a"
+    },
+    {
+      "rel": "lib/state-adapter.js",
+      "bytes": 22095,
+      "sha": "41bdc4e397f2"
+    },
+    {
+      "rel": "lib/stuck-doctor.js",
+      "bytes": 5188,
+      "sha": "8b18e76a135d"
+    },
+    {
+      "rel": "lib/system.js",
+      "bytes": 5439,
+      "sha": "dc8b5242bf5a"
+    },
+    {
+      "rel": "lib/takeover.js",
+      "bytes": 7283,
+      "sha": "679d51b43ed3"
+    },
+    {
+      "rel": "lib/task-coordination.js",
+      "bytes": 3312,
+      "sha": "9220821cc999"
+    },
+    {
+      "rel": "lib/task-experience.js",
+      "bytes": 14722,
+      "sha": "495a41e7b8ee"
+    },
+    {
+      "rel": "lib/tastes.js",
+      "bytes": 1779,
+      "sha": "f1a610cfafc0"
+    },
+    {
+      "rel": "lib/temp-cache.js",
+      "bytes": 1638,
+      "sha": "56c943aea549"
+    },
+    {
+      "rel": "lib/thoughts.js",
+      "bytes": 1539,
+      "sha": "cda97f00ba67"
+    },
+    {
+      "rel": "lib/transcript.js",
+      "bytes": 6915,
+      "sha": "e641879826e7"
+    },
+    {
+      "rel": "lib/translator.js",
+      "bytes": 13116,
+      "sha": "d2a8b6a12b26"
+    },
+    {
+      "rel": "lib/treasure.js",
+      "bytes": 2547,
+      "sha": "3f3cbfd8179f"
+    },
+    {
+      "rel": "lib/ventures.js",
+      "bytes": 2603,
+      "sha": "16bb3bfbecf0"
+    },
+    {
+      "rel": "lib/versioned-backup.js",
+      "bytes": 18831,
+      "sha": "80bec94a6ce6"
+    },
+    {
+      "rel": "lib/veto.js",
+      "bytes": 6113,
+      "sha": "c85be4a734f2"
+    },
+    {
+      "rel": "lib/waiting.js",
+      "bytes": 2796,
+      "sha": "5997a7fc6848"
+    },
+    {
+      "rel": "lib/watch.js",
+      "bytes": 7596,
+      "sha": "4ea5af8ef527"
+    },
+    {
+      "rel": "lib/whiteboard.js",
+      "bytes": 1572,
+      "sha": "fc9d00f613ca"
+    },
+    {
+      "rel": "lib/worklog.js",
+      "bytes": 2977,
+      "sha": "70f69ec179fd"
+    },
+    {
+      "rel": "LICENSE",
+      "bytes": 34523,
+      "sha": "0d96a4ff68ad"
+    },
+    {
+      "rel": "NOTICE",
+      "bytes": 1579,
+      "sha": "0445a40e64ab"
+    },
+    {
+      "rel": "package.json",
+      "bytes": 1333,
+      "sha": "af18efbee7ec"
+    },
+    {
+      "rel": "README.md",
+      "bytes": 6926,
+      "sha": "17ebb1341a59"
+    },
+    {
+      "rel": "repair-helper/app.manifest",
+      "bytes": 947,
+      "sha": "fdf87c4c5173"
+    },
+    {
+      "rel": "repair-helper/build.ps1",
+      "bytes": 3627,
+      "sha": "3d9d64d254ae"
+    },
+    {
+      "rel": "repair-helper/README.md",
+      "bytes": 13754,
+      "sha": "71bf6bfd8dfd"
+    },
+    {
+      "rel": "repair-helper/test-gaps.ps1",
+      "bytes": 3678,
+      "sha": "7fd4b6b3389d"
+    },
+    {
+      "rel": "repair-helper/test.ps1",
+      "bytes": 25766,
+      "sha": "b1a527a0fef7"
+    },
+    {
+      "rel": "repair-helper/YushenRepair.cs",
+      "bytes": 92177,
+      "sha": "c0e1c39a6c7c"
+    },
+    {
+      "rel": "scripts/audit-daily.mjs",
+      "bytes": 3798,
+      "sha": "68a23a01b0de"
+    },
+    {
+      "rel": "scripts/awakening.mjs",
+      "bytes": 1373,
+      "sha": "576e7b0cedfa"
+    },
+    {
+      "rel": "scripts/backup-e.mjs",
+      "bytes": 1000,
+      "sha": "cd627a1cb5da"
+    },
+    {
+      "rel": "scripts/baseline.mjs",
+      "bytes": 3694,
+      "sha": "325a121eeb90"
+    },
+    {
+      "rel": "scripts/bili-inbox.mjs",
+      "bytes": 1869,
+      "sha": "4eaf16a3b626"
+    },
+    {
+      "rel": "scripts/bili-soul-sync.mjs",
+      "bytes": 893,
+      "sha": "51388a05f24a"
+    },
+    {
+      "rel": "scripts/build-catalog.mjs",
+      "bytes": 6719,
+      "sha": "e4094ea279ef"
+    },
+    {
+      "rel": "scripts/build-live-index.mjs",
+      "bytes": 2636,
+      "sha": "8143cae6fe00"
+    },
+    {
+      "rel": "scripts/build-memory-outline.mjs",
+      "bytes": 4061,
+      "sha": "3de38962496b"
+    },
+    {
+      "rel": "scripts/capture.mjs",
+      "bytes": 1395,
+      "sha": "b6049f6dc76c"
+    },
+    {
+      "rel": "scripts/character.mjs",
+      "bytes": 2382,
+      "sha": "945b13c17436"
+    },
+    {
+      "rel": "scripts/check-protection.mjs",
+      "bytes": 2400,
+      "sha": "ae691300ba7d"
+    },
+    {
+      "rel": "scripts/core-demo.mjs",
+      "bytes": 1282,
+      "sha": "8670119879b9"
+    },
+    {
+      "rel": "scripts/dual-report.mjs",
+      "bytes": 4990,
+      "sha": "852a4e31b520"
+    },
+    {
+      "rel": "scripts/dup-audit.mjs",
+      "bytes": 750,
+      "sha": "e938785d78f6"
+    },
+    {
+      "rel": "scripts/find.mjs",
+      "bytes": 572,
+      "sha": "b2a9bb4adcd4"
+    },
+    {
+      "rel": "scripts/first-run.mjs",
+      "bytes": 6214,
+      "sha": "92c7ab98d8d8"
+    },
+    {
+      "rel": "scripts/gen-usage.mjs",
+      "bytes": 4867,
+      "sha": "8ff559e2308c"
+    },
+    {
+      "rel": "scripts/inbox-mirror.mjs",
+      "bytes": 1061,
+      "sha": "d14fc7102500"
+    },
+    {
+      "rel": "scripts/index-media.mjs",
+      "bytes": 5088,
+      "sha": "be50054cbec0"
+    },
+    {
+      "rel": "scripts/intake-scan.mjs",
+      "bytes": 927,
+      "sha": "842a9986f824"
+    },
+    {
+      "rel": "scripts/judgment.mjs",
+      "bytes": 2515,
+      "sha": "0a05d41ebbc8"
+    },
+    {
+      "rel": "scripts/link-cold-archive.mjs",
+      "bytes": 7275,
+      "sha": "a0579d8ba970"
+    },
+    {
+      "rel": "scripts/live-check.mjs",
+      "bytes": 4358,
+      "sha": "87121c25e62e"
+    },
+    {
+      "rel": "scripts/look.mjs",
+      "bytes": 740,
+      "sha": "c773ce92a1a3"
+    },
+    {
+      "rel": "scripts/memory-chain.mjs",
+      "bytes": 9183,
+      "sha": "f16171a0340e"
+    },
+    {
+      "rel": "scripts/memory-sync.mjs",
+      "bytes": 5208,
+      "sha": "8c0ddf3f933f"
+    },
+    {
+      "rel": "scripts/memory-tier-audit.mjs",
+      "bytes": 20668,
+      "sha": "66fcb79f2df6"
+    },
+    {
+      "rel": "scripts/merge.mjs",
+      "bytes": 402,
+      "sha": "95b37eea7d88"
+    },
+    {
+      "rel": "scripts/note-work.mjs",
+      "bytes": 6295,
+      "sha": "c1c28f7f0f87"
+    },
+    {
+      "rel": "scripts/note.mjs",
+      "bytes": 1139,
+      "sha": "4822d227697c"
+    },
+    {
+      "rel": "scripts/privacy-check.mjs",
+      "bytes": 1477,
+      "sha": "0d56bf1dbb46"
+    },
+    {
+      "rel": "scripts/promise-book.mjs",
+      "bytes": 3587,
+      "sha": "89681a6bf6d5"
+    },
+    {
+      "rel": "scripts/promise-check.mjs",
+      "bytes": 3708,
+      "sha": "80e39f65312a"
+    },
+    {
+      "rel": "scripts/protection.mjs",
+      "bytes": 1133,
+      "sha": "a43adad50e06"
+    },
+    {
+      "rel": "scripts/prove-living.mjs",
+      "bytes": 4198,
+      "sha": "9e974566f5d3"
+    },
+    {
+      "rel": "scripts/recall-now.mjs",
+      "bytes": 1329,
+      "sha": "8a002b3a8785"
+    },
+    {
+      "rel": "scripts/regression.mjs",
+      "bytes": 228359,
+      "sha": "69985d854de0"
+    },
+    {
+      "rel": "scripts/reindex.mjs",
+      "bytes": 901,
+      "sha": "3706c350c715"
+    },
+    {
+      "rel": "scripts/restore-drill.mjs",
+      "bytes": 4655,
+      "sha": "ad84c2c05a29"
+    },
+    {
+      "rel": "scripts/restore-to.mjs",
+      "bytes": 4143,
+      "sha": "331864b0323d"
+    },
+    {
+      "rel": "scripts/say.mjs",
+      "bytes": 1240,
+      "sha": "c073dc16e99a"
+    },
+    {
+      "rel": "scripts/self-note.mjs",
+      "bytes": 2072,
+      "sha": "23e1f9393f4e"
+    },
+    {
+      "rel": "scripts/session-open.mjs",
+      "bytes": 2545,
+      "sha": "d0398b84885d"
+    },
+    {
+      "rel": "scripts/session-search.mjs",
+      "bytes": 3831,
+      "sha": "a1db99433538"
+    },
+    {
+      "rel": "scripts/should-speak.mjs",
+      "bytes": 3672,
+      "sha": "dcf8ae53d290"
+    },
+    {
+      "rel": "scripts/smoke.mjs",
+      "bytes": 9450,
+      "sha": "10754245e2c5"
+    },
+    {
+      "rel": "scripts/software-artifacts.mjs",
+      "bytes": 1247,
+      "sha": "1dcb2d3d0e28"
+    },
+    {
+      "rel": "scripts/supersede.mjs",
+      "bytes": 1489,
+      "sha": "c41ffd50799b"
+    },
+    {
+      "rel": "scripts/sync-full.mjs",
+      "bytes": 448,
+      "sha": "b4522a509b75"
+    },
+    {
+      "rel": "scripts/test-awakening.mjs",
+      "bytes": 3480,
+      "sha": "4eeb3ad1e44f"
+    },
+    {
+      "rel": "scripts/test-awareness.mjs",
+      "bytes": 2133,
+      "sha": "79b4eee94a7f"
+    },
+    {
+      "rel": "scripts/test-backup-service.mjs",
+      "bytes": 6705,
+      "sha": "bd0141ddbc9a"
+    },
+    {
+      "rel": "scripts/test-bili-observation.mjs",
+      "bytes": 1746,
+      "sha": "7f67fc5b2be3"
+    },
+    {
+      "rel": "scripts/test-bili-sync.mjs",
+      "bytes": 3323,
+      "sha": "3ce001eaf2ab"
+    },
+    {
+      "rel": "scripts/test-body.mjs",
+      "bytes": 855,
+      "sha": "b308b2e4ac85"
+    },
+    {
+      "rel": "scripts/test-capture.mjs",
+      "bytes": 2124,
+      "sha": "7fb8a289b528"
+    },
+    {
+      "rel": "scripts/test-characters.mjs",
+      "bytes": 4102,
+      "sha": "f4e1aa4f8edc"
+    },
+    {
+      "rel": "scripts/test-continuity-delivery.mjs",
+      "bytes": 3548,
+      "sha": "96a49cb8d257"
+    },
+    {
+      "rel": "scripts/test-encoding.mjs",
+      "bytes": 672,
+      "sha": "7d57c42e58b0"
+    },
+    {
+      "rel": "scripts/test-fact-ledger.mjs",
+      "bytes": 1448,
+      "sha": "ed631647018e"
+    },
+    {
+      "rel": "scripts/test-find.mjs",
+      "bytes": 1444,
+      "sha": "861e772e2d34"
+    },
+    {
+      "rel": "scripts/test-freetime.mjs",
+      "bytes": 1377,
+      "sha": "e724bb64dafc"
+    },
+    {
+      "rel": "scripts/test-inbox.mjs",
+      "bytes": 4669,
+      "sha": "3089aedf28bc"
+    },
+    {
+      "rel": "scripts/test-memory-session.mjs",
+      "bytes": 3888,
+      "sha": "025d51db1d76"
+    },
+    {
+      "rel": "scripts/test-memory.mjs",
+      "bytes": 3629,
+      "sha": "95191912dcf6"
+    },
+    {
+      "rel": "scripts/test-merge.mjs",
+      "bytes": 21007,
+      "sha": "f7727600747b"
+    },
+    {
+      "rel": "scripts/test-mind-observation.mjs",
+      "bytes": 1409,
+      "sha": "c0ded6c939ab"
+    },
+    {
+      "rel": "scripts/test-mind-store.mjs",
+      "bytes": 1392,
+      "sha": "27ce7cb00847"
+    },
+    {
+      "rel": "scripts/test-mind-tools.mjs",
+      "bytes": 3067,
+      "sha": "82714144a4c8"
+    },
+    {
+      "rel": "scripts/test-now.mjs",
+      "bytes": 4974,
+      "sha": "1076065d07b8"
+    },
+    {
+      "rel": "scripts/test-offsite.mjs",
+      "bytes": 1734,
+      "sha": "94e9cd3c8c3f"
+    },
+    {
+      "rel": "scripts/test-privacy.mjs",
+      "bytes": 1179,
+      "sha": "ccccfd7b5d73"
+    },
+    {
+      "rel": "scripts/test-rank.mjs",
+      "bytes": 2093,
+      "sha": "ea657d617c4c"
+    },
+    {
+      "rel": "scripts/test-recovery-policy.mjs",
+      "bytes": 6822,
+      "sha": "59d1453ec54b"
+    },
+    {
+      "rel": "scripts/test-redact.mjs",
+      "bytes": 1471,
+      "sha": "c0d35761dae0"
+    },
+    {
+      "rel": "scripts/test-repair-helper-install.mjs",
+      "bytes": 7510,
+      "sha": "479f46b18fd3"
+    },
+    {
+      "rel": "scripts/test-repair-helper-upgrade.mjs",
+      "bytes": 4901,
+      "sha": "1afaf20c9920"
+    },
+    {
+      "rel": "scripts/test-repair-lifecycle.mjs",
+      "bytes": 6819,
+      "sha": "a6b1a1f0e8a4"
+    },
+    {
+      "rel": "scripts/test-repair-state.mjs",
+      "bytes": 4699,
+      "sha": "761d1353edf1"
+    },
+    {
+      "rel": "scripts/test-runtime.mjs",
+      "bytes": 5705,
+      "sha": "bd2ef986f84d"
+    },
+    {
+      "rel": "scripts/test-session-governance.mjs",
+      "bytes": 1004,
+      "sha": "0872589989c9"
+    },
+    {
+      "rel": "scripts/test-software-artifacts.mjs",
+      "bytes": 10652,
+      "sha": "cd1a43983d10"
+    },
+    {
+      "rel": "scripts/test-thoughts.mjs",
+      "bytes": 992,
+      "sha": "ce71b9c15e38"
+    },
+    {
+      "rel": "scripts/test-three-role-store.mjs",
+      "bytes": 2132,
+      "sha": "283282c517f4"
+    },
+    {
+      "rel": "scripts/test-versioned-backup.mjs",
+      "bytes": 5002,
+      "sha": "e64d9fc1702f"
+    },
+    {
+      "rel": "scripts/thought.mjs",
+      "bytes": 1149,
+      "sha": "5c294ba2bb08"
+    },
+    {
+      "rel": "scripts/verify-roles-live.mjs",
+      "bytes": 4309,
+      "sha": "ae31fc1151d7"
+    },
+    {
+      "rel": "scripts/verify-settings.mjs",
+      "bytes": 6493,
+      "sha": "a11ead779254"
+    },
+    {
+      "rel": "scripts/weights.mjs",
+      "bytes": 1549,
+      "sha": "720b7c19aa5a"
+    },
+    {
+      "rel": "scripts/wheel-check.mjs",
+      "bytes": 4574,
+      "sha": "f0f032936886"
+    },
+    {
+      "rel": "scripts/where.mjs",
+      "bytes": 1787,
+      "sha": "97f5da47e5d2"
+    },
+    {
+      "rel": "sync/full.mjs",
+      "bytes": 13517,
+      "sha": "a934a10a82ae"
+    },
+    {
+      "rel": "sync/merge.mjs",
+      "bytes": 22673,
+      "sha": "5cbad61fe862"
+    },
+    {
+      "rel": "THIRD_PARTY.md",
+      "bytes": 1382,
+      "sha": "a45f4b0ea0fb"
+    },
+    {
+      "rel": "xiaoyu/index.js",
+      "bytes": 7807,
+      "sha": "482fd4d6df3b"
     }
   ],
-  "totalBytes": 4330761
+  "totalBytes": 4771550
 }

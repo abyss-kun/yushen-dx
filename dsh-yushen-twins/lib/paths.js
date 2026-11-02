@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 路径总入口：所有外部目录都从这里来，别再往代码里写死盘符。
 //
 // 为什么要有（2026-10-28）：交付检查发现 51 处写死路径散在 34 个文件里
@@ -55,10 +56,13 @@ export function pythonPath() {
 export function workspace() {
   const env = process.env.YUSHEN_WS || ''
   if (env) return env
-  // 包根目录的父级就是鱼神的工作区（那儿有员工手册/框架定义）——优先于 cwd，
-  // 因为 DSH 里每条会话的 cwd 可能是别的地方（2026-10-28 实测踩过：被 DSH_WORKSPACE 带跑）。
+  // 包根目录的父级就是鱼神的工作区——优先于 cwd，因为 DSH 里每条会话的 cwd 可能是别的地方。
+  // 2026-10-31：原来只认「员工手册.md 或 大小鱼-框架定义.md 在父目录」，这两个一搬走就退化成 cwd，
+  // 全插件路径跟着错。改成多个标记里认一个，并留目录级兜底。
   const parent = path.dirname(packageRoot())
-  if (exists(path.join(parent, '员工手册.md')) || exists(path.join(parent, '大小鱼-框架定义.md'))) return parent
+  const marks = ['员工手册.md', '大小鱼-框架定义.md', '基线清单.md', 'AGENTS.md', '最优方案.md']
+  if (marks.some((m) => exists(path.join(parent, m)))) return parent
+  if (exists(path.join(parent, 'dsh-yushen-twins')) || exists(path.join(parent, '记忆'))) return parent
   return process.env.DSH_WORKSPACE || process.cwd()
 }
 
@@ -144,6 +148,26 @@ export function treasureDir() {
   return process.env.YUSHEN_TREASURE_ROOT
     || process.env.TREASURE_ROOT
     || firstExisting([path.join(dayuHome(), 'treasure'), 'D:/小肥鱼的宝藏'], path.join(dayuHome(), 'treasure'))
+}
+
+/**
+ * 第二块盘的备份目标（2026-10-31 老板定：双备份，防的是磁盘坏）。
+ * 规则：环境变量优先；否则在「不是工作区那块盘」的盘里，找已经存在的 <盘>\鱼神备份；
+ * 都没有就返回 ''，调用方跳过（不假装备了）。
+ */
+export function offsiteSecondDir() {
+  if (process.env.YUSHEN_OFFSITE2_DIR) return process.env.YUSHEN_OFFSITE2_DIR
+  const primary = path.parse(offsiteDir()).root || ''
+  const dataRoot = path.parse(dayuHome()).root || ''
+  const letters = ['E:', 'F:', 'G:', 'H:', 'D:', 'C:']
+  for (const letter of letters) {
+    const root = letter + path.sep
+    if (root === primary || root === dataRoot) continue
+    const dir = path.join(root, '鱼神备份')
+    if (exists(dir)) return dir
+  }
+  // 一块现成的都没有：退出等调用方跳过，不自动建盘
+  return ''
 }
 
 /** 统计磁盘用的盘：工作区在哪块盘就统计哪块（那才是数据盘）。 */

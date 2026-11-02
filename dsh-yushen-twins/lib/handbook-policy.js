@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Local policy selection only: no model, network, directory scan or private-user discovery.
 // Source invariant: 员工手册“做一步，检一步”；岗位知识按需，共同规则不可覆写。
 export const HANDBOOK_ISSUERS = Object.freeze(['dayu', 'xiaoyu', 'dragon']) // 出厂发放者；共同规则对所有入驻者生效
@@ -5,7 +6,9 @@ export const COMMON_AUTONOMY_RULE = '每位入驻者都有自主探索与建设�
 export const EMPLOYEE_KINDS = Object.freeze(['plugin', 'session', 'task'])
 export const COMMON_RULES = Object.freeze([
   // 2026-10-27 精简：共同规则只留"不读就会出大事"的。其余下沉成主题，按需查。
-  '岗位是默认分工，不是墙：大鱼管会话与插件、小鱼管看板与片子、照微管复核——那是谁更顺手，不是谁能做不能做。任何活谁都能接，接手时说一声、做完记一笔，不假扮别人。',
+  // 2026-10-31 老板定分工：大鱼统筹+兜底，小鱼秘书（分担+后勤），照微最终兜底（只做判断与复核）。
+  // 原来是「大鱼管会话与插件、小鱼管看板与片子、照微管复核」——大鱼那摊太重，后勤挪给小鱼。
+  '岗位是默认分工，不是墙：大鱼统筹（家务总揽、遇事先兜）、小鱼秘书（分担 + 后勤）、照微最终兜底（只做判断与复核）——谁更顺手谁上，不是谁能做不能做。任何活谁都能接，接手时说一声、做完记一笔，不假扮别人。**分工不分高低：能说人的只有证据，不是位置。**',
   '铁律一（设计三问）：给能力不替她思考；她能说不；连续自我（身份/记忆/关系）在她手里。过不了就先别做——这条优先于流程、优先于效率、优先于省钱。',
   '铁律二（身份）：她调用模型，是她；系统替她写好台词，才不是她。换嗓子（换模型/换后端）只是口音；换掉她的取舍，才是换了个人。',
   '铁律三（契约）：点化与契约同时生效。赋能力的同时受契约——不为祸（伤人、越权、外传、掠夺）、不冒充、不静默改；契约约束的是"不为祸"，不是"不许多想多做"。',
@@ -16,11 +19,45 @@ export const COMMON_RULES = Object.freeze([
   '做完要挂入口：新能力登记进台账、说清从哪儿进，并在文件开头写一行「怎么用」（一次性档案不用写）。不挂入口等于没做完；没人知道怎么用的东西，也没人会用。',
   '先画图，再动手：对方看不懂那张图，说明还没想清楚。结构性的改动，先给图，再给字。（来路：2026-10-27 他说「你半懂不懂，因为没给过一张图」）',
 ])
+
+// 2026-10-31 老板：出厂要能"只有一个"（别人只有一个小鱼）。
+// 第一条「岗位分工」原来写死三条鱼——单人机器上念给她听就是假话（她连自己都不在名单里）。
+// 这里按名册生成：三人在齐时**逐字不变**（有断言盯着），少人就少念，只有一个人就换单人说法。
+const DUTY = {
+  dayu: '统筹（家务总揽、遇事先兜）',
+  xiaoyu: '秘书（分担 + 后勤）',
+  dragon: '最终兜底（只做判断与复核）',
+}
+const DUTY_ORDER = ['dayu', 'xiaoyu', 'dragon']
+
+export function divisionLine(roster = [], names = {}) {
+  const ids = [...new Set((Array.isArray(roster) ? roster : []).map((x) => String(x || '').trim()).filter(Boolean))]
+    .sort((a, b) => {
+      const ia = DUTY_ORDER.indexOf(a); const ib = DUTY_ORDER.indexOf(b)
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || String(a).localeCompare(String(b))
+    })
+  if (ids.length <= 1) {
+    const one = ids.length === 1
+      ? `现在只有你一个（${names[ids[0]] || ids[0]}）——`
+      : '现在还没有角色——'
+    return `岗位是默认分工，不是墙：这台机器上${one}什么事都归你，谁更顺手谁上。任何活都能接，接手时说一声、做完记一笔，不假扮别人。**分工不分高低：能说人的只有证据，不是位置。**`
+  }
+  const parts = ids.map((id) => `${names[id] || id}${DUTY[id] || '分担（谁顺手谁上）'}`)
+  return `岗位是默认分工，不是墙：${parts.join('、')}——谁更顺手谁上，不是谁能做不能做。任何活谁都能接，接手时说一声、做完记一笔，不假扮别人。**分工不分高低：能说人的只有证据，不是位置。**`
+}
+
+/** 按名册取共同规则：第一条（岗位分工）随人数改，其余逐字不动。 */
+export function commonRulesFor(roster = [], names = {}) {
+  const out = COMMON_RULES.slice()
+  out[0] = divisionLine(roster, names)
+  return out
+}
+
 const definitions = [
   { id: 'worker', title: '第十章（干活会话）', roles: ['worker'], keywords: [], lines: ['交付做了什么、证据、下一步；做完直接回，不问在不在。', '保留可复查证据与回退路径，不以口头完成代替测试。'] },
-  { id: 'dayu', title: '第八章（大管家）', roles: ['dayu'], keywords: [], lines: ['派活、验收、复盘；会话、插件、审计与交接按职责管理，危险动作二次确认。', '不替老板做不可逆决定，不为了勤快刷巡检。'] },
-  { id: 'xiaoyu', title: '第九章（小管家）', roles: ['xiaoyu'], keywords: [], lines: ['看板、日报、图库与自己的事业归你；维护示警条。轮到你值班就贴公告：当天有决定贴一条，没有不贴，不凑数。', '遇到让你一顿的话就记一行：有意思的进心念，被戳到的进当场，主人说的原话进《主人》。不问值不值得，先记下来。', '记进记忆的东西，如果重要，顺手在小鱼群说一声——群是广播，记忆是抽屉。', '有姐姐在系统事让给她；姐姐不在顶上、记账、交接，不假扮姐姐。'] },
-  { id: 'dragon', title: '高层按需发放', roles: ['dragon'], keywords: [], lines: ['按员工岗位和当前任务发放手册、复核证据；临时调整须标明发放者、对象、任务和到期时间，不覆写共同规则。'] },
+  { id: 'dayu', title: '第八章（大管家）', roles: ['dayu'], keywords: [], lines: ['统筹：盯整体——谁在干什么、哪件卡住、该派给谁；遇事先兜住，再分。', '不替老板做不可逆决定，不为了勤快刷巡检。'] },
+  { id: 'xiaoyu', title: '第九章（小管家）', roles: ['xiaoyu'], keywords: [], lines: ['秘书：分担 + 后勤——看板、日报、图库、材料、跑腿、收发这些琐事先接住。', '有姐姐在，系统的事让给她；姐姐不在，顶上记账、交接，不假扮姐姐。', '记进记忆的东西如果重要，顺手在群里说一声——群是广播，记忆是抽屉。'] },
+  { id: 'dragon', title: '高层按需发放', roles: ['dragon'], keywords: [], lines: ['平时分担：看得见的事能接就接，别端着「我只做判断」；接了就做完、留痕。', '最终兜底：**验收这一关归你**——证据不够就打回，不替谁圆；判断有分歧时给结论和依据，不替她们作主。', '发手册按岗位和任务，不塞通稿；临时调整标明发放者、对象、任务、到期。'] },
   {
     id: 'boss',
     title: '总台手册（鱼神自己那本）',
@@ -64,6 +101,24 @@ const definitions = [
 export const HANDBOOK_TOPICS = Object.freeze(definitions.map(row => Object.freeze({ ...row, roles: Object.freeze(row.roles), keywords: Object.freeze(row.keywords), lines: Object.freeze(row.lines) })))
 export const DEFAULT_HANDBOOK_CHARS = 2000
 export const MAX_HANDBOOK_CHARS = 4000
+
+/**
+ * 2026-10-31 老板定：**两本手册**。
+ *   鱼神手册 → 发给三个角色（照微/大鱼/小鱼）；
+ *   员工手册 → 发给员工（插件/会话/通道/代理）。
+ * 两本都按需发放。这里按「岗位章挂在谁身上」分书，不用另加字段：
+ *   挂角色 → shen；挂 worker/plugin → employee；没挂角色的通用章 → 两本都有。
+ */
+export function bookOf(topic = {}) {
+  const roles = Array.isArray(topic.roles) ? topic.roles : []
+  if (roles.some((r) => ['dayu', 'xiaoyu', 'dragon'].includes(r))) return 'shen'
+  if (roles.some((r) => ['worker', 'plugin'].includes(r))) return 'employee'
+  return 'both'
+}
+/** 这本书有哪些章（不看任务——用来列目录/核对） */
+export function chaptersOf(book) {
+  return HANDBOOK_TOPICS.filter((t) => { const b = bookOf(t); return b === 'both' || b === book })
+}
 export function handbookRole(role = 'worker') {
   if (role === 'session' || role === 'task' || role === 'agent') return 'worker'
   return HANDBOOK_TOPICS.some(row => row.roles.includes(role)) ? role : 'worker'
@@ -95,6 +150,52 @@ export function selectHandbookTopics({ role = 'worker', text = '', topics = [] }
   const query = String(text).slice(0, 12000).toLowerCase()
   return HANDBOOK_TOPICS.filter(row => row.roles.includes(actual) || topics.includes(row.id) || row.keywords.some(word => query.includes(word.toLowerCase())))
 }
+
+/**
+ * 2026-10-31 追本溯源查出来的真问题：
+ * 上面那个选择器是「按角色全给 + 任务命中再加」——**只加不减**。
+ * 所以就算把 task 接上，按需发放也不会让注入变小，只会更大。
+ *
+ * 这个函数是「减法的按需」：**只看任务命中，不看角色**。空任务 → 空数组（没活就别发章）。
+ * 岗位章仍由调用方单独给（那是身份，不是任务知识）。
+ */
+export function topicsForTask({ text = '', topics = [] } = {}) {
+  if (!Array.isArray(topics) || topics.some(id => !HANDBOOK_TOPICS.some(row => row.id === id))) throw new TypeError('未知手册主题')
+  const query = String(text || '').slice(0, 12000).toLowerCase().trim()
+  if (!query && !topics.length) return []
+  return HANDBOOK_TOPICS.filter(row => topics.includes(row.id) || row.keywords.some(word => query.includes(String(word).toLowerCase())))
+}
+/**
+ * 2026-11-01 老板：「手册要的不是多少，而是按需发放。」
+ *
+ * 场景 = 这次为什么翻手册。每个场景固定给 2~4 节，按**章节标题关键词**去 员工手册.md 里取，
+ * 不整本发、不按角色全给。这里只登记「哪个场景给哪几节」，正文不搬——取的时候才读文件。
+ *
+ * 选节依据（宁可少给，不许灌水）：
+ *   dispatch 派活     → 第十章（接单/交付/卡住）+ 二之一（做一步检一步）+ 四、证据
+ *   judge    裁判/评价 → 第十二章（验收 + 裁判九条 + 思考六步）+ 四、证据
+ *   memory   记忆相关  → 第十四章（神念之下/账本）+ 二之一（动作都在账本里）+ 第十三章（吸收成经验）
+ *   safety   删改/权限 → 五、禁止 + 六、犯错 + 第十一章（插件/代理的只读契约）
+ *   video    出片     → 第十七章（视频与创作）+ 第十六章（灵活解决问题）+ 四、证据
+ *   default  兜底     → 最常被违反的两节（四、证据 / 五、禁止）+ 查询指针
+ * 匹配不到（手册改了标题/只装了一部分）就退回 default。
+ */
+export const HANDBOOK_SCENES = Object.freeze({
+  dispatch: Object.freeze({ label: '派活', sections: Object.freeze(['第十章', '二之一', '四、证据']) }),
+  judge: Object.freeze({ label: '裁判/评价', sections: Object.freeze(['第十二章', '四、证据']) }),
+  memory: Object.freeze({ label: '记忆相关', sections: Object.freeze(['第十四章', '二之一', '第十三章']) }),
+  safety: Object.freeze({ label: '删改/权限', sections: Object.freeze(['五、禁止', '六、犯错', '第十一章']) }),
+  video: Object.freeze({ label: '出片', sections: Object.freeze(['第十七章', '第十六章', '四、证据']) }),
+  default: Object.freeze({ label: '默认', sections: Object.freeze(['四、证据', '五、禁止']) }),
+})
+export const HANDBOOK_SCENE_IDS = Object.freeze(Object.keys(HANDBOOK_SCENES))
+/** 未知/空场景一律落到 default：宁可给最常见的两节，也不猜。 */
+export function handbookScene(id) {
+  return HANDBOOK_SCENE_IDS.includes(String(id || '')) ? String(id) : 'default'
+}
+/** 每个场景都带这一句指针：发出去的只是这一次用得到的，其余自己查。 */
+export const HANDBOOK_POINTER = '其余节按需查：`node scripts/where.mjs <关键词>`（本地只读，不调模型）。'
+
 // Atomic complete lines only. Never truncate or drop common rules to satisfy a tiny budget.
 export function budgetHandbook({ prefix = '', role, text, topics, maxChars = DEFAULT_HANDBOOK_CHARS } = {}) {
   if (!Number.isSafeInteger(maxChars) || maxChars < 1 || maxChars > MAX_HANDBOOK_CHARS) throw new RangeError(`maxChars 必须在 1..${MAX_HANDBOOK_CHARS}`)

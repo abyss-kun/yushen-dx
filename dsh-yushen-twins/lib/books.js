@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 书架：每本书先看目录，再决定翻哪一页。只读本地，不调模型。
 //
 // 统一格式（所有书一样）：{ id, title, at, where, tags, hint, line }
@@ -11,6 +12,7 @@ import { listSolutions } from './solutions.js'
 import { listIncidents } from './incidents.js'
 import { readBoard } from './board.js'
 import { knowledgeBook } from './paths.js'
+import { handoffDisplayTime } from './handoff-name.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DATA = path.join(HOME, 'dayu')
@@ -39,6 +41,15 @@ export const BOOKS = Object.freeze([
   },
   { id: 'letters', title: '信箱', what: '别的身体留给你的话',
     how: '醒来扫一眼就够。回不回都行；要回就回在同一个话题里，别开新的。' },
+  // 2026-11-01 主人：像书一样——书名、目录、简介、使用说明。原文/错题/媒体/日记各一本。
+  { id: 'live', title: '实录', what: '逐轮抄下来的原话（按天、通道、标题）',
+    how: '只有记不清"当时到底怎么说的"才翻。先看索引，再点某一天；平时不要读。' },
+  { id: 'mistakes', title: '错题', what: '谁踩的坑、为什么踩、怎么避开',
+    how: '动手前按关键词扫一眼同类。写的时候三样齐：谁、为什么、怎么避开。' },
+  { id: 'library', title: '媒体', what: '图片、视频、音频、文档：谁、什么时候、在哪',
+    how: '要找片子或素材时翻。按类型和日期筛，别整本读。' },
+  { id: 'diary', title: '日记', what: '她写给自己的、写给主人的',
+    how: '想她的时候翻 owner 那本；她自己翻 private 那本。不对外引用。' },
 ])
 
 const WORKSPACE_BOOK = knowledgeBook()
@@ -118,11 +129,10 @@ function handoffs() {
         .find((l) => l.length > 0) || ''
     } catch { /* 读不到就只给时间 */ }
     const stamp = name.replace(/\.md$/, '')
-    const tm = stamp.match(/^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})$/)
     return row({
       id: stamp,
       title: first || stamp,
-      at: tm ? `${tm[1]} ${tm[2]}:${tm[3]}` : stamp,
+      at: handoffDisplayTime(name),
       where: '换班',
       tags: ['交接'],
     })
@@ -228,6 +238,61 @@ function owner() {
   }
   return out
 }
+/** 实录目录：来自 live/索引.jsonl（哪天、通道、标题、段数、关键字）。 */
+function live() {
+  const file = path.join(DATA, 'live', '索引.jsonl')
+  const rows = []
+  try {
+    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+      if (!line.trim()) continue
+      const r = JSON.parse(line)
+      rows.push(row({ id: r.file || '', title: `${r.date || ''} ${r.title || ''}`.trim(), at: r.date || '', where: r.place || '', tags: String(r.keys || '').split(/[、,]/).filter(Boolean), hint: `${r.segs || 0} 段` }))
+    }
+  } catch { return [] }
+  return rows.reverse()
+}
+/** 错题目录：谁踩的、踩了什么、怎么避开。 */
+function mistakes() {
+  const file = path.join(DATA, 'mistakes', '错题本.jsonl')
+  const rows = []
+  try {
+    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+      if (!line.trim()) continue
+      const r = JSON.parse(line)
+      rows.push(row({ id: r.at || '', title: `${r.who}：${r.what}`.slice(0, 60), at: r.at || '', where: r.where || '', tags: [r.scope || '', r.by || ''], hint: r.how || '' }))
+    }
+  } catch { return [] }
+  return rows.reverse()
+}
+/** 媒体目录：图片/视频/音频/文档。 */
+function library() {
+  const file = path.join(DATA, 'library', 'media.jsonl')
+  const rows = []
+  try {
+    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+      if (!line.trim()) continue
+      const r = JSON.parse(line)
+      rows.push(row({ id: r.path || '', title: r.标题 || '', at: r.时间 || '', where: r.目录 || '', tags: [r.类型 || '', r.谁 || ''], hint: r.谁 || '' }))
+    }
+  } catch { return [] }
+  return rows.reverse()
+}
+/** 日记目录：private 写给自己、owner 写给他。 */
+function diary(who = 'dayu') {
+  const dir = path.join(DATA, 'diary', who)
+  const rows = []
+  for (const book of ['private', 'owner']) {
+    const file = path.join(dir, `${book}.jsonl`)
+    try {
+      for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+        if (!line.trim()) continue
+        const r = JSON.parse(line)
+        rows.push(row({ id: r.at || '', title: `${book === 'owner' ? '给主人' : '给自己'}：${String(r.text || '').slice(0, 40)}`, at: r.at || '', where: book, tags: ['日记'], hint: r.source || '' }))
+      }
+    } catch { /* 这本没有就跳过 */ }
+  }
+  return rows.reverse()
+}
 /** 一本书的目录；没有这本就如实说没有，不编。 */
 export function contents(book = '', { limit = 40, role = 'dayu' } = {}) {
   const id = String(book || '').trim()
@@ -244,11 +309,16 @@ export function contents(book = '', { limit = 40, role = 'dayu' } = {}) {
                 : id === 'board' ? board(who)
                   : id === 'letters' ? letters(who)
                     : id === 'owner' ? owner()
-                    : mind(who)
+                      : id === 'live' ? live()
+                        : id === 'mistakes' ? mistakes()
+                          : id === 'library' ? library()
+                            : id === 'diary' ? diary(who)
+                              : mind(who)
   return {
     ok: true,
     book: { id: meta.id, title: meta.title, what: meta.what, how: meta.how },
-    role: ['memory', 'mind'].includes(id) ? who : '',
+    // 2026-11-01：diary 读的是 who（谁的日记），返回里也得带上——否则面板会显示成默认角色。
+    role: ['memory', 'mind', 'diary'].includes(id) ? who : '',
     total: all.length,
     items: all.slice(0, Math.max(1, Math.min(200, Number(limit) || 40))),
     note: all.length === 0 ? '这本还是空的（或文件不在）——空着就是空着，不编。' : '',

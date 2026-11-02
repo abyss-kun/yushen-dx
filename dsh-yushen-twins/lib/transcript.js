@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 全知·会话正文：DSH 没给聊天接口，但会话按行落在
 // ~/.dsh/sessions/<工作区>/<会话>/session.v4.jsonl.zstd。
 // 这里只读、增量、带审计——不解密、不改写、不外传。
@@ -132,10 +133,6 @@ function indexSessions(force = false) {
   return map
 }
 
-export function sessionsRoot() {
-  return ROOT
-}
-
 /** 最近写过文件的会话（含已经结束的）。 */
 export function recentSessions(limit = 12) {
   const map = indexSessions(true)
@@ -181,10 +178,3 @@ export function transcriptDigest(sessionId, { turns = 20 } = {}) {
   }
 }
 
-/** 预热/清理：不让缓存无限长。 */
-export function pruneCache(max = 40) {
-  if (cache.size <= max) return cache.size
-  const rows = [...cache.entries()].sort((a, b) => (b[1].mtimeMs || 0) - (a[1].mtimeMs || 0))
-  for (const [file] of rows.slice(max)) cache.delete(file)
-  return cache.size
-}

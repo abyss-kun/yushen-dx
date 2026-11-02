@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 即时记录：我们说的话、想到的点子，落盘不等人。
 // 只写本地 append-only 日志；不联网、不调模型。崩溃最多丢正在写的那一行。
 import fs from 'node:fs'
@@ -35,6 +36,10 @@ export function classify(text) {
 /**
  * 记一条。返回 {ok, kind, file, duplicate}
  * kind 不给就自动分类；命中凭据的直接拒绝（不把密钥写进日志）。
+ *
+ * 2026-11-02 核过：capture **不落 appendEvent**——它写的是 journal/<日期>.jsonl 和 ideas/<日期>.jsonl，
+ * 行里本来就带 sessionId（调用方传进来就记）。所以这里没有 appendEvent 可透传，签名也不动；
+ * 将来若让 capture 顺手写进记忆 events，把 sessionId 一起传下去（appendEvent 已支持 session）。
  */
 export function capture(text, { kind = '', sessionId = '', role = '', source = 'owner', at = new Date().toISOString(), tags = [] } = {}) {
   const raw = String(text || '').trim().slice(0, MAX_TEXT)

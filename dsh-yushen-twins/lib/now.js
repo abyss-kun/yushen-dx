@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 「现在在发生什么」的快照：正在跑 / 刚做完 / 没做 / 出错 / 重复。
 // 只做归类和裁剪，不读盘、不发请求；数据由入口传进来，便于离线测。
 const STATUS_ERROR = /error|fail|retry|blocked/i

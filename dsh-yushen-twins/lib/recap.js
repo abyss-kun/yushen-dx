@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 本体 → 通道：把「她本体最近做了什么」放一份到桥能看见的地方。
 //
 // 为什么需要：2026-10-27 群里实测——老板说"你现在不应该是同一个本体了吗"，
@@ -71,14 +72,3 @@ export function writeRecap(role, { now = Date.now() } = {}) {
   return { ok: outs.length > 0, files: outs, lines: lines.length }
 }
 
-/** 读回来（她自己看，或排查用）。 */
-export function readRecap(role) {
-  const id = String(role || '').trim()
-  for (const [dir, name] of [[runtimeDir(id), 'recap.txt'], [path.join(BRIDGE_STATE, 'recap'), `recap-${id}.txt`]]) {
-    try {
-      const t = fs.readFileSync(path.join(dir, name), 'utf8')
-      return { ok: true, at: (t.match(/<!-- ([^ ]+) -->/) || [])[1] || '', body: t.replace(/<!--.*-->\s*/, '').trim() }
-    } catch { /* 试下一个 */ }
-  }
-  return { ok: false, error: '还没有本体近况' }
-}

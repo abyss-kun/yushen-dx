@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 证明：没有 DSH，她也能活（读魂、记账、看派活单、注册工具、发话）。
 // 运行：node scripts/core-demo.mjs
 

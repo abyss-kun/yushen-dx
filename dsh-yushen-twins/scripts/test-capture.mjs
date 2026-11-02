@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 即时记录：先落盘、能搜到、不重复、不写凭据；想法/决定另留人能读的 markdown。
 import fs from 'node:fs'
 import os from 'node:os'

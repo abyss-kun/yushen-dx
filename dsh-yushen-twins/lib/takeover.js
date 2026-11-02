@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 接管前的底片：动别人的文件之前先拍一张，走的时候（卸载/交还）按它还原。
 //
 // 边界（用户原话）：只还「我们改过的那部分」；**记忆永远是人家自己的**，
@@ -48,17 +49,6 @@ export function snapshot(id, files = [], { note = '' } = {}) {
   return { ok: true, id: key, entries: entries.length, protected: entries.filter((e) => e.protected).length }
 }
 
-export function listTakeovers() {
-  try {
-    return fs.readdirSync(TAKEOVER_DIR, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => {
-        try { return JSON.parse(fs.readFileSync(path.join(TAKEOVER_DIR, d.name, 'manifest.json'), 'utf8')) } catch { return null }
-      })
-      .filter(Boolean)
-  } catch { return [] }
-}
-
 /**
  * 记下「我们改完之后」的样子（第二次指纹）。
  * 还原时拿它和当前文件比：不一样就说明别人后来又改过，不能覆盖。
@@ -80,6 +70,41 @@ export function markApplied(id, files = []) {
   manifest.applied = applied
   fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
   return { ok: true, id: key, marked: n }
+}
+
+/**
+ * 按底片还原**被删掉的文件**（2026-11-01：safe-delete 前拍的那张底片用这个）。
+ *
+ * 和 restore() 的区别只有一条：restore() 看到"文件现在不存在"会跳过——那是接管的语义
+ * （别人删的东西我不擅自复活）。而删除底片本来就是"我知道它被删了"，所以这里要写回去。
+ * 仍然不许覆盖：文件还在、内容和底片不一样 → 跳过并报出来。
+ * @returns {{ ok: boolean, restored: string[], skipped: string[] }}
+ */
+export function restoreDeleted(id, { dryRun = false } = {}) {
+  const key = String(id || '').trim()
+  const dir = path.join(TAKEOVER_DIR, key)
+  const file = path.join(dir, 'manifest.json')
+  if (!fs.existsSync(file)) throw new TypeError(`没有这个底片：${key}`)
+  const manifest = JSON.parse(fs.readFileSync(file, 'utf8'))
+  const out = { ok: true, restored: [], skipped: [] }
+  for (const entry of manifest.entries || []) {
+    const abs = entry.path
+    if (entry.protected || isProtected(abs)) { out.skipped.push(abs); continue }
+    if (!entry.existed || !entry.copy) { out.skipped.push(`${abs}（底片里没有内容）`); continue }
+    try {
+      const cur = fs.existsSync(abs) ? sha(fs.readFileSync(abs)) : ''
+      if (cur && cur !== entry.sha256) { out.skipped.push(`${abs}（现在的内容和底片不一样，不覆盖）`); continue }
+      if (cur === entry.sha256) { out.skipped.push(`${abs}（还在，内容一致，不用还原）`); continue }
+      if (dryRun) { out.restored.push(abs); continue }
+      fs.mkdirSync(path.dirname(abs), { recursive: true })
+      fs.writeFileSync(abs, fs.readFileSync(entry.copy))
+      out.restored.push(abs)
+    } catch (e) {
+      out.ok = false
+      out.skipped.push(`${abs}（${e?.message || e}）`)
+    }
+  }
+  return out
 }
 
 /**

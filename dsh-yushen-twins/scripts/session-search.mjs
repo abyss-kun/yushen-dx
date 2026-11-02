@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 全量会话检索：不只搜最近 40 条，扫 ~/.dsh/sessions 下所有工作区、所有会话（含旧会话）。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" scripts/session-search.mjs 修复助手
 //      [--limit-files=2000] [--max-matches=20] [--since-days=0]

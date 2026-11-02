@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · M1：派活、收话、取证据、下结论。
 // 逻辑已挪进 core/dispatch.js；这里只做 DSH 接线：注册工具、通知总台。
 
@@ -10,6 +11,14 @@ import { createPatch, listPatches } from '../lib/patch.js'
 import { runCommand } from '../lib/exec.js'
 import { has } from '../lib/authz.js'
 import { selectModelRpc, listSessionsRpc, dshBaseUrl } from '../lib/dsh-rpc.js'
+
+// 2026-10-30：新版宿主要求每个工具声明 output，没声明的（如 dayu_dispatch）直接注册不上。
+const toolOutput = {
+  schema: { type: 'object', additionalProperties: true },
+  render(args, value) {
+    return [{ type: 'text', text: JSON.stringify(value, null, 2) }]
+  },
+}
 
 let notifyReply = null
 
@@ -30,7 +39,13 @@ export function noteDispatchReply(sessionId, text) {
   } catch { /* 总台写不了不影响挂单 */ }
 }
 
-const output = { schema: { type: 'object' } }
+// 2026-10-30：新版宿主要求 output 声明 {schema, render}；原来只有 schema，dayu_dispatch 直接注册不上。
+const output = {
+  schema: { type: 'object', additionalProperties: true },
+  render(args, value) {
+    return [{ type: 'text', text: JSON.stringify(value, null, 2) }]
+  },
+}
 
 // 2026-10-30: these 8 tools only went through tools.register, so yushen_tools could not list them.
 export const M1_TOOLS = []
@@ -74,6 +89,9 @@ export function applyM1(ctx, { log = () => {}, appendInbox = () => {}, notify } 
         expect: String(args?.expect ?? '').trim(),
         target: String(args?.target ?? '').trim(),
         reviewedId: String(args?.reviewedId ?? '').trim(),
+        // 2026-11-01：mandate 要记「谁派的」。原来这里没传 startedBy，于是单子里
+        // strength 永远是 inferred、basis 永远是「未记录派活人」——那两个字段等于摆设。
+        startedBy: caller === 'owner' ? 'owner' : caller,
       })
       if (task.deduped) {
         return { ...task, notice: `已有相同任务 ${task.id} 在途；已复用该单，不重复派活。先看 dayu_tasks 的回话与证据，核对后再决定是否补充新任务。` }

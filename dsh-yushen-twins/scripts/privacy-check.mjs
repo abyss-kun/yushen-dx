@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 隐私巡检：看 journal/story/memory 里有没有漏网的敏感串。只报文件名和数量，不打印内容。零模型。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<exe>" scripts/privacy-check.mjs
 import fs from 'node:fs'

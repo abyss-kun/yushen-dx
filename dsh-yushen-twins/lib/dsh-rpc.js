@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 本机 DSH HTTP RPC 客户端
 // 用途：宿主的 agents.create 不认 agentOptions、sessions 服务又选不了模型时，
 // 直接走 DSH 自己的 HTTP RPC（session/create → selectModel → prompt），

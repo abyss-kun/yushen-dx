@@ -1,16 +1,19 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神事实问答：只读本地账本，不调用模型、不补猜测。
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { residentRoleIds } from './roles.js'
+import { getCharacter } from './characters.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DATA = path.join(HOME, 'dayu')
-const ROLES = new Set(['dayu', 'xiaoyu'])
-const ROLE_NAME = { dayu: '大鱼', xiaoyu: '小鱼' }
+// 2026-11-01：住户与称呼都从名册取，不再写死两条鱼。
+const roleName = (id) => { try { return getCharacter(id)?.name || id } catch { return id } }
 
 function roleOf(role) {
   const r = String(role || 'dayu')
-  if (!ROLES.has(r)) throw new Error(`未知角色：${r}`)
+  if (!residentRoleIds().includes(r)) throw new Error(`未知角色：${r}`)
   return r
 }
 function readJson(file, fallback) {
@@ -41,13 +44,16 @@ export function facts(role = 'dayu', { limit = 8 } = {}) {
     statusText: statusText(task.status),
     attempts: Number(task.attempts || 1),
     replyCount: Number(task.replyCount || 0),
+    // 2026-11-01：'id' = 回话里带了单号，结果可靠；'heuristic' = 没带单号、按最新单接的，
+    // 可能不是针对这一单（一句话派活丢进常驻会话时就容易这样）。
+    resultMatch: task.resultMatch || '',
     evidenceCount: Array.isArray(task.evidence) ? task.evidence.length : 0,
     lastAt: timeOf(task),
     result: task.result ? String(task.result).slice(0, 400) : '',
   }))
   const recentAudit = audits.slice(-Math.max(1, Math.min(30, Number(limit) * 3 || 24))).reverse().map((row) => ({ at: row.at || '', kind: row.kind || '', id: row.id || '', sessionId: row.sessionId || '', ok: row.ok, evidence: row.evidence || '' }))
   const recentActions = actions.slice(0, Math.max(1, Math.min(20, Number(limit) || 8))).map((row) => ({ at: row.at || '', kind: row.kind || '', path: row.path || '', method: row.method || '', ok: row.ok !== false, status: row.status || 0, note: row.note || '' }))
-  return { ok: true, role: r, roleName: ROLE_NAME[r], source: ['dispatch.json', 'audit.jsonl', 'actions.jsonl'], taskCount: tasks.length, recentTasks, recentAudit, recentActions, modelCalled: false, note: '只依据本地事实账本；没有记录就不推测。' }
+  return { ok: true, role: r, roleName: roleName(r), source: ['dispatch.json', 'audit.jsonl', 'actions.jsonl'], taskCount: tasks.length, recentTasks, recentAudit, recentActions, modelCalled: false, note: '只依据本地事实账本；没有记录就不推测。' }
 }
 
 export function answerFacts(role = 'dayu', question = '') {

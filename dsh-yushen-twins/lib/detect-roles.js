@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 装之前先认人：这台机器上已经有哪些角色。
 // 只读，不改任何文件。判定按可靠性排序：名册 → 卡目录 → 旧版 persona → 别家插件。
 import fs from 'node:fs'

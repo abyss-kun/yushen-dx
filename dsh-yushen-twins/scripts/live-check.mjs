@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 真机验收：只打真实接口，不看代码、不看文档。
 // 用法：node scripts/live-check.mjs [baseUrl]
 // 两条路都试：x-yushen-token；不行就现签一张 DSH 浏览器 Cookie（v1，带 issuedAt）。

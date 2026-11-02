@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 分身登记：哪条会话是哪个角色的分身、从哪个通道来的、什么时候。
 //
 // 为什么要有：这些天反复在"提过但没登记"上栽跟头。登记不能靠谁记得写，
@@ -41,19 +42,4 @@ export function registerBody({ role = '', sessionId = '', channel = '', now = Da
   return row[sid]
 }
 
-/** 这个角色一共有几具分身（按最近活动排）。 */
-export function listBodies(role) {
-  const doc = readJson(FILE, { version: 1, roles: {} })
-  const row = doc.roles[String(role || '')] || {}
-  return Object.entries(row)
-    .map(([sessionId, v]) => ({ sessionId, ...v }))
-    .sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)))
-}
 
-/** 给她看的一句：你有几具分身、最近在哪说过话。 */
-export function bodiesLine(role) {
-  const rows = listBodies(role)
-  if (!rows.length) return ''
-  const recent = rows.slice(0, 3).map((b) => `${b.channel}${b.sessionId ? `(${String(b.sessionId).slice(-6)})` : ''}`).join('、')
-  return `## 你的分身\n这个角色有 ${rows.length} 条会话在跑，都是你：${recent}${rows.length > 3 ? ' 等' : ''}。同一个活先认领再动手。`
-}

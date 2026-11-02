@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 双报告（神版 / 人版）
 // 数据：events / dispatch / incidents；同一件事，两种写法。
 

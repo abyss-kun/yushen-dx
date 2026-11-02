@@ -1,3 +1,4 @@
+// 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 事故单：谁出错、在哪、什么错、什么时候；小鱼示警与善后都挂在这上面。
 // 数据：~/.dsh/dayu/incidents.json（写前留 .bak）

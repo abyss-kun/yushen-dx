@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 动手前先看「别的轮子有没有被扎过钉子」：同一件事可能已经有人做了、做了一半、或做成了别的形状。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" scripts/wheel-check.mjs 记忆
 // 输出分五组：代码 / 文档 / 经验库 / 派活单 / 活会话；只读，不改任何东西。

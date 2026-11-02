@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 编码哨兵：问号串要拦住；正常中文/英文不误伤。
 import assert from 'node:assert/strict'
 import { looksGarbled } from '../lib/encoding.js'

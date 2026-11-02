@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 直接跟某位说话（UTF-8 正确版）。别再用 PowerShell 5.1 的字符串 Body——它默认 gb2312。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<exe>" scripts/say.mjs xiaoyu "说点什么"
 import fs from 'node:fs'

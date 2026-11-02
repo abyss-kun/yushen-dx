@@ -1,3 +1,4 @@
+// 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 常驻身体：一条角色 = 一条固定的 DSH 会话（有 id、有模型、有本体卡），不是每条消息现拼一个临时实例。
 // 这里只做账本与“建/找回/叫醒”的通用件；具体怎么建会话由入口把 deps 传进来（方便测，不绑死宿主 API）。
@@ -7,6 +8,7 @@ import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import { soulStatus, buildSceneText, buildIdentityText } from './soul.js'
+import { noteTurnStart } from './cost.js'
 import { recordSessionIssue } from './issue.js'
 import { registerBody } from './bodies.js'
 import { getCharacter, listCharacters } from './characters.js'
@@ -31,8 +33,8 @@ function specOf(role) {
 export function residentRoles() {
   return listCharacters().map((c) => c.id)
 }
-// 兼容旧引用；新代码请用 residentRoles()。
-export const RESIDENT_ROLES = ['dayu', 'xiaoyu', 'dragon']
+// 2026-10-31：删掉 RESIDENT_ROLES=['dayu','xiaoyu','dragon']——写死三个人，又没人用，
+// 是「住户来源」的第二套真相。要问谁住这儿，只用 residentRoles()。
 
 function stamp() { return new Date().toISOString() }
 
@@ -291,7 +293,7 @@ export function prepareResidenceText(role, sessionId, text) {
 /**
  * 发一条话。优先走活句柄；遇到“上一条还挂着 pending”不装死，报清楚并给 HTTP RPC 兜底。
  */
-export async function deliverToRole(role, text, deps = {}) {
+async function deliverToRoleInner(role, text, deps = {}) {
   // 设定更新不单独发送：和这句话合并成一条，成功后再记“已注入”，失败下次还补。
   const body = await ensureRole(role, { ...deps, deferInjection: true })
   const commitInjection = () => {
@@ -392,4 +394,15 @@ export function residenceStatus({ agents, roles } = {}) {
     }
   }
   return { ok: true, at: stamp(), roles: out, ledgerUpdatedAt: ledger.updatedAt }
+}
+
+
+/**
+ * 投递（对外入口）。2026-10-30 加：起回合先记一笔「谁在跑」，
+ * 落账（cost.settleSpend，每 5 分钟）时把这段窗口多出来的花费记给她。
+ * 宿主那边没有署名，只能这么估；两个角色同时在跑就记「未署名」，不硬认。
+ */
+export async function deliverToRole(role, text, deps = {}) {
+  try { noteTurnStart(role) } catch { /* 记不上不影响说话 */ }
+  return deliverToRoleInner(role, text, deps)
 }

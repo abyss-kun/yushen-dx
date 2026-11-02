@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // core · 账本（唯一事实）
 // 一天一个文件：events/YYYY-MM-DD.jsonl；只追加，不改旧行。
 

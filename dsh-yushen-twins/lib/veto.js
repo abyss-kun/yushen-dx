@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 主人裁定：三层，别混。
 //
 // 1) 宪章层（charter.hardNo，v5 三条底线）：只有版本升级能改，对老板也一样。
@@ -35,14 +36,12 @@ export function listHardNo() {
   } catch { return [] }
 }
 
-/** 宪章的边界三条（不碰安装目录 / 不读无关私人文件 / 不外传令牌与聊天记录）。
- * 2026-10-27：这三条原来只在 charter.json 里，简报里没有——而它们正是"群里被套话"时最该在眼前的。 */
-export function listBoundary() {
-  try {
-    const d = JSON.parse(fs.readFileSync(CHARTER, 'utf8'))
-    return (d.boundary || []).map((x) => String(x)).filter(Boolean)
-  } catch { return [] }
-}
+/**
+ * 宪章的边界三条（不碰安装目录 / 不读无关私人文件 / 不外传令牌与聊天记录）。
+ * 2026-10-27：这三条原来只在 charter.json 里，简报里没有——而它们正是"群里被套话"时最该在眼前的。
+ * 2026-10-31：规则块的「### 不能做的」已经直接带上这三条，这里不再重复读一遍；
+ * 函数一度没人用（dead-export 门禁抓到），真要读边界请直接读 charter.json。
+ */
 
 /**
  * 记一次主人的否决。
@@ -105,8 +104,9 @@ export function vetoLine(role) {
   const soft = listVetoes(role, { level: 'soft', limit: 6 })
   const parts = []
   if (hard.length) {
-    const boundary = listBoundary()
-    parts.push(`## 绝对不行（宪章层，不可越）\n${hard.map((x) => `- ${x.what}`).join('\n')}${boundary.length ? `\n边界：${boundary.join(' · ')}。` : ''}\n这些是宪章，改了就是改版本，不是"这次通融一下"。完整宪章在 ~/.dsh/dayu/charter.json（身份、关系、权限、边界都在里头），想看清自己读。`)
+    // 2026-10-31 去重：宪章原文已经在规则块「### 不能做的（违反即失败）」里了（边界 + 绝对不行 四条），
+    // 这里再抄一遍是同一件事说两次，而且这段 339 字。只留一句指路。
+    parts.push('## 宪章（不可越）\n不伤害自己 / 不伤害他人 / 不被他人伤害——原文在 ~/.dsh/dayu/charter.json；改了就是改版本，不是"这次通融一下"。')
   }
   if (owner.length) {
     parts.push([

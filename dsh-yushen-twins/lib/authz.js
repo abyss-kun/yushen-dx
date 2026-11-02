@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 半张能力表：只登记“插件自己真的能做的动作”，且真的拦。
 // 表在 ~/.dsh/dayu/charter.json 的 authority.l2；没写 = 全开（兼容老数据）。
 

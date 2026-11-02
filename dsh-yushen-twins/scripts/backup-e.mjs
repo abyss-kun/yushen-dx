@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 定期备份到 E 盘：跑一次、清旧、留 manifest。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<exe>" scripts/backup-e.mjs [--target=E:\鱼神备份] [--keep=14] [--dry-run]
 import { runOffsiteBackup } from '../lib/offsite.js'

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Cross-entry session governance: inventory first, conservative cleanup second.
 // DSH currently exposes no verified delete/close RPC, so this module never guesses or kills sessions.
 import { createMatter, recordMatterEvent, registerSource, ingestObservation, readMatterHistory } from './fact-ledger.js'

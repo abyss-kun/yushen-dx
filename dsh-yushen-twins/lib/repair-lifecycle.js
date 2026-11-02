@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Host evidence only: plugin reconciliation/disposal is NOT a host restart/exit.
 // No repair is attempted here. External consumers MUST check active.json before
 // using repair-state's older PID-only classify(): normal-exit-unknown is unknown,

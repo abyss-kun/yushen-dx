@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 员工画像与定制手册：不是每个会话都发同一本，而是先看她干过什么，再发她这一本。
 //
 // 依据（框架 §8.8.1 / §4.6.3）：
@@ -204,8 +205,3 @@ export function handbookForEmployee({ sessionId = '', brief = '', expect = '', m
   }
 }
 
-/** 给人看的一行：她是干什么的、发了几章、多少字。 */
-export function describeEmployee(profile) {
-  const tags = (profile?.tags || []).map((t) => `${t.tag}（命中「${t.hit}」）`).join('、') || '还没看出是干什么的'
-  return `${tags}；发 ${profile?.chapters?.length || 0} 章、${profile?.chars || 0} 字`
-}

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 隐私：落盘前抹敏感信息；命中的要标出来，不能被当成没发生。
 import assert from 'node:assert/strict'
 import { redact, hasSecret } from '../lib/redact.js'

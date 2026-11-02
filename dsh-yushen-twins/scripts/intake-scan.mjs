@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 入职扫描 CLI：node scripts/intake-scan.mjs
 // 扫已装插件，写 ~/.dsh/xiaoyu/registry/index.json，并打印摘要。
 

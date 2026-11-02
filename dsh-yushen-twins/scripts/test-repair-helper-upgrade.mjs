@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 离线测试：修复助手的自动升级与“别人的快捷方式不许覆盖”。
 //
 // 用注入了 env / resolveDesktop / createShortcut 的 installer 跑，完全不碰真实桌面和真实 LOCALAPPDATA。

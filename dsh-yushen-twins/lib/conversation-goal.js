@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神跨窗口当前目标：只保存主人最近明确交代的目标摘要，不保存完整私密对话。
 import fs from 'node:fs'
 import path from 'node:path'

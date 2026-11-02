@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 把「哪个窗口」直接打开给你看：按关键词或会话 id 找到，然后读出对话，不是只报一个 id。
 // 用法：ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" scripts/session-open.mjs 轻松的修复你 [--turns=12]
 // 只读、零模型调用：搜索走本地会话文件，读正文走 lib/transcript.js。

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 /**
  * Store-scoped, fail-closed recovery gate. This module NEVER restores files,
  * starts/restarts software, retries recovery, or diagnoses arbitrary crashes.

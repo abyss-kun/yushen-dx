@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 运行时：目录、权重、红线、回场、判断样板。不调模型，只算账。
 import fs from 'node:fs'
 import os from 'node:os'

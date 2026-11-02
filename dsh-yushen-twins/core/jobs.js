@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // core · 派活单（宿主无关）
 // 只做存储与取证：不碰 ctx、不投消息；投递由宿主适配器负责。
 
@@ -63,27 +64,52 @@ export function safePath(input) {
   return full
 }
 
-/** 收话：某条会话回了一句，挂到它最新一单上。 */
+/**
+ * 收话：某条会话回了一句，挂到它的单子上。
+ *
+ * 2026-11-01 修（小鱼发现、老板点头）：原来是把「该会话第一张还在跑的单一律接住」，
+ * 一句话的派活丢进常驻会话后，会话正在做的别的事收尾时那段话就被当成"这单的回复"——
+ * 大鱼第一次返回的是「对你现实里的日子……」跟题无关，小鱼据此判"没收到"。
+ *
+ * 现在：
+ *   1. 回话里带单号（`job-xxxx`）→ 精确挂那一单，`resultMatch = 'id'`；
+ *   2. 不带单号 → 挂**最新**那张（按 createdAt），并标 `resultMatch = 'heuristic'`，
+ *      让人知道"这条可能不是针对这一单的"；
+ *   3. 已经按单号挂过结果的，后面再来的模糊回话不覆盖它（只加 replyCount）。
+ */
 export function noteReply(sessionId, text) {
   if (!sessionId || !text) return null
   const list = readAll()
-  let hit = null
-  for (const task of list) {
-    if (task.sessionId !== sessionId) continue
-    if (!['dispatched', 'returned', 'redispatched'].includes(task.status)) continue
-    task.result = clip(text)
-    task.status = 'returned'
-    task.returnedAt = new Date().toISOString()
-    task.replyCount = Number(task.replyCount || 0) + 1
-    hit = task
-    break
+  const body = String(text)
+  const open = list.filter((t) => t.sessionId === sessionId && ['dispatched', 'returned', 'redispatched'].includes(t.status))
+  if (!open.length) return null
+  const newest = (a, b) => String(b.createdAt || b.dispatchedAt || '').localeCompare(String(a.createdAt || a.dispatchedAt || ''))
+  const byId = open.filter((t) => body.includes(String(t.id))).sort(newest)
+  const pick = byId[0] || [...open].sort(newest)[0]
+  const match = byId.includes(pick) ? 'id' : 'heuristic'
+
+  // 已经精确挂过结果的单，不许被后来的模糊回话盖掉
+  if (pick.resultMatch === 'id' && match === 'heuristic') {
+    pick.replyCount = Number(pick.replyCount || 0) + 1
+    pick.lastReplyAt = new Date().toISOString()
+    writeAll(list)
+    audit({ kind: 'reply-ignored', id: pick.id, sessionId, chars: body.length, why: '已有按单号挂的结果，模糊回话不覆盖' })
+    return pick
   }
+
+  pick.result = clip(body)
+  pick.resultMatch = match
+  pick.status = 'returned'
+  pick.returnedAt = new Date().toISOString()
+  pick.lastReplyAt = pick.returnedAt
+  pick.replyCount = Number(pick.replyCount || 0) + 1
+  const hit = pick
   if (!hit) return null
   writeAll(list)
   try {
     recordFishState(hit.role || 'dayu', { expression: '思考', lastReason: hit.id })
   } catch { /* 状态记录不阻断收话 */ }
-  audit({ kind: 'reply', id: hit.id, sessionId, chars: String(text).length })
+  audit({ kind: 'reply', id: hit.id, sessionId, chars: body.length, match })
   return hit
 }
 

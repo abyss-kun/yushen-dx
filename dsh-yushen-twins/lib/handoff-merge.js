@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 分身回体：桥那边算好的摘要/习惯/印象，不再直接写本体记忆文件；
 // 而是放在 state/handoff/<role>.json，由这里合并进本体（appendEvent = 唯一写入口）。
 //
@@ -10,6 +11,7 @@ import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import { bridgeStatePath } from './inbox.js'
+import { listCharacters } from './characters.js'
 import { appendEvent } from './memory.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
@@ -52,6 +54,8 @@ export function mergeHandoff({ role = 'dayu', now = Date.now() } = {}) {
     const id = fp(text)
     if (seen.has(id)) continue
     try {
+      // 不传 session（2026-11-02 核过）：这是桥从手机带回来的交接件（一个文件），合并时没有对应的
+      // DSH 会话可指；硬编一个 id 等于往去重键里塞假分身号。空着不影响读取，只影响去重粒度。
       appendEvent(role, { channel: 'QQ', kind: 'note', text: text.slice(0, 500), source: 'qq-bridge-handoff', at: new Date(now).toISOString() })
       seen.add(id)
       merged += 1
@@ -66,7 +70,14 @@ export function mergeHandoff({ role = 'dayu', now = Date.now() } = {}) {
 /** 三个角色都合一遍。 */
 export function mergeAllHandoffs(options = {}) {
   const out = {}
-  for (const role of ['dayu', 'xiaoyu', 'dragon']) {
+  // 2026-10-31：原来写死三个角色。出厂包只有两只，`dragon` 会稳定返回「没有带回来的东西」，
+  // 看着像出错其实是没有这个人——按已装名册遍历，名册读不到再退回两只。
+  let roles = [...FALLBACK_ROLES]
+  try {
+    const ids = listCharacters().map((c) => c.id)
+    if (ids.length) roles = ids
+  } catch { /* 名册读不到就用出厂的两只 */ }
+  for (const role of roles) {
     try { out[role] = mergeHandoff({ ...options, role }) } catch (e) { out[role] = { ok: false, reason: String(e?.message || e) } }
   }
   return out

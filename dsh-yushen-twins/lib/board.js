@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 公告：两个层级
 //   board/公告.md       总公告，所有人都看
 //   board/<role>.md     自己的板：另一个自己在哪儿、干了什么
@@ -30,13 +31,6 @@ export function currentLevel() {
   }
 }
 
-export function setLevel(level) {
-  const lv = String(level || '').toLowerCase()
-  if (!LEVELS[lv]) return { ok: false, error: `没有这一档：${lv}；可选 low / mid / high` }
-  fs.mkdirSync(BOARD, { recursive: true })
-  fs.writeFileSync(CONFIG, JSON.stringify({ level: lv, updatedAt: new Date().toISOString() }, null, 2), 'utf8')
-  return { ok: true, level: lv, label: LEVELS[lv].label }
-}
 
 /** 把一份公告切成条目：### 日期 时间 · 标题 + 下面的字段行 */
 function parse(text) {

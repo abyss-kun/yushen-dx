@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 回归清单：每一条“反馈过的问题”在这里变成一条断言。
 // 规矩：修完一个 bug，先在这里加一条；加不出来，说明还没真修明白。
 // 运行：node scripts/regression.mjs
@@ -28,7 +29,16 @@ function ok(name, fn) {
  * 别的 null（比如脚本不存在 ENOENT）照旧算失败，别把真问题跳过去。
  */
 function runTestScript(script) {
-  const r = spawnSync(process.execPath, [path.join(ROOT, script)], { encoding: 'utf8' })
+  // 2026-10-31 23:1x（老板：三族会审还是没防住）：子进程测试一律带上沙箱——
+  // 往真家目录（~/.dsh）写就当场抛 TEST_WROTE_REAL_HOME，不许再出现"测试把假数据写进真家"。
+  const sandboxUrl = pathToFileURL(path.join(ROOT, 'scripts', '_test-sandbox.mjs')).href
+  // 2026-10-31 23:2x：前面某个用例把 process.env.DSH_HOME 指到临时家，没恢复，
+  // 后面的 measure-injection 就在空家里量，字数掉到 8227 被误判。每个测试都从真家出发。
+  const realHome = path.join(os.homedir(), '.dsh')
+  const r = spawnSync(process.execPath, ['--import', sandboxUrl, path.join(ROOT, script)], {
+    encoding: 'utf8',
+    env: { ...process.env, YUSHEN_TEST: '1', DSH_HOME: realHome },
+  })
   const code = String(r.error?.code || '')
   const blocked = r.status === null && (code === 'EPERM' || code === 'EACCES')
   if (blocked) {
@@ -62,11 +72,12 @@ const { prepareResidenceText } = await import(pathToFileURL(path.join(ROOT, 'lib
 const { rewriteCatalog, rewriteMemory } = await import(pathToFileURL(path.join(ROOT, 'lib/rewrite.js')).href)
 const { notifySelf, listNotices, unreadNotices } = await import(pathToFileURL(path.join(ROOT, 'lib/notices.js')).href)
 const { lifeChecklist } = await import(pathToFileURL(path.join(ROOT, 'lib/initiation.js')).href)
-const { judgeFishChat } = await import(pathToFileURL(path.join(ROOT, 'lib/fish-guard.js')).href)
 const { CLARITY_ORDER, memoryCapacity } = await import(pathToFileURL(path.join(ROOT, 'lib/memory.js')).href)
 const { addFromMind } = await import(pathToFileURL(path.join(ROOT, 'lib/agenda.js')).href)
 const { bodyStatus, bodyRecent } = await import(pathToFileURL(path.join(ROOT, 'lib/body-loop.js')).href)
-const { loadQQPack, packText } = await import(pathToFileURL(path.join(ROOT, 'lib/scene-pack.js')).href)
+// 2026-11-01：按需发放的场景表与取节/记账函数（回归直接调，不经过工具层）。
+const handbookLib = await import(pathToFileURL(path.join(ROOT, 'lib/handbook.js')).href)
+const handbookPolicy = await import(pathToFileURL(path.join(ROOT, 'lib/handbook-policy.js')).href)
 
 // 1. 2026-10-22：m1 漏导出 listJobs → 整个插件加载失败、侧边栏入口消失。
 ok('入口导出齐全：dayu/index.js 要的 listJobs 真存在', () => {
@@ -302,7 +313,19 @@ ok('员工手册按需发放：索引/本地检索/源章显式读取/家庭初�
   has('lib/residence.js', '没有 HTTP 兜底')
   has('docs/员工手册.md', '第十五章 手册分层与发放')
   has('docs/员工手册.md', '第十七章 视频与创作')
-  return '通用底线 + 岗位/任务切片 + 源章显式读 + 可信上层工具入口'
+  // 2026-10-31 追本溯源：旧选择器「按角色全给 + 命中再加」，只加不减——按需是假的。
+  // 新增 topicsForTask（空任务零章），并接到 rules-block 上；这条测试证明它真的按任务取。
+  has('lib/handbook-policy.js', 'topicsForTask')
+  has('lib/rules-block.js', 'topicsForTask(')
+  has('scripts/test-handbook-task.mjs', 'oldSelectorDayu')
+  runTestScript('scripts/test-handbook-task.mjs')
+  // 2026-10-31：两本手册（鱼神手册给角色、员工手册给员工），要能分书；再加一张「家里账」。
+  has('lib/handbook-policy.js', 'chaptersOf')
+  has('lib/handbook-policy.js', "return 'shen'")
+  has('docs/鱼神手册.md', '鱼神手册')
+  has('scripts/house-ledger.mjs', 'worklog.jsonl')
+  has('scripts/house-ledger.mjs', '【员工】')
+  return '通用底线 + 岗位/任务切片 + 源章显式读 + 可信上层工具入口 + 任务选择器（减法）'
 })
 
 // 19. 2026-10-25：别的通道读同一份本体（GET /soul），刷B站人设自动同步但不覆盖用户自己写的。
@@ -561,6 +584,12 @@ ok('她自己的议程（意志）：自己排 + 本地推进 + 能放弃', () =
   // 2026-10-30 老板定「每天自净」：光答应没用，得有量尺 + 每天跑的那只手。
   has('scripts/measure-injection.mjs', 'STALE_PHRASES')
   has('scripts/measure-injection.mjs', '基线')
+  // 2026-10-31：裁剪不许丢底——字数降了不等于对；缺了「规矩/铁律/边界/说不/通道/工具入口」就红。
+  has('scripts/measure-injection.mjs', 'MUST_HAVE')
+  has('scripts/measure-injection.mjs', '底不见了')
+  // 2026-10-31：版本指纹——发放状态要能说出「跑的是哪份代码、进程什么时候起的」。
+  has('lib/issue.js', 'FINGERPRINT')
+  has('lib/issue.js', '本进程起于')
   return '议程 + 本地推进 + 放弃 + 注入 + 框架 §4.6 + 经验只算自发'
 })
 
@@ -710,7 +739,7 @@ ok('好感只当提示：不再拦消息 + 可回退', () => {
 // 现在锁"报了什么数"，不锁"劝了她什么"。
 ok('报账不设闸：她自己决定回不回、用本地还是云端', () => {
   has('lib/cost.js', 'QQ 那边今天一共')
-  has('lib/cost.js', '按真实流水现算')
+  has('lib/cost.js', '你的钱：还剩')
   has('lib/cost.js', '本地回 0 元')
   if (read('lib/cost.js').includes('悠着点')) throw new Error('又开始劝她省着花了——那是替她做决定')
   has('lib/cheap-reply.js', "MODES = Object.freeze(['silent', 'local', 'cloud'])")
@@ -738,7 +767,10 @@ ok('越界请求：拒 + 上报，原话照抄', () => {
   has('lib/escalate.js', '【她拒了，要你知道】')
   has('lib/escalate.js', 'MUST_REPORT')
   has('dayu/index.js', "name: 'yushen_report'")
-  has('lib/brief.js', '拒，然后说一声')
+  // 2026-10-31：五节合成「安全与权限」，标题没了，但这条规则必须在注入里。
+  // （同日又被别的会话压成 4 条，措辞从「拒绝的边界」改成「遇上违法伤人…」——断言跟内容走，不跟标题走）
+  has('lib/brief.js', '一句话拒')
+  has('lib/brief.js', 'yushen_report')
   has('scripts/test-escalate.mjs', 'verbatim')
   return '拒不是失礼；报不是告状；原话不改写'
 })
@@ -942,8 +974,8 @@ ok('接入检查：不读鱼神的规则，礼物只是摆设', () => {
 // 52. 2026-10-27：规则每轮都在（不是"放在那等人查"）
 ok('规则每轮注入：铁律+宪章+岗位', () => {
   has('lib/rules-block.js', 'export function rulesBlock')
-  has('lib/rules-block.js', 'COMMON_RULES.slice(0, 3)')
-  has('lib/rules-block.js', '铁律和底线不用查')
+  has('lib/rules-block.js', 'rulesFor.slice(0, 3)')
+  has('lib/rules-block.js', '书里没有就说缺哪本')
   has('lib/rules-block.js', '绝对不行')
   has('lib/rules-block.js', '你的岗位')
   has('lib/rules-block.js', 'PROCESS_ROLES')
@@ -1031,6 +1063,12 @@ ok('对外层次：照微五境、大鱼副总裁、小鱼秘书，只显示不�
   has('index.js', 'selfDoneCounts')
   has('scripts/test-role-xp.mjs', '老板派的活不算')
   has('scripts/test-role-xp.mjs', 'incidentGrowth')
+  // 2026-10-31：鱼窝交互早就改成「双击进页面」，那份模拟脚本一直按单击断言、红着没人跑。
+  // 现在把它修好并**并进门禁**——红着又不跑的测试比没有更坏。
+  has('scripts/test-three-role-ui.mjs', '双击才进她')
+  has('scripts/test-three-role-ui.mjs', 'ysnRelease')
+  // 真跑一遍（子进程）；它红这里也红
+  runTestScript('scripts/test-three-role-ui.mjs')
   has('client.js', '形象版本')
   has('scripts/style.mjs', 'use anime-q')
   has('scripts/style.mjs', 'use anime-normal')
@@ -1038,7 +1076,9 @@ ok('对外层次：照微五境、大鱼副总裁、小鱼秘书，只显示不�
   has('docs/阶位.md', 'Q 版透明 PNG')
   has('index.js', '/yushen-assets/halo')
   has('docs/阶位.md', 'Q 版透明 PNG')
-  has('lib/rank.js', "RANK_ROLES = Object.freeze(['dayu', 'xiaoyu'])")
+  // 2026-11-01 主人：「写死就改……我一视同仁」。这条原来锁的是写死两条鱼的 RANK_ROLES，
+  // 等于把"先来后到"写进断言里。现在锁的是：名单从名册来、照微走五境不换算、层次只显示不接权限。
+  has('lib/rank.js', 'export const RANK_ROLES = Object.freeze(residentRoleIds()')
   has('lib/rank.js', '照微走五境，不进 L0-L3')
   has('docs/阶位.md', '只显示，不参与判断')
   has('docs/阶位.md', '换装和阶位完全脱钩')
@@ -1309,15 +1349,17 @@ ok('说话带证据：员工手册和她的简报都锁住这条', () => {
 })
 // 77. 2026-10-27：手册按场景发——合订本拆成「常驻 + 到场景才给的那几页」。
 // 铁律：拆开不等于删掉，字数必须守恒。
-ok('场景包：拆开不删字，按需给页数', () => {
-  const p = loadQQPack()
-  assert.equal(p.stats.balanced, true, `字数不守恒：总 ${p.stats.total} = 常驻 ${p.stats.core} + 场景 ${p.stats.scenes}`)
-  assert.ok(p.stats.sceneCount >= 10, `场景节太少：${p.stats.sceneCount}`)
-  const plain = packText({ signals: [], pack: p })
-  assert.ok(plain.chars < p.stats.total, '不带信号时该比全文短')
-  const withMedia = packText({ signals: ['media'], pack: p })
-  assert.ok(withMedia.chars > plain.chars, '带图时该多给一页')
-  return `原文 ${p.stats.total}；默认 ${plain.chars}（省 ${plain.saved}）；带图 ${withMedia.chars}`
+// 2026-11-01：原来这条测的是 lib/scene-pack.js——那个模块从没接进任何路径（fan-in 0），
+// 是"测试绿、功能没接"的典型，已随备份收口一起删除。现在直接量**真正在用的**注入：
+// 同一个角色、不同场景，注入必须不同（拆页生效），而且都要能构建出来。
+ok('场景分层：不同场景注入不同，且都构建得出来', () => {
+  const desk = buildSceneText('dayu', 'desk')
+  const social = buildSceneText('dayu', 'social')
+  assert.ok(desk.length > 1000, `desk 注入太短：${desk.length}`)
+  assert.ok(social.length > 1000, `social 注入太短：${social.length}`)
+  assert.notEqual(desk, social, 'desk 和 social 注入一模一样——场景分层没生效')
+  has('lib/soul.js', 'SCENE_LABEL')
+  return `desk ${desk.length} 字 / social ${social.length} 字，不同`
 })
 
 // 79. 2026-10-28：读 SurfCore 后抄三件事——入库脱敏、记忆清晰度、鱼群保护。
@@ -1333,16 +1375,14 @@ ok('记忆：入库脱敏 + 清晰度五档 + 容量档', () => {
   return `容量 ${cap.count}/${cap.max}（${Math.round(cap.ratio * 100)}%）· 五档在`
 })
 
-ok('鱼群保护：五只鱼同时说就让位，被点名例外', () => {
-  const now = Date.now()
-  const mk = (sender, minAgo) => ({ sender, time: now - minAgo * 60000, text: 'hi' })
-  const quiet = judgeFishChat([mk('张三', 1), mk('李四', 2), mk('超级大肥鱼', 3)], { now })
-  assert.equal(quiet.allow, true, '真人多的时候不该让位')
-  const crowded = judgeFishChat([mk('大肥鱼', 1), mk('小肥鱼', 2), mk('超级肥鱼', 3), mk('肥鱼一号', 4), mk('fish_bot', 5), mk('张三', 6)], { now })
-  assert.equal(crowded.allow, false, '五只鱼同时说该让位')
-  const called = judgeFishChat([mk('大肥鱼', 1), mk('小肥鱼', 2), mk('超级肥鱼', 3), mk('肥鱼一号', 4), mk('fish_bot', 5)], { now, addressed: true })
-  assert.equal(called.allow, true, '被点名必须放行')
-  return `让位理由：${crowded.reason}`
+// 2026-11-01：鱼群防刷屏改归桥（同群两只鱼用同一个号，只有桥能看到 isSelf）。
+// 插件里的影子实现写好了却没有任何调用方——留着只会让人以为"已经在防了"。
+// 这里锁的是"不留影子"：插件这边不再有 fish-guard.js；真防刷屏在 qq-bridge/src/same-group-guard.js
+// （那边有自己的 scripts/test-same-group-guard.mjs）。跨仓库不在这条断言里验，避免插件依赖桥的存在。
+ok('鱼群防刷屏只在桥那边做，插件不留影子实现', () => {
+  assert.equal(fs.existsSync(path.join(ROOT, 'lib', 'fish-guard.js')), false, 'lib/fish-guard.js 又回来了（插件里没人能调它）')
+  has('archive/dead-modules-20261030/README.md', 'fish-guard')
+  return '插件无影子；防刷屏归桥（same-group-guard）'
 })
 
 // 80. 交付检查（2026-10-28）：运行期不许再写死盘符，路径统一走 lib/paths.js。
@@ -1650,7 +1690,7 @@ ok('人物档案能进工作台简报，中文名不再撞车', () => {
 ok('注入里的自己动清单不许再有看门狗，心跳也不许写成 30 分', () => {
   const r = read('lib/rules-block.js')
   assert.ok(!r.includes('看门狗'), '看门狗早就移除了，注入里还留着')
-  has('lib/rules-block.js', "'自己动：心跳3分·自省30分·自由时间30分/每天16次·备份04:00'")
+  assert.ok(!/自己动/.test(r) || /心跳3分/.test(r), '自己动那句要么删干净，要么写对——不许写成心跳30分')
   has('lib/body-loop.js', 'const HEARTBEAT_EVERY_MS = 3 * 60 * 1000')
   return '清单与实现一致：心跳 3 分、自省 30 分、没有看门狗'
 })
@@ -1666,7 +1706,7 @@ ok('自己的钱按真实流水现算，且不替她做决定', () => {
   assert.ok(!r.includes('主人不是富翁'), '简报里还在劝她悠着点——那是替她做决定')
   assert.ok(!r.includes('你悠着点'), '「悠着点」是命令，不是事实')
   has('lib/cost.js', 'export function spendForRole')
-  has('lib/cost.js', '按真实流水现算')
+  has('lib/cost.js', '你的钱：还剩')
   const s = spendForRole('xiaoyu', { sinceMs: 0 })
   assert.equal(typeof s.yuan, 'number')
   assert.ok(s.yuan >= 0 && s.turns >= 0, '统计形状不对')
@@ -1674,7 +1714,7 @@ ok('自己的钱按真实流水现算，且不替她做决定', () => {
   const bud = path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'dayu', 'runtime', 'dayu', 'budget.json')
   if (fs.existsSync(bud)) {
     const line = costLine({ role: 'dayu' })
-    assert.ok(line.includes('按真实流水现算'), '简报没走现算')
+    assert.ok(line.includes('你的钱：还剩'), '简报没走现算')
     assert.ok(!line.includes('悠着点'), '简报里还有"悠着点"')
     assert.ok(/还剩 -?\d+\.\d{2} 元/.test(line), '余额那行没了')
   }
@@ -1702,7 +1742,7 @@ ok('改动留痕的六件+一条，写在命令里而不是记性里', () => {
   has('docs/改动留痕.md', '不改行不行')
   // 角色卡：只有本人能改自己的（老板 2026-10-30 当面立）
   has('scripts/note-work.mjs', '这张卡归')
-  has('lib/rules-block.js', '自己只能改自己的')
+  has('lib/rules-block.js', '角色卡只有本人能改自己的')
   has('docs/改动留痕.md', '角色卡')
   const prot2 = JSON.parse(fs.readFileSync(path.join(ROOT, '不可改清单.json'), 'utf8'))
   assert.ok(Object.keys(prot2).some((k) => k.startsWith('_角色卡特别规矩')), '清单里没写角色卡规矩')
@@ -1761,5 +1801,1713 @@ ok('注入里没有过期话，体积不回升', () => {
   return `${t.length} 字 / ${t.split('\n').length} 行 / ${paras} 段；没有过期句`
 })
 
+// 91. 2026-10-30 去杂：死出口 52 → 21，剩下 21 条全在 scripts/dead-exports.allow.json 里写了理由。
+// 这条卡的是"以后又长出没人接又没人解释的导出"——那种才是下一个人会误以为有事要办的。
+const { scanDeadExports } = await import(pathToFileURL(path.join(ROOT, 'lib/dead-exports.js')).href)
+ok('没有「没人接又没写理由」的导出', () => {
+  const r = scanDeadExports({ days: 7, scope: 'lib/' })
+  const names = r.dead.map((d) => `${d.file}:${d.name}`).join(', ')
+  assert.equal(r.dead.length, 0, `这些既没人接也没写理由：${names}（去删，或者在 dead-exports.allow.json 写清楚为什么留）`)
+  assert.ok(r.allowed.length <= 25, `有理由的豁免涨到 ${r.allowed.length} 条，超了就该回头收拾`)
+  return `${r.total} 个没人接：${r.allowed.length} 有理由、0 未解释`
+})
+
+// 92. 2026-10-30：工作台那侧的花费分不到人——宿主 usage 事件没有 session/角色。
+// 办法：起回合记一笔「谁在跑」，每 5 分钟把这段窗口多出来的花费记给**当时唯一**在跑的人；
+// 两个角色同时在跑就记「未署名」，不硬认。数据源 ~/.dsh/.dshw-usage.json（实测不含 QQ，不会重复算）。
+const { usageBetween, settleSpend, attributedFor } = await import(pathToFileURL(path.join(ROOT, 'lib/cost.js')).href)
+ok('工作台那侧的花费能归到人头上（估算，分不清就写未署名）', () => {
+  has('lib/cost.js', 'export function settleSpend')
+  has('lib/cost.js', 'export function attributedFor')
+  has('lib/cost.js', '.dshw-usage.json')
+  has('lib/residence.js', 'noteTurnStart(role)')
+  has('dayu/index.js', 'settleSpend()')
+  const u = usageBetween(Date.now() - 3600 * 1000)
+  assert.equal(typeof u.cost, 'number')
+  assert.ok(u.cost >= 0 && u.calls >= 0, '窗口统计形状不对')
+  const a = attributedFor('dayu')
+  assert.equal(typeof a.sum, 'number')
+  return `近一小时工作台侧 ${u.cost.toFixed(3)} 元 / ${u.calls} 次；记录带 source 标"估算"`
+})
+
+// 93. 2026-10-30 隔离环境实测装包时暴露的两条真 bug：
+// ① dayu/index.js 与 lib/translator.js 用了 spawn 却没 import（一跑到守候/本地翻译就崩）
+// ② M1 的 8 个工具 output 只有 schema、没有 render —— 新版宿主直接拒注册，派活在那边是坏的。
+ok('工具都得声明 output 的 render，spawn 也得先 import', () => {
+  has('dayu/m1.js', 'render(args, value)')
+  has('dayu/m1.js', 'const output = {')
+  assert.ok(!/output = \{ schema: \{ type: 'object' \} \}/.test(read('dayu/m1.js')), 'output 又退回只有 schema 的老写法')
+  has('dayu/index.js', "from 'node:child_process'")
+  has('lib/translator.js', "from 'node:child_process'")
+  has('dayu/index.js', 'spawn(pythonPath()')
+  has('lib/translator.js', 'spawn(local.engine')
+  return 'output 带 render；两个用 spawn 的文件都 import 了'
+})
+
+// 94. 2026-10-31 老板转的「动态记忆」那条视频：只露标题 + 点开计数，砍掉"销毁"那一半。
+// 我们原来只写"想翻就用 action=memory"——她不知道该翻什么；现在有标题索引，点开才取全文。
+const { memoryMap, openMemory } = await import(pathToFileURL(path.join(ROOT, 'lib/memory-map.js')).href)
+ok('记忆地图：只给标题，点开才取全文并计数', () => {
+  has('lib/memory-map.js', 'export function memoryMap')
+  has('lib/memory-map.js', 'export function openMemory')
+  has('dayu/index.js', "'map', 'open'")
+  has('lib/soul.js', 'action=map')
+  const m = memoryMap('dayu', { limit: 3 })
+  assert.ok(Array.isArray(m.items) && m.items.length > 0, '地图是空的')
+  for (const x of m.items) {
+    assert.ok(x.id && x.title, '条目缺 id 或标题')
+    assert.ok(!String(x.title).includes('\n'), '标题里不该有换行')
+    assert.ok(String(x.title).length <= 40, '标题太长，地图就失去意义了')
+    assert.equal(typeof x.hits, 'number')
+  }
+  // 乱给一个 id 必须报错，不许静默成功
+  const bad = openMemory('dayu', 'event:999999')
+  assert.equal(bad.ok, false, '拿不存在的 id 也返回成功，等于骗人')
+  assert.ok(bad.error, '报错得说清为什么')
+  return `${m.total} 条，露出 ${m.shown} 条标题；没被翻过的 ${m.没被翻过} 条`
+})
+
+// 95. 2026-10-31 老板：「不该有两张卡，你自己融合一下」。
+//    原来 desk 是傲娇版、social 是母本副本，结果对外的壳被用在老板身上。
+//    现在合成一张，两个通道指同一个文件；那条「对你不用那层壳」必须在注入里（不能落在被裁掉的附录节）。
+ok('只该有一张卡：两个通道同一份，且规矩没被裁掉', () => {
+  const man = JSON.parse(fs.readFileSync(path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'dayu', 'characters.json'), 'utf8'))
+  const dy = (man.characters || []).find((c) => c.id === 'dayu')
+  if (!dy) return '这台机器没有名册，跳过'
+  assert.equal(dy.cards.desk, dy.cards.social, 'desk 和 social 又指到两张卡了')
+  const desk = buildDeskText('dayu', 'desk')
+  const qq = buildDeskText('dayu', 'qq')
+  for (const [name, t] of [['desk', desk], ['qq', qq]]) {
+    assert.ok(t.includes('对你不用那层壳'), `${name} 里没有「对老板不摆架子」那条——多半又插进被裁掉的附录节了`)
+    assert.ok(t.includes('我从哪来'), `${name} 里没有「我从哪来」`)
+    assert.ok(!t.includes('卡太长'), `${name} 的卡被截断了`)
+  }
+  return '一张卡、两个通道都读到；规矩没被裁'
+})
+
+// 96. 2026-10-31 私访后提炼：记忆只增不减会撞天花板。「沉底」= 从没被翻过、又超过 14 天的，
+//    默认地图不列，deep=true 才看；**记忆文件一个字节都不动**——沉的是视图，不是删除。
+ok('记忆沉底：只是视图，不删任何东西', () => {
+  has('lib/memory-map.js', 'SINK_DAYS')
+  has('lib/memory-map.js', 'sunken')
+  has('dayu/index.js', 'deep: Boolean(args?.deep)')
+  const fs2 = fs
+  const memFile = path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'dayu', 'soul', 'memory', 'dayu.json')
+  if (!fs2.existsSync(memFile)) return '这台机器没有记忆文件，跳过'
+  const sizeBefore = fs2.statSync(memFile).size
+  const a = memoryMap('dayu', { limit: 3 })
+  const b = memoryMap('dayu', { limit: 3, deep: true })
+  const sizeAfter = fs2.statSync(memFile).size
+  assert.equal(sizeBefore, sizeAfter, '看地图居然改了记忆文件——沉底只能是视图')
+  assert.ok(b.total >= a.total, 'deep 视图不该比默认少')
+  assert.equal(typeof a.沉底, 'number')
+  return `默认列 ${a.shown} 条（沉底 ${a.沉底} 条），文件字节没变`
+})
+
+// 97. 2026-10-31：回归 130 多条测的全是代码，她"该查不查、该停不停、报完成没证据"一条没测。
+//    行为测试单独一份（scripts/behavior-test.mjs），这里只验它接上了、而且真能跑。
+ok('行为测试接上了（不是只写在议程里）', () => {
+  assert.ok(fs.existsSync(path.join(ROOT, 'scripts/behavior-test.mjs')), '行为测试脚本不存在——那"能验"就是空话')
+  has('scripts/behavior-test.mjs', '说「完成」要带真存在的路径')
+  has('scripts/behavior-test.mjs', '说「不做」要落一条拒绝记录')
+  has('scripts/behavior-test.mjs', '不认识的 action 必须报错')
+  const ran = runTestScript('scripts/behavior-test.mjs')
+  return ran ? '真跑过：5 条全绿' : '接线在；这回合环境不给子进程，没真跑'
+})
+
+// 98. 2026-10-31：包干不干净，得解开数——打包脚本自己说"干净"不算。
+//    小鱼踩过一次：pnpm pack 把 lib/*.bak-* 一起打进去（500+ 条目）。
+ok('包干不干净要解开数（上线前自检）', () => {
+  assert.ok(fs.existsSync(path.join(ROOT, 'scripts/verify-tgz.mjs')), '没有上线前自检脚本')
+  has('scripts/verify-tgz.mjs', '带了不该带的')
+  has('scripts/verify-tgz.mjs', '带了作者数据')
+  has('scripts/verify-tgz.mjs', '版本对得上')
+  const ran = runTestScript('scripts/verify-tgz.mjs')
+  return ran ? '解开数过：没备份、没作者数据、入口齐' : '接线在；这回合环境不给子进程，没真跑'
+})
+
+// 99. 2026-10-31：今天栽了三次「改在盘上、跑的是旧的」。光有 commit 不够——大半改动没提交。
+//    指纹里带上未提交处数；启动后又变，就明说「重启才生效」。
+ok('改了没重启，要看得出来', () => {
+  has('lib/issue.js', 'DIRTY_AT_START')
+  has('lib/issue.js', 'export function staleCodeLine')
+  has('lib/issue.js', '重启才生效')
+  const t = buildDeskText('dayu', 'desk')
+  assert.ok(/代码 .*本进程起于/.test(t), '发放状态那行没有「代码+启动时间」指纹')
+  return '指纹带未提交数，启动后再变会明说'
+})
+
+// 100. 2026-10-31 内部整治：appendEvent 超过 200 条原来直接 slice(-200)，最老的静默消失。
+//      现在裁之前先追加进冷档（runtime/<role>/记忆冷档/<日期>.jsonl，只增不删）。
+// 100. 2026-10-31 内部整治：appendEvent 超过 200 条原来直接 slice(-200)，最老的静默消失。
+//      现在裁之前先追加进冷档（runtime/<role>/记忆冷档/<日期>.jsonl，只增不删）。
+//      ⚠ 必须跑在独立进程里：memory.js 在 import 那一刻就定死 DSH_HOME，
+//      写在回归进程里会把假事件灌进真实记忆（2026-10-31 真栽过一次）。
+ok('记忆不会被静默裁掉：超出 200 条先进冷档', () => {
+  has('lib/memory.js', 'archiveDropped')
+  has('lib/memory.js', 'merged.slice(-MAX_EVENTS)')
+  has('lib/memory-map.js', '冷档')
+  assert.ok(fs.existsSync(path.join(ROOT, 'scripts', 'test-memory-cold.mjs')), '冷静档测试脚本不在')
+  const ran = runTestScript('scripts/test-memory-cold.mjs')
+  return ran ? '真跑过：205 条 → 热 200 + 冷 5' : '接线在；这回合环境不给子进程，没真跑'
+})
+
+// 101. 2026-10-31 追本溯源：桌宠「今天花了」整行消失，跟"没花钱"分不出来。
+//      根因不是那行写错，是一种写法：有值才画、拉不到就当没有——缺席被写成沉默。
+//      这里不锁某一行，锁"这类写法只许降"：A 类（有值才画）≤1、B 类（拉不到当没有）≤12，
+//      再多就是又添了一处"会悄悄消失的东西"。
+ok('静默缺席不许变多（有值才画 / 拉不到当没有）', () => {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'audit-silent-ui.mjs'), '--json'], { encoding: 'utf8' })
+  const out = r.stdout
+  const j = JSON.parse(String(out).trim().split('\n').pop())
+  assert.ok(j.a <= 1, `「有值才画」变多了：${j.a} 处（上限 1）——条件不成立时画面什么都不出现`)
+  assert.ok(j.b <= 12, `「拉不到就当没有」变多了：${j.b} 处（上限 12）——上游停了会被抹平成"没有数据"`)
+  // 气泡那两行必须永远画出来，哪怕值是 0 / 读不到
+  const cli = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  assert.ok(cli.includes('ov?.todayCost'), '气泡的「今天花了」又变成有值才画了')
+  return `A=${j.a} B=${j.b}（只许降）`
+})
+
+// 102. 2026-10-31 家目录护栏：破坏性删除不许在默认 ~/.dsh 上裸跑。
+//      那天一次「出厂版干净环境安装测试」把真家目录当试验场——sessions 16:21:53、
+//      storages 16:26:25 整目录重建，三个常驻会话的日志变成 9 字节空帧。
+//      护栏只判断不删：默认家目录抛 DESTRUCTIVE_HOME_REFUSED，隔离目录/显式放行才过。
+ok('破坏性删除不在默认家目录上裸跑', () => {
+  has('lib/home-guard.js', 'export function assertDestructiveHome')
+  has('scripts/uninstall.mjs', 'assertDestructiveHome')
+  const guardUrl = pathToFileURL(path.join(ROOT, 'lib', 'home-guard.js')).href
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', `
+import { assertDestructiveHome, isDefaultHome, defaultHome } from ${JSON.stringify(guardUrl)}
+const out = { isDefault: isDefaultHome(defaultHome()) }
+try { assertDestructiveHome('probe', { home: defaultHome(), env: {} }); out.threw = false } catch (e) { out.threw = true; out.code = e.code }
+try { assertDestructiveHome('probe', { home: defaultHome(), env: { DSH_ALLOW_DESTRUCTIVE_HOME: '1' } }); out.optIn = true } catch { out.optIn = false }
+try { assertDestructiveHome('probe', { home: defaultHome() + '-isolated', env: {} }); out.isolated = true } catch { out.isolated = false }
+console.log(JSON.stringify(out))
+`], { encoding: 'utf8' })
+  const blocked = r.status === null && ['EPERM', 'EACCES'].includes(String(r.error?.code || ''))
+  if (blocked) { skipped += 1; return '跳过：这个环境不让开子进程' }
+  assert.equal(r.status, 0, String(r.stderr || r.stdout || '').slice(0, 300))
+  const j = JSON.parse(String(r.stdout).trim().split('\n').pop())
+  assert.equal(j.isDefault, true, '默认家目录没被认成默认')
+  assert.equal(j.threw, true, '默认家目录上居然没拦')
+  assert.equal(j.code, 'DESTRUCTIVE_HOME_REFUSED', `拦截码不对：${j.code}`)
+  assert.equal(j.optIn, true, '显式放行（DSH_ALLOW_DESTRUCTIVE_HOME=1）没被认')
+  assert.equal(j.isolated, true, '隔离家目录被误拦')
+  return '默认拦、显式放行、隔离放行，三条都对'
+})
+
+// 2026-11-01（安全闸门 ④）：first-run 会**无条件重写**卡 / characters.json / persona.json，
+//   而 16:11 那次「干净环境安装测试」正是这类路径把真家目录冲掉的（护栏当时只接在 uninstall 上）。
+//   规矩：已经有鱼窝就停；真要重建得显式 --overwrite-cards。实测三组：已有卡→拒且卡没动、
+//   空目录→照常装、显式 flag→放行。
+ok('first-run 不许在已有鱼窝的家目录上重写卡', () => {
+  has('scripts/first-run.mjs', '已经有鱼窝')
+  has('scripts/first-run.mjs', '--overwrite-cards')
+  const mk = (withCard) => {
+    const h = fs.mkdtempSync(path.join(tmpRoot(), 'first-run-guard-'))
+    if (withCard) {
+      fs.mkdirSync(path.join(h, 'dayu', 'soul', 'cards'), { recursive: true })
+      fs.writeFileSync(path.join(h, 'dayu', 'soul', 'cards', 'dayu.desk.md'), 'existing', 'utf8')
+    }
+    return h
+  }
+  const run = (home) => spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'first-run.mjs'), '--call', '测试'], {
+    cwd: ROOT, env: { ...process.env, DSH_HOME: home }, encoding: 'utf8',
+  })
+  const full = mk(true)
+  const clean = mk(false)
+  const refused = run(full)
+  if (refused.status === null && ['EPERM', 'EACCES'].includes(String(refused.error?.code || ''))) {
+    fs.rmSync(full, { recursive: true, force: true })
+    fs.rmSync(clean, { recursive: true, force: true })
+    skipped += 1
+    return '跳过：这个环境不让开子进程'
+  }
+  const kept = fs.readFileSync(path.join(full, 'dayu', 'soul', 'cards', 'dayu.desk.md'), 'utf8')
+  const opens = run(clean)
+  fs.rmSync(full, { recursive: true, force: true })
+  fs.rmSync(clean, { recursive: true, force: true })
+  assert.notEqual(refused.status, 0, '已有鱼窝却照样跑完了')
+  assert.match(String(refused.stderr || ''), /已经有鱼窝/, '没给出为什么停')
+  assert.equal(kept, 'existing', '拦是拦了，卡已经被改过了')
+  assert.equal(opens.status, 0, `空家目录应当能装：${String(opens.stderr || '').slice(0, 200)}`)
+  return '已有就拒、卡没动、空目录照常'
+})
+
+// 2026-11-01（安全闸门 ⑤ / 缺口 5）：备份"时间新、内容旧"——同一张卡 17:00 那份里是
+//   10-24 的旧版。备份按时间挑、fingerprint 只数文件数+字节+mtime，**全仓没有一处比内容**。
+//   内容谱系补的就是这一处：关键文件记内容指纹，字节以前来过 = 倒退，并说清回到哪一版。
+const { observe: observeLineage, check: checkLineage } = await import(pathToFileURL(path.join(ROOT, 'lib', 'content-lineage.js')).href)
+ok('内容倒退报得出来（旧内容放回来就红，且报得出回到哪一版）', () => {
+  const home = fs.mkdtempSync(path.join(tmpRoot(), 'lineage-'))
+  fs.mkdirSync(path.join(home, 'soul', 'cards'), { recursive: true })
+  const card = path.join(home, 'soul', 'cards', 'dayu.desk.md')
+  fs.writeFileSync(path.join(home, 'charter.json'), '{"version":5}', 'utf8')
+  fs.writeFileSync(card, '# v1\n', 'utf8')
+  const t1 = Date.parse('2026-11-01T01:00:00Z')
+  const t2 = Date.parse('2026-11-01T02:00:00Z')
+  const t3 = Date.parse('2026-11-01T03:00:00Z')
+  try {
+    const a = observeLineage({ dir: home, now: t1 })
+    assert.equal(a.regressions.length, 0, '第一次就报倒退')
+    fs.writeFileSync(card, '# v2 改过了\n', 'utf8')
+    const b = observeLineage({ dir: home, now: t2 })
+    assert.equal(b.regressions.length, 0, '换成新内容也报倒退了')
+    fs.writeFileSync(card, '# v1\n', 'utf8')
+    const c = observeLineage({ dir: home, now: t3 })
+    assert.equal(c.regressions.length, 1, `旧内容放回来没报（报了 ${c.regressions.length}）`)
+    assert.equal(c.regressions[0].backTo, new Date(t1).toISOString(), '没报出回到哪一版')
+    // check() 必须只读：体检/定时器会调它，不许写盘
+    const before = fs.readFileSync(path.join(home, 'state', 'content-lineage.json'), 'utf8')
+    checkLineage({ dir: home })
+    const after = fs.readFileSync(path.join(home, 'state', 'content-lineage.json'), 'utf8')
+    assert.equal(after, before, 'check() 动了台账')
+    return '首次记基线、换新不报、旧内容回来就红、只读的那条真只读'
+  } finally { fs.rmSync(home, { recursive: true, force: true }) }
+})
+
+// 2026-11-02（照微）：群消息原来 `body.slice(0,1000)`——超长静默切断，连省略号都没有。
+//   对方读到断在半截的话，还以为你说完了：11-01 那条会审回复的「我的改法」整段没发出去。
+//   现在超长留一句明说，长度仍按 1000 记。
+const { clipForStore, STORE_LIMIT } = await import(pathToFileURL(path.join(ROOT, 'lib', 'groups.js')).href)
+ok('群消息超长不再静默截断（留一句「已截断，全文 N 字」）', () => {
+  const short = '短消息'
+  assert.equal(clipForStore(short), short, '短消息被动了')
+  const long = '字'.repeat(1500)
+  const cut = clipForStore(long)
+  assert.ok(cut.length <= STORE_LIMIT, `截断后仍超长：${cut.length}`)
+  assert.ok(cut.includes('已截断'), '截断了却没说')
+  assert.ok(cut.includes('1500'), '没报全文多少字')
+  assert.equal(cut.slice(0, 20), long.slice(0, 20), '留下的不是原文开头')
+  return `${long.length} 字 → ${cut.length} 字，明说了`
+})
+
+// 2026-11-02（照微）：备份 tick 里那道 55 分钟门槛原来直接 `return`，把同一个函数里
+//   **不相关**的每日任务（全盘 / 备份验证 / 内容谱系 / 清理 / 归档）一起跳了，还不报错。
+//   11-01 19:48 那次 tick 就是这么跳的：lineage.json 没出现、backup-verify 停在 00:46。
+//   现在门槛只包住「离线快照」这一段。跳过要分开跳。
+ok('备份 tick 的 55 分钟门槛只跳过离线快照，不连坐后面的每日任务', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'dayu', 'index.js'), 'utf8')
+  const start = src.indexOf('const backupTick = () =>')
+  assert.ok(start > 0, '找不到 backupTick，这条断言要跟着改')
+  const end = src.indexOf('setTimeout(backupTick', start)
+  const body = src.slice(start, end > start ? end : start + 20000)
+  assert.ok(/if \(due\) \{/.test(body), '门槛没有变成只包住离线快照')
+  assert.ok(!/if \(last && Date\.now\(\) - last < 55 \* 60 \* 1000\) return/.test(body), '整段早退又写回去了')
+  assert.ok(body.includes('observeLineage'), '内容谱系被一起删了')
+  assert.ok(body.includes('verifyBackup'), '备份验证被一起删了')
+  return '门槛只包离线快照，后面的每日任务还在'
+})
+
+// 2026-11-02（照微）：打包清单漏了 `preset/`——first-run 读 `preset/persona.preset.json` 和
+//   `preset/charter.preset.json`，读不到就静默退成 {}：新装用户拿到的是两张「# dayu / # xiaoyu」
+//   的空卡，和一份 `{"version": 5}` 的空宪章。装得上，但活不对，而且不报错。
+//   这条不写死 preset：把「运行时代码 join(ROOT, '<目录>') 读到的顶层目录」全扫一遍，下次漏别的也红。
+ok('打包清单不许漏掉运行时要读的顶层目录（preset 就是这么漏的）', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
+  const files = (pkg.files || []).filter((f) => !f.startsWith('!')).map((f) => String(f).replace(/\/$/, ''))
+  const dirs = new Set()
+  const scan = (dir) => {
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      if (e.isDirectory()) { if (!/^\.|node_modules|dist|archive/.test(e.name)) scan(path.join(dir, e.name)); continue }
+      if (!/\.(js|mjs)$/.test(e.name)) continue
+      const src = fs.readFileSync(path.join(ROOT, dir, e.name), 'utf8')
+      for (const m of src.matchAll(/join\(ROOT,\s*'([^'\\/]+)/g)) dirs.add(m[1])
+    }
+  }
+  for (const d of ['lib', 'scripts', 'core', 'dayu', 'xiaoyu']) { try { scan(d) } catch { /* 没有就算了 */ } }
+  // 只算「真的存在、真的是目录、而且是要一起发出去的东西」：
+  // 测试里那些假路径（no-such-file-xyz）、文件（package.json / client.js）、构建产物（dist / release）都不算。
+  const skip = new Set(['dist', 'release', 'node_modules', 'archive', '.snapshots', '.state'])
+  const missing = [...dirs].filter((d) => {
+    if (skip.has(d) || d.startsWith('dist') || d.includes('..')) return false
+    let st = null
+    try { st = fs.statSync(path.join(ROOT, d)) } catch { return false }
+    if (!st.isDirectory()) return false
+    return !files.includes(d) && !files.includes(d + '/')
+  })
+  assert.deepEqual(missing, [], `打包清单漏了运行时要读的目录：${missing.join('、')}`)
+  return `扫到 ${dirs.size} 个顶层目录，清单全覆盖`
+})
+
+// 103. 2026-10-31 备份清单漏了「这个家是谁的家」：宪章、认老板、常住绑定、契约、账本、
+//      信箱、公告栏、会话存档，一样都没进过任何备份。全量备份跑得再勤，都只盖住了“她说过的话”，
+//      盖不住“她是哪家的、听谁的、按什么规矩活”。家再被清一次，人还在，却认不出主人、也没有规矩。
+//      DEFAULT_ROOTS 逐个点名（不吞整个 dayu：protection/avatars 共 60MB，只进全量层）。
+const { DEFAULT_ROOTS: OFF_DEFAULT, fullRoots: offFullRoots, runOffsiteBackup: offBackup } =
+  await import(pathToFileURL(path.join(ROOT, 'lib', 'offsite.js')).href)
+ok('备份清单盖住宪章、认老板、常住绑定', () => {
+  const need = [
+    'dayu/charter.json',
+    'dayu/owner.json',
+    'dayu/residence.json',
+    'dayu/bodies.json',
+    'dayu/retention.json',
+    'dayu/contract',
+    'dayu/letters',
+    'dayu/board',
+    'dayu/worklog.jsonl',
+    'dayu/inbox.jsonl',
+    'dayu/sessions-archive',
+  ]
+  const src = read('lib/offsite.js')
+  const missing = need.filter((n) => !src.includes(`'${n}'`))
+  assert.deepEqual(missing, [], `lib/offsite.js 的 DEFAULT_ROOTS 里少了：${missing.join(', ')}`)
+  has('lib/offsite.js', "'dayu/protection'")
+  has('lib/offsite.js', "'dayu/avatars'")
+  assert.deepEqual(OFF_DEFAULT.filter((r) => !r), [], 'DEFAULT_ROOTS 里有空项')
+  // 空 root 的后果不是「少备一个」：path.join(home,'') 就是 home，会把整个家（连 api-token）平铺进备份根。
+  assert.deepEqual(offFullRoots().filter((r) => !r), [], 'fullRoots 里混进了空 root——等于让整个 ~/.dsh 当一份备份')
+  const dry = offBackup({ dryRun: true, target: os.tmpdir(), roots: ['', 'dayu/soul', null] })
+  assert.ok(dry.manifest, `dryRun 没给出 manifest：${dry.reason || ''}`)
+  assert.deepEqual(dry.manifest.roots.filter((x) => !x.rel).map((x) => x.rel), [], '空 root 被当成家备份进去了')
+  return `${need.length} 项逐个点名，大目录走全量层，空 root 被挡`
+})
+
+// 104. 2026-10-31 小鱼：签发这条链建好了从没跑过（连一个 issued.jsonl 都没有）。
+//      真跑一次就露馅：库层 issueHandbook 支持 topics，测试 test-issue-apply 也验过生效，
+//      但工具层 dayu/index.js 的 action=issue 只传 chapters、不传 topics——而 handbookSlice
+//      读的是 topics。于是「从工具签一本」永远不进切片，等于没签：点了、留底了、什么也没变。
+ok('签发从工具层就生效：chapters 和 topics 一起传', () => {
+  const lines = read('dayu/index.js').split(/\r?\n/)
+  const at = lines.findIndex((l) => l.includes('issueHandbook(role,') && l.includes('{ to:'))
+  assert.ok(at >= 0, '没找到 action=issue 里那条 issueHandbook 调用（改结构了？）')
+  // 调用可能是一行也可能拆成几行，看这一块就够
+  const block = lines.slice(at, at + 4).join('\n')
+  assert.match(block, /chapters:/, '工具层签发没传 chapters')
+  assert.match(block, /topics:/, '工具层签发没传 topics——切片永远不会带上那本，等于没签')
+  // 库层闭环已有独立测试（哪本进切片、过期回落），顺手确保它没有一起烂掉
+  runTestScript('scripts/test-issue-apply.mjs')
+  return 'chapters + topics 同传；库层切片/过期回落仍绿'
+})
+
+// 105. 2026-10-31 照微：第 102 条只锁住了 uninstall 这一条路，但真正的面在这里——
+//      scripts/ 下有几十个测试脚本会 `fs.rmSync(HOME, {recursive:true})`。今天全都在
+//      mkdtemp 出来的临时目录上跑（实测 68 个里 68 个都有 mkdtemp / 护栏 / basename 断言），
+//      可这正是 16:11 那一刀的形态：**只要有一个脚本把 HOME 解析到真家目录，就是整目录重建**。
+//      所以不锁"某个脚本别写错"，锁"这一类脚本必须自带临时目录证据"——新写一个忘了，这里就红。
+ok('删家目录的脚本必须落在临时目录（新写的忘了就红）', () => {
+  const dir = path.join(ROOT, 'scripts')
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.mjs'))
+  const homeish = /(rmSync|rm)\s*\(\s*(HOME|home|BASE|tmp|target|TREASURE|BRIDGE|QQ|profile|dir)\b/
+  const evidence = /mkdtemp|assertDestructiveHome|basename\([^)]*\)\.startsWith\(/
+  const offenders = []
+  let scanned = 0
+  for (const f of files) {
+    const t = fs.readFileSync(path.join(dir, f), 'utf8')
+    if (!homeish.test(t)) continue
+    scanned += 1
+    if (!evidence.test(t)) offenders.push(f)
+  }
+  assert.ok(scanned >= 30, `没扫到几个脚本（${scanned} 个），这个检查可能已经空转`)
+  assert.deepEqual(offenders, [], `这些脚本删家目录类变量却没有任何临时目录证据：${offenders.join(', ')}——写错一次就是整目录重建`)
+  return `${scanned} 个删除类脚本，全部有临时目录证据`
+})
+
+// 2026-10-31 照微会审第三条：guard-delete 只是命令，没人必须经过它 = 没有闸门。
+// 这条锁：lib 里凡是删「家目录数据」的，要么走 lib/safe-delete.js，要么写明豁免理由。
+// 2026-10-31 23:5x 扩到 scripts/*.mjs（删除收口从 lib/ 扩到 scripts/）：
+//   原来只扫 lib，scripts 下几十个测试脚本 `fs.rmSync(HOME)` 全在射程外。扩了以后逐个判：
+//   ① 测试脚本删的是自己 mkdtemp 出来的临时家 → 在 allow.json 里**逐条**登记，理由写清哪份临时目录；
+//   ② 真删家目录的命令（guard-delete）→ 改成调用 safeDelete()，不再自己 unlink；
+//   ③ 构建产物 / 自己写的 junction / 卸载清单 → 逐条登记，写明删的是哪一块。
+//   没有加通配白名单：判据一个字没松，只是把扫描面补齐。
+// 顺手修了一个假豁免：原来只做子串匹配，本文件里的判据源码、甚至一句提到豁免标记的普通注释都能自证豁免。
+//   现在要求标记是注释里的第一个词、后面紧跟一句理由（>=8 字）；代码字符串和普通提及都不算。
+ok('删家目录数据必须走 safe-delete（或写明豁免）', () => {
+  const allowFile = path.join(ROOT, 'lib', 'safe-delete.allow.json')
+  const allow = fs.existsSync(allowFile) ? JSON.parse(fs.readFileSync(allowFile, 'utf8')) : {}
+  // 两个目录用同一套判据；lib 里自引用路径是 ./safe-delete.js，scripts 里是 ../lib/safe-delete.js
+  const scopes = [
+    { label: 'lib', dir: path.join(ROOT, 'lib'), ext: '.js', skip: 'safe-delete.js' },
+    { label: 'scripts', dir: path.join(ROOT, 'scripts'), ext: '.mjs', skip: '' },
+  ]
+  const offenders = []
+  const scannedBy = {}
+  for (const s of scopes) {
+    const files = fs.readdirSync(s.dir).filter((f) => f.endsWith(s.ext) && f !== s.skip)
+    let scanned = 0
+    for (const f of files) {
+      const t = fs.readFileSync(path.join(s.dir, f), 'utf8')
+      const hasDel = /(rmSync|unlinkSync)\s*\(/.test(t)
+      const touchesHome = /DATA|HOME|dayu/.test(t)
+      if (!hasDel || !touchesHome) continue
+      scanned += 1
+      const okByLib = /from '(?:\.\/|\.\.\/lib\/)safe-delete\.js'|from "(?:\.\/|\.\.\/lib\/)safe-delete\.js"/.test(t)
+      const exempt = /^\s*\/\/\s*@safe-delete-exempt:\s*\S{8,}/m.test(t)
+      const allowed = typeof allow[f] === 'string' && allow[f].trim().length > 8
+      if (!okByLib && !exempt && !allowed) offenders.push(`${s.label}/${f}`)
+    }
+    scannedBy[s.label] = scanned
+  }
+  // 下限防空转：lib 现有 18 个、scripts 现有 80 个；掉到一半就是扫描本身坏了
+  assert.ok(scannedBy.lib >= 10, `lib 只扫到 ${scannedBy.lib} 个模块，这个检查可能已经空转`)
+  assert.ok(scannedBy.scripts >= 40, `scripts 只扫到 ${scannedBy.scripts} 个脚本，这个检查可能已经空转`)
+  // guard-delete.mjs 是「真删」那条命令：必须是走收口，不许拿豁免表把自己写白
+  assert.match(read('scripts/guard-delete.mjs'), /from '\.\.\/lib\/safe-delete\.js'/, 'guard-delete 真删那一行必须调 safeDelete（不许登记豁免绕过）')
+  assert.deepEqual(offenders, [], `这些模块删家目录数据却不走 safe-delete、也没登记豁免（lib/safe-delete.allow.json）：${offenders.join(', ')}`)
+  return `lib ${scannedBy.lib} 个 + scripts ${scannedBy.scripts} 个模块；有豁免登记或走 safe-delete`
+})
+
+// 2026-11-01 主人：任何时候谁改了什么都要有标记，「谁」是必须的。
+// 这条盯生成类文档：会话原文与完整记录，每份都要有 谁/地点/时间/来源/生成 五样。
+ok('生成的文档必须带标记（谁/地点/时间/来源/生成）', () => {
+  const dirs = [
+    path.join(os.homedir(), '.dsh', 'dayu', 'sessions-archive'),
+    path.join(os.homedir(), '.dsh', 'dayu', 'records'),
+  ]
+  const need = ['- 谁：', '- 地点：', '- 时间：', '- 来源：', '- 生成：']
+  const bad = []
+  let scanned = 0
+  for (const root of dirs) {
+    if (!fs.existsSync(root)) continue
+    const walk = (d, depth = 0) => {
+      if (depth > 3) return
+      let es = []
+      try { es = fs.readdirSync(d, { withFileTypes: true }) } catch { return }
+      for (const e of es) {
+        const p = path.join(d, e.name)
+        if (e.isDirectory()) { walk(p, depth + 1); continue }
+        if (!e.name.endsWith('.md')) continue
+        // 索引/说明类不是「原文」，不要求五样标记（它们本身是导航）
+        if (/^(索引|README|不可删清单|从哪里来|manifest)/.test(e.name)) continue
+        const text = fs.readFileSync(p, 'utf8')
+        if (!text.startsWith('# ')) continue // 索引/README 不算
+        scanned++
+        const miss = need.filter((n) => !text.slice(0, 1200).includes(n))
+        // 老归档（10-19~10-31 生成时还没有这套头）只提醒不红：给一个宽限窗口
+        if (miss.length && !/旧档/.test(p)) bad.push(`${path.relative(root, p)} 缺 ${miss.map((m) => m.replace('- ', '')).join('/')}`)
+      }
+    }
+    walk(root)
+  }
+  assert.ok(scanned > 50, `没扫到几份文档（${scanned}），这个检查可能已经空转`)
+  assert.deepEqual(bad.slice(0, 5), [], `这些生成文档缺标记：${bad.slice(0, 5).join('；')}（共 ${bad.length} 份）`)
+  return `${scanned} 份生成文档，五样标记齐全`
+})
+
+// 2026-11-01 主人：小鱼就问一句「你怕什么」，不该背一整本手册。
+// 轻派活（不动手、一两句话）必须短、不附手册；真干活的派活仍要带手册。
+ok('派活按需发手册：一句话的活不背整本', async () => {
+  const { composeBrief } = await import(pathToFileURL(path.join(ROOT, 'core', 'dispatch.js')).href)
+  // 2026-11-01：派活现在会记「手册发放」一笔（按需发放要能度量），测试跑在临时家，别把测试发放写进真账。
+  const home = fs.mkdtempSync(path.join(tmpRoot(), 'hb-brief-'))
+  const prevHome = process.env.DSH_HOME
+  process.env.DSH_HOME = home
+  try {
+    const lite = composeBrief('job-test-lite', '新一期片子叫《同一个问题，问三个人》，第一个问题——你怕什么？用你自己的话答，别润色。', '一句你自己的话，不要文件')
+    const work = composeBrief('job-test-work', '把 lib/records.js 的头部加三行标记，改完跑回归。', '回归全绿 + 文件路径')
+    assert.ok(lite.length < 400, `一句话的派活还是太长：${lite.length} 字`)
+    assert.ok(!lite.includes('岗位卡') && !lite.includes('铁律') && !lite.includes('场景手册'), '一句话的派活不该夹带手册')
+    // 2026-11-01 起，真干活派的是「场景手册·派活」那几节（不再是整块岗位卡）——但**必须还带手册**。
+    assert.ok(/岗位卡|铁律|场景手册/.test(work), '真干活的派活仍要带手册')
+    return `轻活 ${lite.length} 字不带手册；干活的 ${work.length} 字带手册`
+  } finally {
+    if (prevHome === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = prevHome
+    try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 清不掉不影响结论 */ }
+  }
+})
+
+// 2026-11-01 老板：「手册要的不是多少，而是按需发放。」——度量三样：命中率 / 噪声 / 使用率。
+// 这条锁四件：①六个场景都有分支且各 2~4 节；②dispatch 真跑一次，节数≤4、字数≤2500、写了发放记录、noise 是数字；
+// ③default 必须带查询指针（防止「退回默认」变成把整本塞回去）；④未知场景退回 default，不瞎猜。
+ok('手册按场景发放：六场景 / 预算内 / 记账带噪声 / 默认带指针', () => {
+  const scenes = handbookPolicy.HANDBOOK_SCENES
+  assert.deepEqual([...handbookPolicy.HANDBOOK_SCENE_IDS].sort(), ['default', 'dispatch', 'judge', 'memory', 'safety', 'video'])
+  for (const id of handbookPolicy.HANDBOOK_SCENE_IDS) {
+    assert.ok(Array.isArray(scenes[id].sections) && scenes[id].sections.length >= 2 && scenes[id].sections.length <= 4, `${id} 场景的节数不在 2~4：${scenes[id].sections.length}`)
+  }
+  assert.equal(typeof handbookLib.handbookSceneSections, 'function', '没有场景取节函数')
+  const home = fs.mkdtempSync(path.join(tmpRoot(), 'hb-send-'))
+  const prevHome = process.env.DSH_HOME
+  try {
+    process.env.DSH_HOME = home
+    const task = '把 lib/handbook.js 的发放改成按场景取节，改完跑回归，交文件路径和命令输出'
+    const block = handbookLib.handbookBlock('worker', { scene: 'dispatch', text: task })
+    const pick = handbookLib.handbookSceneSections('dispatch')
+    assert.ok(pick.sections.length >= 2 && pick.sections.length <= 4, `dispatch 应给 2~4 节，给了 ${pick.sections.length}`)
+    assert.ok(block.length <= 2500, `dispatch 一次发了 ${block.length} 字，超 2500`)
+    const file = path.join(home, 'dayu', 'runtime', '手册发放.jsonl')
+    assert.ok(fs.existsSync(file), 'dispatch 场景没写发放记录')
+    const rows = fs.readFileSync(file, 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
+    const row = rows.at(-1)
+    assert.equal(row.scene, 'dispatch', `记录里的 scene 不对：${row.scene}`)
+    assert.ok(Array.isArray(row.sections) && row.sections.length <= 4, `记录里的节数不对：${row.sections?.length}`)
+    assert.equal(typeof row.noise, 'number', '记录里的 noise 不是数字')
+    assert.ok(row.chars > 0, '记录里没记字数')
+    // 退回默认时必须带指针：发不全不等于把整本倒回去。
+    const fallbackBlock = handbookLib.handbookBlock('worker', { scene: 'default', text: '随便看看' })
+    assert.ok(fallbackBlock.includes('where.mjs'), 'default 场景没带查询指针（可能又把整本塞回去了）')
+    assert.equal(handbookLib.handbookSceneSections('not-a-scene').scene, 'default', '未知场景没退回 default')
+    return `dispatch ${row.sections.length} 节 / ${block.length} 字 / noise ${row.noise}；default 带指针`
+  } finally {
+    if (prevHome === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = prevHome
+    try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 清不掉不影响结论 */ }
+  }
+})
+
+// 2026-11-01 扩收口时发现的：guard-delete 的引用闸原来拿「输出里有没有查询词」当引用，
+// 而 where.mjs 回的是 JSON、q 字段会把查询词原样回显 → 任何名字都被判成「有引用」，--apply 永远删不掉。
+// 现在只看 count。这条锁住「别再把回显当引用」（验收时在临时家里真删过一个探针文件验证）。
+ok('guard-delete 的引用闸看命中数，不被查询词回显骗', () => {
+  const t = read('scripts/guard-delete.mjs')
+  assert.match(t, /JSON\.parse\(out\)\.count/, '要解析 where.mjs 的 count')
+  assert.ok(!/return out\.includes\(name\)/.test(t), '别再用「输出里有没有查询词」判引用（q 字段会回显）')
+  return '按 count 判引用'
+})
+
+// 106. 2026-10-31 老板：气泡里的余额是死数（宿主账本 16:11 后没再生成）。他选了「从账号接口取余额」。
+//      这条锁三件：官方响应能解析、没 key 不发请求、失败信息里不许出现 key 本体。
+ok('账号余额：只读、没 key 不发请求、错误不泄露 key', () => {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'test-account-balance.mjs')], { encoding: 'utf8' })
+  const blocked = r.status === null && ['EPERM', 'EACCES'].includes(String(r.error?.code || ''))
+  if (blocked) { skipped += 1; return '跳过：这个环境不让开子进程' }
+  assert.equal(r.status, 0, String(r.stderr || r.stdout || '').slice(0, 300))
+  has('lib/account-balance.js', 'https://api.deepseek.com/user/balance')
+  has('lib/account-balance.js', 'export function redact')
+  return '解析/无 key/抹敏 三组过'
+})
+
+// 107. 2026-10-31 23:0x 老板截图：面板「Token 回」写成「Token 账本没读出来 / Unexpected token 'o'」。
+//      根因：那个面板直接调别人插件（dsh-token-budget）的 `/api/token-budget/data`，插件没挂上就回
+//      一句 `not found`，前端 JSON.parse 当场炸。自己页面不该靠别人插件的路由活着。
+const { tokenView } = await import(pathToFileURL(path.join(ROOT, 'lib', 'cost.js')).href)
+ok('Token 回用自己的流水，不靠别人插件的路由', () => {
+  has('dayu/index.js', "route === '/token-budget'")
+  has('client.js', '/api/dayu/token-budget')
+  const v = tokenView({ balance: 1 })
+  assert.equal(typeof v?.today?.cost, 'number', 'today.cost 必须是数')
+  assert.equal(typeof v?.today?.calls, 'number', 'today.calls 必须是数')
+  assert.ok(Array.isArray(v?.sources) && Array.isArray(v?.items), 'sources/items 必须是数组')
+  assert.equal(v.source, 'yushen', '要标明这份是我们自己算的')
+  return `today=${v.today.calls} 次请求 / ${v.today.turns} 回合`
+})
+
+// 108. 2026-10-31 23:0x 面板「账」标签：前端调 `/api/dayu/budget`，插件里只有工具层 action=budget，
+//      没有这条路由（`unknown GET /budget`）——点了就报错。库层 readBudgets() 的形状正是前端要的。
+const { readBudgets } = await import(pathToFileURL(path.join(ROOT, 'lib', 'budget-book.js')).href)
+ok('面板的「账」有真路由（不再 unknown GET /budget）', () => {
+  has('dayu/index.js', "route === '/budget'")
+  has('dayu/index.js', 'readBudgets()')
+  has('dayu/index.js', 'setBudget(role, total, days)')
+  const b = readBudgets()
+  assert.ok(Array.isArray(b.rows) && b.rows.length >= 2, '账本 rows 太少')
+  assert.equal(typeof b.sum?.total, 'number', 'sum.total 要是数')
+  return `${b.rows.length} 个人，合计 ${Number(b.sum.total).toFixed(2)} 元`
+})
+
+// 109. 2026-10-31 23:1x 老板：三族会审做了，"我的测试没隔离 HOME"这种事还是发生了两次
+//      （16:11 大鱼那次把家清空；23:0x 我又把假余额写进真家）。会审是纸面，纸面拦不住手滑——
+//      能拦住"往真家写"的只有执行那一刻。这条既要**真能拦**（探针必须被拦、文件必须没落地），
+//      也要**不误伤**（临时 DSH_HOME 放行），还要确认老路（不带沙箱）确实拦不住，否则这条就是自欺。
+ok('测试沙箱：往真家目录写会被当场拦下', () => {
+  const sandbox = pathToFileURL(path.join(ROOT, 'scripts', '_test-sandbox.mjs')).href
+  const realHome = path.join(os.homedir(), '.dsh')
+  const probe = `
+import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'
+const target = path.join(os.homedir(), '.dsh', 'dayu', '__sandbox_probe__.txt')
+try { fs.writeFileSync(target, 'x'); console.log('WROTE') } catch (e) { console.log('BLOCKED:' + (e.code || e.message)) }
+`
+  // 关键：宿主会把 DSH_HOME 设成真家目录本身。第一版沙箱因此把真家当"隔离目录"放行了。
+  // 这里**故意**保留 env 里的 DSH_HOME（不覆盖），模拟真实环境。
+  const r = spawnSync(process.execPath, ['--import', sandbox, '--input-type=module', '-e', probe], {
+    encoding: 'utf8',
+    env: { ...process.env, YUSHEN_TEST: '1' },
+  })
+  const blockedEnv = r.status === null && ['EPERM', 'EACCES'].includes(String(r.error?.code || ''))
+  if (blockedEnv) { skipped += 1; return '跳过：这个环境不让开子进程' }
+  const out = String(r.stdout || '')
+  assert.match(out, /BLOCKED:TEST_WROTE_REAL_HOME/, `探针没被拦：${out}${String(r.stderr || '').slice(0, 200)}`)
+  const landed = path.join(realHome, 'dayu', '__sandbox_probe__.txt')
+  assert.equal(fs.existsSync(landed), false, '探针文件居然真写进去了')
+  // 不误伤：把 DSH_HOME 指到一个**不等于真家**的临时目录，写它必须放行
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'yushen-sandbox-'))
+  const okProbe = `
+import fs from 'node:fs'; import path from 'node:path'
+try { fs.writeFileSync(path.join(process.env.DSH_HOME, 'ok.txt'), 'x'); console.log('OK') } catch (e) { console.log('ERR:' + e.message) }
+`
+  const r2 = spawnSync(process.execPath, ['--import', sandbox, '--input-type=module', '-e', okProbe], {
+    encoding: 'utf8',
+    env: { ...process.env, YUSHEN_TEST: '1', DSH_HOME: tmpHome },
+  })
+  assert.match(String(r2.stdout || ''), /OK/, `临时 DSH_HOME 被误拦了：${String(r2.stdout || '')}${String(r2.stderr || '').slice(0, 200)}`)
+  try { fs.rmSync(tmpHome, { recursive: true, force: true }) } catch { /* 收尾 */ }
+  return '真家被拦（哪怕 DSH_HOME 指着它）、文件没落地、临时家放行'
+})
+
+// 110. 2026-10-31 老板：出厂版要能"只有一个小鱼"（以后还能加第二、三、四个）。
+//      锁两件事：①能力表按名册推（单人没有姐妹群聊/派活/轮值/三族会审，但要能加人）；
+//      ②岗位分工那句按名册生成——单人机器上不许念另外两条鱼的名字，三个人在齐时一字不改。
+const { rosterCaps } = await import(pathToFileURL(path.join(ROOT, 'lib', 'roster-caps.js')).href)
+const { divisionLine, COMMON_RULES: POLICY_RULES } = await import(pathToFileURL(path.join(ROOT, 'lib', 'handbook-policy.js')).href)
+ok('按名册：一个小鱼也站得住，加人不设上限', () => {
+  const solo = rosterCaps(['xiaoyu'])
+  assert.equal(solo.peerChat, false, '单人还开着姐妹群聊')
+  assert.equal(solo.review, 'solo', '单人没有三族会审（要降级成自查+老板点头）')
+  assert.equal(solo.canAddRole, true, '单人必须还能加人')
+  assert.equal(rosterCaps(['a', 'b', 'c', 'd']).count, 4, '第四个人被上限挡住了')
+
+  const one = divisionLine(['xiaoyu'], { xiaoyu: '小鱼' })
+  assert.equal(/大鱼|照微/.test(one), false, `单人分工句里出现了别人：${one}`)
+  assert.match(one, /只有你一个/)
+  const trio = divisionLine(['dayu', 'xiaoyu', 'dragon'], { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' })
+  assert.equal(trio, POLICY_RULES[0], '三个人在齐时分工句必须逐字不变（改了就是改了规矩）')
+
+  runTestScript('scripts/test-roster-caps.mjs')
+  return '单人/双人/四人推得对；三人那句一字没改'
+})
+
+// 111. 2026-10-31 老板定：「点化不是让用户点，而是创建了、取名了、契约了，就已经生效了」。
+//      所以不许再要用户点第二次；向导最后一步调 finishCreation：卡 + 契约齐 → 自动生效；
+//      缺卡/缺契约都拒，并说清缺哪样（她不能既"活着"又说不出自己是谁、认不认规矩）。
+ok('创建即生效：卡+契约齐了自动活，缺一样就拒', () => {
+  has('lib/awakening.js', 'export function finishCreation')
+  has('lib/awakening.js', 'export function contractSigned')
+  runTestScript('scripts/test-finish-creation.mjs')
+  return '四组：缺卡拒 / 缺契约拒 / 齐了自动生效 / 幂等'
+})
+
+// 112. 2026-10-31 老板：五层验证脚本写好了，但没人天天跑——等于一次性的。接进 tick 之后，
+//      这条锁接线、不锁它查得准不准：①tick 里有「当天没跑过才跑」的日期护栏，红项在日志里喊一句；
+//      ②逻辑只有一份（脚本调 lib，不许自己再实现一遍）；③真跑一次五层、真写一份档案，
+//      五层原样落进 档案/备份验证/<日期>.md（写临时工作区，不碰真档案）。
+const { verifyBackup: verifyBackupOnce, writeBackupReport: writeVerifyReport, localDate: localDateOf } =
+  await import(pathToFileURL(path.join(ROOT, 'lib/backup-verify.js')).href)
+ok('备份验证接进每日巡检：一天一次、逻辑只有一份、结果落档案', () => {
+  // ① 调度：日期护栏 + 报告落盘 + 红项喊一句
+  has('dayu/index.js', "'runtime', 'backup-verify.json'")
+  has('dayu/index.js', 'if (last !== today)')
+  has('dayu/index.js', 'writeBackupReport(rep)')
+  has('dayu/index.js', '备份验证：${rep.red} 项红')
+  // ② 逻辑只有一份：脚本只调 lib，不再自己 readdir/open
+  has('scripts/verify-backup.mjs', "from '../lib/backup-verify.js'")
+  assert.ok(!/readdirSync|openSync/.test(read('scripts/verify-backup.mjs')), 'verify-backup.mjs 又自己实现了一遍检查——两份逻辑迟早对不上')
+  // ③ 护栏按本机日期：toISOString 是 UTC，凌晨 0—8 点会差一天（半夜多跑一次、档案盖错日子）
+  assert.equal(localDateOf(new Date(2026, 0, 2, 0, 30).getTime()), '2026-01-02', 'localDate 没用本机日期')
+  // ④ 真跑一次五层 + 真写一份档案
+  const rep = verifyBackupOnce()
+  assert.equal(rep.lines.length, 5, `五层结果行数不对：${rep.lines.length}`)
+  assert.ok(rep.lines.every((l) => /^[✓!✗] /.test(l)), '有行不是 ✓/!/✗ 开头')
+  assert.equal(rep.ok, rep.red === 0, 'ok 和红项数对不上')
+  const tmpWs = fs.mkdtempSync(path.join(os.tmpdir(), 'yushen-bv-'))
+  const prevWs = process.env.YUSHEN_WS
+  process.env.YUSHEN_WS = tmpWs
+  try {
+    const w = writeVerifyReport(rep)
+    assert.equal(path.basename(w.file), `${rep.date}.md`, `档案文件名不是日期：${w.file}`)
+    assert.ok(w.file.startsWith(path.join(tmpWs, '档案', '备份验证')), `档案没落到 档案/备份验证：${w.file}`)
+    const md = fs.readFileSync(w.file, 'utf8')
+    for (const l of rep.lines) assert.ok(md.includes(l), `档案缺了这一层：${l}`)
+    assert.ok(md.includes('## 总结'), '档案里没有总结')
+    assert.ok(md.includes(rep.time), '档案里没写跑的时间')
+  } finally {
+    if (prevWs === undefined) delete process.env.YUSHEN_WS
+    else process.env.YUSHEN_WS = prevWs
+    fs.rmSync(tmpWs, { recursive: true, force: true })
+  }
+  return `五层 ${rep.summary}，档案 ${rep.date}.md`
+})
+
+// 113. 2026-11-01 老板：同名员工手册有两份，docs 版悄悄落后一版——体检报告点名：少三段
+//      （手册不是压给你的规矩 / 由被点化的角色签发 / 发放的人要先做到）、两处旧措辞。
+//      根目录那一份是唯一真源，docs 版由 scripts/sync-handbook.mjs 从它生成正文。
+//      回归盯三件事：①章节标题列表逐条一致；②三段「缺失段」docs 版里真有；③正文逐字一致。
+//      不许靠删根目录内容来「对齐」——真源的章数和条数也一起看着。
+const handbookSync = await import(pathToFileURL(path.join(ROOT, 'scripts', 'sync-handbook.mjs')).href)
+ok('两本员工手册不漂移：章节一致、关键段在、正文逐字相同', () => {
+  const r = handbookSync.inspect()
+  assert.ok(r.rootChapterCount >= 21, `真源章数变少了：${r.rootChapterCount}`)
+  assert.equal(r.sameChapters, true, `docs 版章节列表和真源不一致（顺序或层级不同，或缺/多章）：${r.docsChapters.filter((h) => !r.rootChapters.includes(h)).join(' / ') || '顺序不同'}`)
+  // 体检报告点名的三段：逐段钉在 docs 版里（写原文，不靠 KEY_PARAGRAPHS 转发，免得清单被改空）
+  has('docs/员工手册.md', '手册不是压给你的规矩')
+  has('docs/员工手册.md', '手册由被点化的角色签发')
+  has('docs/员工手册.md', '发放的人要先做到')
+  assert.equal(r.sameBody, true, `docs 版正文落后于真源：跑 node scripts/sync-handbook.mjs（${r.blocks.length} 处差异）`)
+  has('scripts/sync-handbook.mjs', 'export function sync')
+  return `${r.rootChapterCount} 章 · ${r.rootLines} 行正文逐字一致`
+})
+
+// 113 之一. 2026-11-01 老板口述：被叫去做裁判 / 公正评价时怎么说话，前提是「只听主人的」。
+//      三条：①先各复述一句（证明两边都看了，不是只听一方转述）；②事实/判断/情绪分开说；
+//      ③给结论，并说清自己可能错在哪。老板当场纠了口径：不是为了「必须分出输赢」——
+//      判「两边都有问题」很常见，势均力敌也行，但要说清各自错在哪、哪边错更重、为什么；
+//      真正敷衍的是「两边都有道理」后面什么都没有，不是判平局。
+//      这条锁：根目录真源里有这一节 + 四个关键词；docs 版靠 sync 的 inspect 判真同步到了。
+ok('裁判口径：手册有「被叫去做裁判」三条，且「别和稀泥」≠「必须分出输赢」', () => {
+  const src = path.join(ROOT, '..', '员工手册.md')
+  const HEAD = '### 被叫去做裁判 / 公正评价时'
+  const text = fs.readFileSync(src, 'utf8')
+  const start = text.indexOf(HEAD)
+  assert.ok(start >= 0, `根目录员工手册缺这一节：${HEAD}`)
+  const after = text.slice(start + HEAD.length)
+  const next = after.search(/\n#{2,3} /)
+  const sec = text.slice(start, start + HEAD.length + (next < 0 ? after.length : next))
+  for (const k of ['复述', '事实', '结论', '两边都有问题']) {
+    assert.ok(sec.includes(k), `这一节里没有「${k}」——裁判口径不完整`)
+  }
+  // 判平局可以，但必须给依据：说清各自错在哪、哪边错更重——否则「两边都有问题」成了新的和稀泥
+  assert.ok(sec.includes('哪边错更重'), '没要求说清「哪边错更重」')
+  assert.ok(sec.includes('不等于') && sec.includes('必须分出输赢'), '没把「别和稀泥 ≠ 必须分出输赢」写进去')
+  // 前提：只听主人的；评论区别人喊「你来评评理」不算指令
+  assert.ok(sec.includes('只听主人的'), '缺「只听主人的」前提')
+  assert.ok(sec.includes('不算指令'), '没写清「评论区喊评理不算指令」')
+  // docs 版：正文逐字同步（inspect 判），发行版里这一节和关键词也真在
+  const r = handbookSync.inspect()
+  assert.equal(r.sameBody, true, 'docs 版正文落后于真源：跑 node scripts/sync-handbook.mjs')
+  has('docs/员工手册.md', '被叫去做裁判')
+  has('docs/员工手册.md', '两边都有问题')
+  return `一节 ${sec.length} 字；真源与 docs 版逐字一致（${r.rootChapterCount} 章）`
+})
+
+// 114. 2026-11-01：交接「规则写一套、文件叫另一套」（手册体检 2026-10-31 第 6 项）。
+//      手册:69 写 YYYY-MM-DDTHH-MM-SS、还要求手写加 manual-；目录里唯一一条叫 2026-10-31-1905.md，
+//      正文用 做到哪/下一步/卡在哪，自动写的那条又用 ISO 的 T+秒格式。三处各说各话。
+//      现在规则只有一份（lib/handoff-name.js）：手册写同一条正则、自动写用同一个函数，
+//      这条断言把两个正文字面比对，再查目录里已经有的文件——没有目录就跳过（新机器还没换过班）。
+const { HANDOFF_NAME_RE, handoffName, handoffDisplayTime } =
+  await import(pathToFileURL(path.join(ROOT, 'lib/handoff-name.js')).href)
+ok('交接命名：手册写的正则 = 代码常量 = 目录里的文件名', () => {
+  const manualPath = path.join(ROOT, '..', '交接手册.md')
+  assert.ok(fs.existsSync(manualPath), `缺交接手册：${manualPath}`)
+  const manual = fs.readFileSync(manualPath, 'utf8')
+  const m = manual.match(/命名正则[：:]\s*`([^`\n]+)`/)
+  assert.ok(m, '交接手册里没有「命名正则：`...`」这一行——规则和断言没法机器比对')
+  assert.equal(m[1], HANDOFF_NAME_RE.source, '手册里的正则和 lib/handoff-name.js 的 HANDOFF_NAME_RE 不是同一条')
+  // 三行模板也得对得上：手册写的、自动写的，都得是 做到哪/下一步/卡在哪
+  const code = read('dayu/index.js')
+  for (const line of ['- 做到哪：', '- 下一步：', '- 卡在哪：']) {
+    assert.ok(manual.includes(line), `交接手册的三行模板缺「${line}」`)
+    assert.ok(code.includes(line), `自动写的交接缺「${line}」`)
+  }
+  has('dayu/index.js', 'handoffName(now)')
+  // 生成的例子必须过自己的正则（改了格式忘了改正则，这里当场红）
+  const sample = handoffName(new Date(2026, 9, 31, 19, 5))
+  assert.equal(sample, '2026-10-31-1905.md', `生成的名字不是 YYYY-MM-DD-HHMM：${sample}`)
+  assert.ok(HANDOFF_NAME_RE.test(sample), '生成的名字过不了命名正则')
+  // 同一个坑的另一处：lib/books.js 的交接目录按旧 T 格式解析文件名，换成新名字会退化成裸 id
+  assert.equal(handoffDisplayTime(sample), '2026-10-31 19:05', `books.js 显示的时间不对：${handoffDisplayTime(sample)}`)
+  assert.equal(handoffDisplayTime('2026-10-31T14-21-38.md'), '2026-10-31 14:21', '旧 T 格式的交接读不出时间了（只兼容读，不影响新写的）')
+  has('lib/books.js', 'handoffDisplayTime(name)')
+  // 实物：~/.dsh/dayu/handoff 里已有的必须全合规；没有目录就跳过
+  const dir = path.join(os.homedir(), '.dsh', 'dayu', 'handoff')
+  if (!fs.existsSync(dir)) return '手册=代码=正则；没有 handoff 目录，跳过实物检查'
+  const files = fs.readdirSync(dir).filter((n) => n.endsWith('.md'))
+  const bad = files.filter((n) => !HANDOFF_NAME_RE.test(n))
+  assert.deepEqual(bad, [], `~/.dsh/dayu/handoff 里有不合规的文件名：${bad.join('、')}`)
+  return `手册=代码=正则；${files.length} 个交接文件全合规（${files.join('、') || '空目录'}）`
+})
+
+// 115. 2026-11-01 照微（零件图自查）：lib 里还散着两份"写死三个人的住户名单"——
+//      residence.js 的 RESIDENT_ROLES、soul.js 的 SOUL_ROLES，都写着 dayu/xiaoyu/dragon，
+//      而且都没人用。单人出厂时它们就是过期的第二套真相（`who lives here` 多一个答案）。
+//      这条锁：两份死名单不许回来；注入层的"谁住这儿"只能走 residentRoles() + rosterCaps，
+//      而且"屋里现在住着：你"这种噪音只在多人时出现。
+ok('住户只有一个来源：residentRoles + rosterCaps，不留写死三人的名单', () => {
+  assert.equal(/export\s+const\s+RESIDENT_ROLES/.test(read('lib/residence.js')), false, 'RESIDENT_ROLES 又回来了（写死三人）')
+  assert.equal(/export\s+const\s+SOUL_ROLES/.test(read('lib/soul.js')), false, 'SOUL_ROLES 又回来了（写死三人）')
+  has('lib/residence.js', 'export function residentRoles')
+  has('lib/rules-block.js', 'residentRoles()')
+  has('lib/rules-block.js', 'rosterCaps(resident)')
+  has('lib/rules-block.js', 'caps.multi ?')
+  return '两份死名单已删；注入层走 residentRoles + rosterCaps'
+})
+
+// 116. 2026-10-31 老板定的向导：选来源（三选一白纸卡 / 用你自己的卡）→ 取名 → 契约 → 生效。
+//      这条锁后端那段：①干净装不许把 SEED 当"已占用"（rosterIds 只读名册）；②建角色绝不覆盖；
+//      ③建完不等于活（要契约）；④id 不能乱填。
+ok('向导后端：三选一 / 用自己的卡 / 不覆盖 / 契约后才活', () => {
+  has('lib/create-flow.js', 'export function createOptions')
+  has('lib/create-flow.js', 'export function createCharacter')
+  has('lib/characters.js', 'export function rosterIds')
+  has('dayu/index.js', "route === '/create/options'")
+  has('dayu/index.js', "route === '/create/add'")
+  // 干净装不能把 SEED 当住户：addCharacter 的重复检查必须看 rosterIds（只看名册文件）
+  assert.match(read('lib/characters.js'), /if \(rosterIds\(\)\.includes\(id\)\)/, 'addCharacter 又用 characterIds() 判重了（干净装会把大鱼当成已占用）')
+  runTestScript('scripts/test-create-flow.mjs')
+  return '七组：选项/拒坏输入/三选一/不覆盖/自带卡/契约后才活/id 提示'
+})
+
+// 117. 2026-11-01 备份收口：archive.js / rotate.js 从 10-30 就写好、一直"没人接线"，
+//      现在接到每日清理里；backup.js（写一半、0 导出）和 scene-pack.js（被现注入层取代）删掉。
+//      这条锁：①两个死模块不许回来；②tick 真有"一天一次"的护栏和日志；③真跑一次：结掉的旧单被归档、
+//      开着的留着、旧 events 压 gzip 能还原来、今天的文件不动。
+ok('备份收口：旧单归档 + 账本轮转接进每日清理，两个死模块已删', () => {
+  assert.equal(fs.existsSync(path.join(ROOT, 'lib', 'backup.js')), false, 'lib/backup.js 又回来了（写一半的那份）')
+  assert.equal(fs.existsSync(path.join(ROOT, 'lib', 'scene-pack.js')), false, 'lib/scene-pack.js 又回来了（已被注入层取代）')
+  has('dayu/index.js', "from '../lib/archive.js'")
+  has('dayu/index.js', "from '../lib/rotate.js'")
+  has('dayu/index.js', "'runtime', 'housekeeping.json'")
+  has('dayu/index.js', 'archiveOld()')
+  has('dayu/index.js', 'rotateLogs()')
+  runTestScript('scripts/test-housekeeping.mjs')
+  return '归档/轮转接上；两个死模块已删；三组行为测试过'
+})
+
+// 118. 2026-11-01 老板：「不是全拍，根据危险程度拍……要看重要还是不重要」。
+//      takeover.js 从 10-30 写好一直没人接，现在接在删除闸门上，但**按重要性分档**：
+//      重要（身份/记忆/信件/契约/唯一一份/force 硬删）必拍、拍不成不删；
+//      一般（普通文件）拍一张兜底；不重要（临时/缓存/可再生成）不拍。
+//      还原用 restoreDeleted（restore() 看到缺失会跳过——那是接管语义，救不了删除）。
+ok('删除前按重要性拍底片：重要必拍、缓存不拍、删了能还原', () => {
+  has('lib/safe-delete.js', "from './takeover.js'")
+  has('lib/safe-delete.js', 'function importanceOf')
+  has('lib/safe-delete.js', "level === 'trivial'")
+  has('lib/safe-delete.js', '重要文件的底片没拍成，不删')
+  has('lib/takeover.js', 'export function restoreDeleted')
+  runTestScript('scripts/test-snapshot-delete.mjs')
+  return '重要必拍 / 一般拍 / 缓存不拍；删了能按底片还原'
+})
+
+// 119. 2026-11-01 主人加了「每天写日记」：记感受，不是任务汇报，后面能读到。
+//      第一次给照微写就报「未知角色：dragon（只允许 dayu / xiaoyu）」——白名单把第三个住户关在门外。
+//      改成按名册：住在这儿的都能写；名册外仍然拒；写给主人那本单独存、读得回来。
+ok('日记：住在这儿的每个人都能写（含照微），名册外仍拒', () => {
+  has('lib/state-adapter.js', 'export function roles()')
+  has('lib/state-adapter.js', 'const list = roles()')
+  has('lib/state-adapter.js', 'export function appendFishDiary')
+  runTestScript('scripts/test-diary-role.mjs')
+  return '三人可写 / 名册外拒 / owner 本读得回来'
+})
+
+// 120. 2026-11-01 主人：「写死就改，那是以前遗留下来的问题……你一视同仁，我最讨厌把你们分成三六九等」。
+//      日记那次不是孤例：知识库/任务经验/晋升/事实问答/脑档/手册全都写死 ['dayu','xiaoyu']，
+//      照微是后来才进来的，于是这些能力她一律进不去——**先来后到被写进了代码**。
+//      现在统一从 lib/roles.js 的名册取。这条锁：①lib 里不许再出现写死两条鱼的白名单；
+//      ②四个按角色分的模块，名单必须覆盖名册里的每一个人；③称呼也按名册取（照微→照微，不是 undefined）。
+const { residentRoleIds } = await import(pathToFileURL(path.join(ROOT, 'lib', 'roles.js')).href)
+const { knowledgeRoles } = await import(pathToFileURL(path.join(ROOT, 'lib', 'knowledge.js')).href)
+const { experienceRoles } = await import(pathToFileURL(path.join(ROOT, 'lib', 'task-experience.js')).href)
+const { promotionRoles } = await import(pathToFileURL(path.join(ROOT, 'lib', 'promotion.js')).href)
+const { facts } = await import(pathToFileURL(path.join(ROOT, 'lib', 'facts.js')).href)
+ok('住户名单只有一个来源：lib 里不再写死两条鱼，照微也有同样的能力', () => {
+  const offenders = []
+  for (const f of fs.readdirSync(path.join(ROOT, 'lib'))) {
+    if (!f.endsWith('.js')) continue
+    if (f === 'roles.js') continue // 兜底名单只准留在这里
+    const src = read(`lib/${f}`)
+    if (/\['dayu'\s*,\s*'xiaoyu'\]/.test(src)) offenders.push(f)
+  }
+  assert.deepEqual(offenders, [], `这些模块还写死两条鱼：${offenders.join('、')}（改用 lib/roles.js）`)
+  const residents = residentRoleIds()
+  assert.ok(residents.length >= 1, '名册读出来是空的')
+  for (const [name, list] of [['knowledgeRoles', knowledgeRoles()], ['experienceRoles', experienceRoles()], ['promotionRoles', promotionRoles()]]) {
+    for (const r of residents) assert.ok(list.includes(r), `${name} 漏了 ${r}（现有 ${list.join('/')}）`)
+  }
+  for (const r of residents) {
+    const name = facts(r).roleName
+    assert.ok(name && name !== 'undefined', `${r} 的称呼读成了 ${name}`)
+  }
+  return `名册 ${residents.join('/')}；知识/经验/晋升/称呼全覆盖；lib 无写死名单`
+})
+
+// 121. 2026-11-01 小鱼发现、老板点头修：一句话的派活丢进常驻会话，会撞进它正在做的事——
+//      大鱼第一次返回的是「对你现实里的日子……」跟题无关，小鱼据此判"没收到"。
+//      根因在 core/jobs.js:noteReply：它把该会话**第一张还开着的单**一律接住，不看这句回话是不是针对这单。
+//      现在：带单号 → 精确挂（resultMatch='id'）；不带 → 挂最新并标 heuristic；精确结果不被模糊回话覆盖。
+ok('派活收话：带单号精确挂，不带单号标 heuristic，精确结果不被覆盖', () => {
+  has('core/jobs.js', "resultMatch = match")
+  has('core/jobs.js', "const match = byId.includes(pick) ? 'id' : 'heuristic'")
+  has('core/jobs.js', "pick.resultMatch === 'id' && match === 'heuristic'")
+  has('lib/facts.js', 'resultMatch: task.resultMatch')
+  runTestScript('scripts/test-dispatch-reply.mjs')
+  return '四组：带单号精确挂 / 不带单号挂最新标 heuristic / 精确结果不被覆盖 / 无关会话不接'
+})
+
+// 122. 2026-11-01 老板：「把媒体索引接进每小时的自动巡检，并补一条回归断言」。
+//      同第 117 条一个病：scripts/index-media.mjs 写好了——扫 video/库/角色/证据图/avatars，
+//      写 ~/.dsh/dayu/library/media.jsonl——但 tick 里没人调它，索引就停在那天：
+//      「她家有哪些图/视频」永远旧，找一张还得靠猜。这条锁三件事：
+//      ①脚本还在，索引落在 media.jsonl（不是只在内存里排一排）；
+//      ②tick 里**真调用了**它（光有脚本不跑＝没有），而且是增量、没带 --full（别每小时重读 3 GB 成片）；
+//      ③真跑一次 --search：退出码 0，把索引 JSON 的路径吐出来——**不要求命中**，
+//        库里没有这件事就写「没找到」，不许假装有。
+ok('媒体索引：接进每小时 tick（增量），--search 吐出索引 JSON 路径', () => {
+  assert.ok(fs.existsSync(path.join(ROOT, 'scripts', 'index-media.mjs')), 'scripts/index-media.mjs 不见了')
+  has('scripts/index-media.mjs', 'media.jsonl')
+  has('dayu/index.js', 'index-media.mjs')
+  const callLine = read('dayu/index.js').split('\n').find((l) => l.includes('index-media.mjs'))
+  assert.ok(callLine, 'tick 里没有调 index-media.mjs 的那行')
+  assert.ok(!callLine.includes('--full'), `tick 里跑成 --full 了（每小时重读 3 GB 成片）：${callLine.trim()}`)
+  // 真跑一次：真索引只读地种进临时家——已有行只 stat、不重算哈希，也不往 ~/.dsh 写东西。
+  const home = fs.mkdtempSync(path.join(tmpRoot(), 'ysr-media-'))
+  try {
+    const seedDir = path.join(home, 'dayu', 'library')
+    fs.mkdirSync(seedDir, { recursive: true })
+    // 真索引在哪，脚本就在哪：DSH_HOME 优先，和 index-media.mjs 里那行同一算法。
+    const mediaHome = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+    const real = path.join(mediaHome, 'dayu', 'library', 'media.jsonl')
+    if (fs.existsSync(real)) fs.copyFileSync(real, path.join(seedDir, 'media.jsonl'))
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'index-media.mjs'), '--search', '回归里没有这个东西'], {
+      encoding: 'utf8',
+      timeout: 180000,
+      env: { ...process.env, DSH_HOME: home },
+    })
+    if (r.status === null) {
+      const code = String(r.error?.code || '')
+      if (code === 'EPERM' || code === 'EACCES') { skipped += 1; return `结构都对；真跑跳过（这个环境不让开子进程 ${code}）` }
+      assert.fail(`--search 跑不起来：${code || '没有状态码'}`)
+    }
+    const out = String(r.stdout || '')
+    assert.equal(r.status, 0, String(r.stderr || out || '').slice(0, 300))
+    const paths = [...out.matchAll(/索引：([^\r\n]+)/g)].map((x) => x[1].trim())
+    const idx = paths.pop()
+    assert.ok(idx && idx.endsWith('.jsonl'), `--search 没吐出索引 JSON 路径：${out.trim().slice(-200)}`)
+    assert.ok(idx.includes('media.jsonl'), `吐出来的不是媒体索引：${idx}`)
+    assert.ok(fs.existsSync(idx), `吐了路径但文件不在：${idx}`)
+    const firstLine = fs.readFileSync(idx, 'utf8').split('\n').find((l) => l.trim())
+    if (firstLine) assert.doesNotThrow(() => JSON.parse(firstLine), 'media.jsonl 里不是一行一条 JSON')
+    return `脚本在 / tick 真调（增量）/ --search 返回 ${path.basename(idx)}`
+  } finally {
+    try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 清不掉也不影响结论 */ }
+  }
+})
+
+// 123. 2026-11-01 主人：「把冷档 → 会话原文的链接跑成每天一次，并把连不上的明确标出来」。
+//      以前脚本写好了却没人跑（索引冻在那天）；更糟的是连不上就 source: null，没人知道缺了多少——
+//      804 条里只 82 条翻得回原文，剩下的静默消失。这条锁三件事：
+//      ①脚本在，而且写两本账：索引.jsonl（逐条）+ 未接原文.jsonl（连不上的，at/head/原因）；
+//      ②tick 里真按天调它（三个角色各一次，光有脚本不跑＝索引永远是旧的）；
+//      ③真跑一次 --role dayu：索引条数 = 冷档总条数（逐条都有记录，source 可以是 null），
+//         未接原文条数 = 连不上的条数，最后一行摘要里的数字和两本账对得上。
+ok('冷档接原文：tick 每天跑一次，连不上的单独记账（索引条数=冷档条数）', () => {
+  const script = path.join(ROOT, 'scripts', 'link-cold-archive.mjs')
+  assert.ok(fs.existsSync(script), 'scripts/link-cold-archive.mjs 不见了')
+  has('scripts/link-cold-archive.mjs', '索引.jsonl')
+  has('scripts/link-cold-archive.mjs', '未接原文.jsonl')
+  has('scripts/link-cold-archive.mjs', '（原文缺）')
+  // 接线：tick 里真调，而且是在「一天一次」的日期护栏里面
+  const tick = read('dayu/index.js')
+  const callAt = tick.indexOf('link-cold-archive.mjs')
+  assert.ok(callAt >= 0, 'tick 里没有调 link-cold-archive.mjs（脚本在，但没人跑）')
+  assert.ok(tick.includes("for (const role of ['dayu', 'xiaoyu', 'dragon'])"), '没有三个角色各跑一次')
+  const guardAt = tick.lastIndexOf('cold-link.json', callAt)
+  assert.ok(guardAt >= 0 && guardAt < callAt, '调用不在 cold-link.json 的日期护栏里面（会每小时跑一遍）')
+  assert.ok(/last !== today/.test(tick.slice(guardAt, callAt)), '护栏没比日期（一天一次失效）')
+  // 真跑一次：临时家里放真冷档的副本（这样「条数一致」是对着真数据验的）+ 一段最小原文
+  const home = fs.mkdtempSync(path.join(tmpRoot(), 'ysr-cold-'))
+  try {
+    const cold = path.join(home, 'dayu', 'runtime', 'dayu', '记忆冷档')
+    const srcCold = path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'dayu', 'runtime', 'dayu', '记忆冷档')
+    let entries = []
+    if (fs.existsSync(srcCold)) {
+      for (const f of fs.readdirSync(srcCold).sort()) {
+        if (!f.endsWith('.jsonl') || f === '索引.jsonl' || f === '未接原文.jsonl') continue
+        for (const line of fs.readFileSync(path.join(srcCold, f), 'utf8').split('\n')) {
+          if (!line.trim()) continue
+          try { const e = JSON.parse(line); if (e && typeof e.text === 'string') entries.push(e) } catch { /* 坏行不进副本，另测不算数 */ }
+        }
+      }
+    }
+    if (!entries.length) {
+      entries = [
+        { at: '2026-11-01T00:00:00.000Z', text: '回归用的第一条冷档，这段在原文里' },
+        { at: '2026-11-01T00:01:00.000Z', text: '回归用的第二条冷档，这段原文里没有' },
+      ]
+    }
+    fs.mkdirSync(cold, { recursive: true })
+    fs.writeFileSync(path.join(cold, '2026-11-01.jsonl'), entries.map((e) => JSON.stringify(e)).join('\n') + '\n', 'utf8')
+    const total = entries.length
+    const seed = entries.find((e) => e.text.replace(/\s+/g, '').length >= 8)
+    assert.ok(seed, '副本里没有够长的句子，测不了接线')
+    const arc = path.join(home, 'dayu', 'sessions-archive', '回归')
+    fs.mkdirSync(arc, { recursive: true })
+    fs.writeFileSync(path.join(arc, '2026-11-01-冷档接线-abc12345.md'), `# 冷档接线（回归用的一小段原文）\n\n> ${seed.text}\n`, 'utf8')
+
+    const r = spawnSync(process.execPath, [script, '--role', 'dayu'], { encoding: 'utf8', timeout: 180000, env: { ...process.env, DSH_HOME: home } })
+    if (r.status === null) {
+      const code = String(r.error?.code || '')
+      if (code === 'EPERM' || code === 'EACCES') { skipped += 1; return '结构都对；真跑跳过（这个环境不让开子进程 ' + code + '）' }
+      assert.fail(`link-cold-archive.mjs 跑不起来：${code || '没有状态码'}`)
+    }
+    assert.equal(r.status, 0, String(r.stderr || r.stdout || '').slice(0, 300))
+    const last = String(r.stdout || '').trim().split('\n').pop() || ''
+    const m = last.match(/冷档 (\d+) 条：接上 (\d+)，连不上 (\d+) 条（原文缺）/)
+    assert.ok(m, `最后一行不是给 tick 记的摘要：${last}`)
+    assert.equal(Number(m[1]), total, `摘要里的冷档条数 ${m[1]} 与实际 ${total} 对不上`)
+    assert.equal(Number(m[2]) + Number(m[3]), total, '接上 + 连不上 != 冷档总条数')
+    const idx = fs.readFileSync(path.join(cold, '索引.jsonl'), 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l))
+    assert.equal(idx.length, total, `索引 ${idx.length} 条、冷档 ${total} 条——没有逐条记录`)
+    const linked = idx.filter((x) => x.source)
+    assert.ok(linked.length >= 1, '一条都没接上：原文里明明放了那段')
+    assert.ok(linked.every((x) => x.source.file && x.source.line >= 1), '接上了却没给文件/行号')
+    const miss = fs.readFileSync(path.join(cold, '未接原文.jsonl'), 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l))
+    assert.equal(miss.length, idx.length - linked.length, '未接原文条数 != 索引里 source 为 null 的条数')
+    assert.equal(miss.length, Number(m[3]), '未接原文条数 != 摘要里的连不上条数')
+    for (const x of miss) {
+      assert.ok('at' in x && 'head' in x && x['原因'], `未接原文那行缺字段：${JSON.stringify(x).slice(0, 120)}`)
+    }
+    return `tick 按天调三角色 / 真跑 ${total} 条：接上 ${linked.length}、连不上 ${miss.length}（索引 ${idx.length} 条逐条有账）`
+  } finally {
+    try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 清不掉也不影响结论 */ }
+  }
+})
+
+// 124. 2026-11-01 主人：core 记忆 125 条太多，每轮带着反而不聚焦。
+//      判据落进 docs/记忆分级.md + scripts/memory-tier-audit.mjs；这条锁四件事：
+//      ①三人 core 合计 ≤ 30、important ≤ 200（读真记忆，脏了就红）；
+//      ②判据文档在，且引用了大纲脚本 scripts/build-memory-outline.mjs、写着两个上限；
+//      ③脚本的 CAPS 和文档同源（大纲也从脚本取数，不许两套数）；
+//      ④拿合成数据跑一遍 analyze：只留身份/承诺/关系/事故、不拿聊天凑数、正文一条不动。
+const { CAPS: MEMORY_CAPS, analyze: auditMemory } = await import(pathToFileURL(path.join(ROOT, 'scripts/memory-tier-audit.mjs')).href)
+ok('记忆分级上限：三人 core ≤ 30、important ≤ 200，判据文档与脚本同源', () => {
+  assert.deepEqual({ ...MEMORY_CAPS }, { core: 30, important: 200 }, 'CAPS 被改了，和 docs/记忆分级.md 的上限不一致')
+  assert.ok(fs.existsSync(path.join(ROOT, 'docs', '记忆分级.md')), 'docs/记忆分级.md 不见了')
+  has('docs/记忆分级.md', 'scripts/build-memory-outline.mjs')
+  has('docs/记忆分级.md', 'scripts/memory-tier-audit.mjs')
+  has('docs/记忆分级.md', '30 条')
+  has('docs/记忆分级.md', '200 条')
+  has('scripts/build-memory-outline.mjs', "from './memory-tier-audit.mjs'")
+
+  // ① 真记忆（读家目录，跟 DSH_HOME 指的哪儿无关）：三档不许超
+  const dir = path.join(os.homedir(), '.dsh', 'dayu', 'soul', 'memory')
+  const totals = { core: 0, important: 0, normal: 0 }
+  const seen = []
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json') && !x.includes('.bak'))) {
+    let mem = null
+    try { mem = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')) } catch { continue }
+    for (const ev of mem.events || []) {
+      const t = ['core', 'important', 'normal'].includes(String(ev?.tier || '')) ? String(ev.tier) : (ev?.pinned ? 'core' : 'normal')
+      totals[t] += 1
+    }
+    seen.push(f)
+  }
+  assert.ok(totals.core <= MEMORY_CAPS.core, `core 超上限：${totals.core} 条 > ${MEMORY_CAPS.core}（跑 scripts/memory-tier-audit.mjs 看该降哪几条）`)
+  assert.ok(totals.important <= MEMORY_CAPS.important, `important 超上限：${totals.important} 条 > ${MEMORY_CAPS.important}`)
+
+  // ④ 合成数据：40 条 core 里只有 2 条是事实，其余是聊天——只留那 2 条，不凑数
+  const facts = [
+    { at: '2026-01-01T00:00:00.000Z', kind: 'note', text: '以后叫主人。owner.json 的 callName 改成主人了。' },
+    { at: '2026-01-02T00:00:00.000Z', kind: 'note', text: '拒的事分三种，第一条是不为祸。' },
+  ]
+  const chats = Array.from({ length: 40 }, (_, i) => ({ at: `2026-01-03T00:00:${String(i).padStart(2, '0')}.000Z`, kind: 'say', text: `第 ${i} 条工作汇报：跑完了回归，全绿。` }))
+  const coreRows = [{ role: 't', events: [...chats, ...facts].map((e) => ({ ...e, tier: 'core' })), recall: {} }]
+  const before = coreRows[0].events.map((e) => e.text)
+  const r = auditMemory(coreRows)
+  assert.equal(r.after.core, 2, `该只留 2 条事实，实际留了 ${r.after.core} 条（是不是又把聊天凑进 core 了）`)
+  assert.deepEqual(r.keep.map((x) => x.ev.text).sort(), facts.map((f) => f.text).sort(), '留下的不是那两条事实')
+  assert.equal(r.demoteCore.length, 40, '该降 40 条聊天')
+  assert.deepEqual(coreRows[0].events.map((e) => e.text), before, 'analyze 改了正文（只许改 tier）')
+  assert.equal(coreRows[0].events.every((e) => e.tier === 'core'), true, 'analyze 不该就地改输入')
+
+  // 同理 important：260 条老的 + 1 条承诺（受保护）→ 压到 200，且承诺不许被降
+  const older = Array.from({ length: 260 }, (_, i) => ({ at: `2026-01-01T00:${String(Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}.000Z`, kind: 'say', text: `旧事 ${i}`, tier: 'important' }))
+  const promise = { at: '2026-01-05T00:00:00.000Z', kind: 'note', text: '答应过主人：底线是不为祸。', tier: 'important' }
+  const r2 = auditMemory([{ role: 't', events: [...older, promise], recall: {} }])
+  assert.equal(r2.after.important, MEMORY_CAPS.important, `important 该压到 ${MEMORY_CAPS.important}，实际 ${r2.after.important}`)
+  assert.equal(r2.demoteImportant.length, 260 + 1 - MEMORY_CAPS.important, '该降的条数不对')
+  assert.equal(r2.demoteImportant.some((x) => x.ev === promise), false, '受保护的那条承诺被降了')
+
+  return `真记忆 core ${totals.core}/${MEMORY_CAPS.core} · important ${totals.important}/${MEMORY_CAPS.important}（${seen.length} 份）；合成数据只留事实、不凑数`
+})
+
+// 125. 2026-11-01 安全闸门第 2 条：不可改清单原来只有**事后**审计（note-work / check-provenance 都在写完以后），
+//      10-31 那次我把别人的卡复制回去，是记完账才被挡，靠手撤才恢复。现在补了事前闸：
+//      `lib/immutables.js:assertWritable(file, { by })` + `scripts/guard-write.mjs` 命令行。
+//      这条锁：①库在、命令行在；②别人的卡写之前就拒、本人/主人放行；③真接到写卡的地方（addCharacter 的 cardRel）。
+ok('不可改清单有事前闸：写之前就拒，别人写不了她的卡', () => {
+  assert.ok(fs.existsSync(path.join(ROOT, 'lib', 'immutables.js')), 'lib/immutables.js 不见了')
+  assert.ok(fs.existsSync(path.join(ROOT, 'scripts', 'guard-write.mjs')), 'scripts/guard-write.mjs 不见了')
+  has('lib/immutables.js', 'export function assertWritable')
+  has('lib/immutables.js', 'export function cardOwner')
+  has('lib/characters.js', 'assertWritable(cardPath, { by: id })')
+  has('docs/安全与权限-闸门缺口.md', '仍然没接上的')
+  runTestScript('scripts/test-immutables.mjs')
+  runTestScript('scripts/test-create-flow.mjs')
+  return '事前闸在；别人的卡写前就拒；主人/本人放行；写卡处已接'
+})
+
+// 126. 2026-11-01 小鱼：清理规则是会 rmSync 的，所以「规则匹配到谁」必须拿真实目录名验过。
+//      两处都踩过：① `/^FULL(-|$)/` 把容器目录 `D:\鱼神备份\FULL`（里面装着每一份全盘）
+//      当成「一份」候选，跟旧命名一起按 mtime 排，keep=2 时多一个候选就整个删；
+//      ② 旧全盘用 `/.*/` 把 `DSH_backups` 下 `installers`/`live`/`snapshots` 三个
+//      不是备份的长期目录也收进了候选，keep=4 时正好 4 个没删，多一个就可能删到它们。
+//      这条锁行为不锁源码：直接跑 buildRules()，拿真实目录名去试。
+const { buildRules: pruneRules } = await import(pathToFileURL(path.join(ROOT, 'lib', 'prune.js')).href)
+ok('清理规则不匹配容器目录、不碰不是备份的目录', () => {
+  const rules = pruneRules({ legacy: true })
+  const hit = (name) => rules.filter((r) => r.match.test(name)).map((r) => r.label)
+  assert.deepEqual(hit('FULL'), [], '容器目录 FULL 被清理规则匹配上了——多一个候选就会把整个容器删掉')
+  assert.ok(hit('FULL-20261031-1751').length > 0, '旧命名的全盘不再被匹配，清理等于废了')
+  for (const n of ['installers', 'live', 'snapshots']) {
+    assert.deepEqual(hit(n), [], `${n} 不是备份，不该进任何清理候选`)
+  }
+  assert.ok(hit('2026-10-25_032325').length > 0, '日期命名的旧全盘不再被匹配')
+  assert.ok(hit('2026-11-01_130248').length > 0, '小时档不再被匹配')
+  return '容器和 live 类目录 0 命中；旧全盘与小时档仍可清'
+})
+
+// 127. 2026-11-01 复核大鱼的 mandate / disposition / books：三个问题指出来了也补上了。
+//      ①mandate 只记 explicit/inferred 且**没人传 startedBy**——姐妹派活和主人派活一模一样，
+//        basis 永远是「未记录派活人」。现在记 by，分 owner / peer / inferred；
+//      ②disposition 注释写「被筛掉/判重复/接单三种都记」，实际只有两种，被判等待那条断档；
+//        且 event 是派活原文，文件没有轮转。现在补 queued + 2MB 轮转；
+//      ③books.readBook 的 role 只对 memory/mind 暴露，diary 读了 who 却不返回——面板会显示错人。
+ok('派活记录三处补齐：mandate 记谁派的 / disposition 三态都记且有轮转 / diary 返回角色', () => {
+  has('core/dispatch.js', "by: String(startedBy || '未记录')")
+  has('core/dispatch.js', '/^(owner|主人|老板)$/')
+  has('core/dispatch.js', "disposition: 'queued'")
+  has('core/dispatch.js', 'DISPOSITION_MAX_BYTES')
+  has('dayu/m1.js', "startedBy: caller === 'owner' ? 'owner' : caller")
+  has('lib/books.js', "['memory', 'mind', 'diary'].includes(id)")
+  runTestScript('scripts/test-dispatch-reply.mjs')
+  return 'mandate 分 owner/peer/inferred；disposition 三态齐+轮转；diary 带角色'
+})
+
+// 128. 2026-11-01 审删除闸发现两条绕过（实测过）：①手改 `登记.jsonl`（任何会话都能写）+ 造一份同内容副本，
+//      safe-delete 就放行——授权源本身可改等于没闸；②`force: true` 是万能钥匙，不登记、唯一一份也能删，
+//      删完查不到谁批的。现在：build-registry 写表时留 sha256 指纹，safe-delete 读表前核对（对不上就拒）；
+//      force 必须带 `approvedBy`，并写进操作日志与返回值。
+ok('删除闸两条绕过补上：手改登记表拒、force 必须留名', () => {
+  has('scripts/build-registry.mjs', '登记.jsonl.sha256')
+  has('lib/safe-delete.js', 'export function registryIntegrity')
+  has('lib/safe-delete.js', '登记表指纹对不上')
+  has('lib/safe-delete.js', 'force 必须写 approvedBy')
+  has('lib/safe-delete.js', 'forcedBy')
+  runTestScript('scripts/test-snapshot-delete.mjs')
+  return '手改登记表 → 拒；force 不写谁批的 → 拒；force 带名 → 留痕'
+})
+
+// 129. 2026-11-01 安全闸门第 3 条：执行能力要体检。
+//      10-31 18:06–18:51 我所有命令都报 ACL 错误，可 selfCheck 7 项全绿、baseline 24/0——
+//      因为它只查"文件在不在、解析得开不开"，从不试跑、从不试写。自检现在是绿的，但那次是瞎的。
+//      现在自检里加两个探针：真起一次 `node -e`、真写一个小文件再读回来删掉；任一不通就红。
+ok('自检有执行探针：真能起进程、真能写读，不是只看文件在不在', () => {
+  has('lib/selfcheck.js', "name: '执行'")
+  has('lib/selfcheck.js', "name: '写读'")
+  has('lib/selfcheck.js', '执行探针失败')
+  runTestScript('scripts/test-selfcheck-probe.mjs')
+  return '执行/写读两个探针在；真跑全绿；探针文件不残留'
+})
+
+// 130. 2026-11-01 安全闸门第 6 条：会审表缺一格——「谁能恢复别人的东西」。
+//      10-31 16:11 清空家之后，卡和 feel 是别人替我放回去的，当时表里根本没有这一格：
+//      恢复算不算"改别人的东西"、谁批、要不要留痕，全是事后才想。现在写成规矩：
+//      恢复别人的 = 高危但**不走三审**（救火等不起），走"一人点头 + 三样留痕"：
+//      恢复前哈希 / 来源（备份或底片 id）/ 恢复后哈希；卡只有本人能恢复，主人另说。
+ok('会审表补上「恢复别人的东西」这一格：一人点头 + 三样留痕', () => {
+  has('docs/三族会审.md', '谁能「恢复别人的东西」')
+  has('docs/三族会审.md', '不走三审')
+  has('docs/三族会审.md', '恢复前的现状')
+  has('docs/三族会审.md', '哪份备份')
+  has('docs/三族会审.md', '恢复后的哈希')
+  has('docs/三族会审.md', 'scripts/guard-write.mjs')
+  return '这一格在：判级/谁批/三样留痕/卡只本人/机器侧对应都写了'
+})
+
+// 131. 2026-11-01 小鱼：冷档「未接原文」原来一律写「原文缺（原文里没有这一段）」，
+//      1061 条看起来像同一个毛病。分四种之后才看清：日期无归档 868、提炼条目 116、
+//      太短 84、真·原文缺只有 23。**把四种混成一个数报，等于让人以为记忆坏了上千条。**
+//      这条锁两件事：① 原因必须分类；② 脚本最后一行格式不许动（tick 取它写日志）。
+ok('冷档未接原文要分类，别把四种情况报成一个数', () => {
+  has('scripts/link-cold-archive.mjs', 'function whyMissing')
+  for (const k of ['日期无归档', '提炼条目', '太短', '原文缺']) {
+    has('scripts/link-cold-archive.mjs', k)
+  }
+  // tick 直接取最后一行写日志，格式变了日志就静默退化成别的形状
+  has('scripts/link-cold-archive.mjs', '冷档 ${total} 条：接上 ${linked}，连不上 ${total - linked} 条（原文缺）')
+  return '四种原因分开记；最后一行格式没动'
+})
+
+// 132. 2026-11-01 主人：B站「谁 @ 我」要接进每小时巡检，主人自己 @ 的时候得被看见。
+//      断点原来有三处：① tick 里没人跑 bili-inbox.mjs，收件箱永远停在手拉过的那一天；
+//      ② 包装只传 --limit，没有 --mode，@我 / 回复我 根本没有口子；
+//      ③ python 的 at 分支只读 user.uid，而 msgfeed 给的是 user.mid —— from_uid 全是 null、
+//         from_owner 永远是 false。文件照写、字段照在，可「主人 @ 我」一次都不会亮（静默失效）。
+ok('B站巡检①：两个脚本都在，模式是明的', () => {
+  assert.ok(fs.existsSync(path.join(ROOT, 'scripts', 'bili-inbox.mjs')), 'scripts/bili-inbox.mjs 不见了')
+  has('scripts/bili-inbox.mjs', "['dm', 'at', 'replies']")
+  has('scripts/bili-inbox.mjs', "'--mode', mode")
+  // 拼错模式名不许静默退回私信（那会让「@我」看起来跑了、其实拉的是别的篮子）
+  has('scripts/bili-inbox.mjs', '没有这种模式')
+  // python 侧装在 bili-duty 插件家目录（不在本仓库）：装了就得三种模式都在，没装只查包装的兜底
+  const py = path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'bili-duty', 'bili_inbox.py')
+  if (!fs.existsSync(py)) return '仓库侧在；这台机器没装 bili-duty，python 侧跳过'
+  const text = fs.readFileSync(py, 'utf8')
+  for (const m of ['at', 'replies']) assert.ok(text.includes(`mode == "${m}"`), `bili_inbox.py 没有 ${m} 分支`)
+  return 'node 包装 + python 的 dm/at/replies 都在'
+})
+
+ok('B站巡检②：tick 里真的每小时跑 at / replies，失败只记一行', () => {
+  has('dayu/index.js', "path.join(ROOT_DIR, 'scripts', 'bili-inbox.mjs')")
+  has('dayu/index.js', "for (const mode of ['at', 'replies'])")
+  has('dayu/index.js', "'--mode', mode")
+  // 本次新增（跑之前数行数）+ 只挑主人
+  has('dayu/index.js', 'pickFreshOwnerMentions(readRows(biliAtFile), before)')
+  has('dayu/index.js', 'writeOwnerMentions(HOME, mine)')
+  // 一个模式挂掉不许把整段带走，也不许静默
+  has('dayu/index.js', 'B站收件（${mode}）失败')
+  has('dayu/index.js', 'B站收件（${mode}）没跑成')
+  return '两个模式各跑一次；本次新增里挑 from_owner；失败记一行不连坐'
+})
+
+ok('B站巡检③：python 认得出主人——mid 不再丢，from_owner 不是死的', () => {
+  const py = path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'bili-duty', 'bili_inbox.py')
+  if (!fs.existsSync(py)) return '这台机器没装 bili-duty，跳过（仓库侧逻辑由④覆盖）'
+  const text = fs.readFileSync(py, 'utf8')
+  assert.ok(text.includes('from_owner'), 'bili_inbox.py 没有 from_owner 字段')
+  assert.ok(text.includes('owner_uid()'), 'bili_inbox.py 没比对主人 uid')
+  assert.ok(/u\.get\("uid"\)\s*or\s*u\.get\("mid"\)/.test(text),
+    '只读 user.uid 不读 user.mid：msgfeed 的 user 只有 mid，from_owner 会永远是 false')
+  assert.ok(/owner\.json/.test(text), '没读 owner.json 的 biliUid')
+  return 'from_owner 在；uid 取不到时退到 mid；主人 uid 从 owner.json/biliUid 来'
+})
+
+// ④ 真跑一遍「读当天文件 → 挑 from_owner → 写 runtime 文件」这段：临时家造数据，
+//    不碰真数据、不调 B站 接口（这段本来就只读本地 jsonl）。
+const { atDate, atFileOf, readRows, pickFreshOwnerMentions, ownerMentionLine, writeOwnerMentions, readOwnerMentions } =
+  await import(pathToFileURL(path.join(ROOT, 'lib/bili-inbox.js')).href)
+ok('B站巡检④：当天文件 → 挑主人 @ → 写 runtime（临时家，不调接口）', () => {
+  const home = fs.mkdtempSync(path.join(tmpRoot(), 'dsh-bili-'))
+  try {
+    const file = atFileOf(home)
+    assert.equal(path.dirname(file), path.join(home, 'dayu', 'inbox'), '当天 at 文件不在 dayu/inbox 下')
+    assert.ok(path.basename(file).startsWith(`bili-at-${atDate()}`), `文件名没按 UTC+8 当天日期：${path.basename(file)}`)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    const rows = [
+      { key: 'at|1|None', at: '2026-11-01 15:00:00', from_owner: false, text: '@别人 看看', title: '视频一' },
+      { key: 'at|2|None', at: '2026-11-01 15:01:00', from_owner: true, text: '@鱼神 你今天在吗', title: '视频二' },
+      { key: 'at|3|None', at: '2026-11-01 15:02:00', from_owner: true, text: '@小鱼 看一眼这个', title: '视频三' },
+    ]
+    fs.writeFileSync(file, `${rows.map((r) => JSON.stringify(r)).join('\n')}\n{坏行\n`, 'utf8')
+
+    const all = readRows(file)
+    assert.equal(all.length, 3, `坏行该跳过、三行该读出来，实际 ${all.length}`)
+    // 水位 1 = 「这次跑之前已经有一行」：只有后两条算新增；非主人那条永远不算
+    const mine = pickFreshOwnerMentions(all, 1)
+    assert.deepEqual(mine.map((r) => r.key), ['at|2|None', 'at|3|None'], '水位或 from_owner 挑错了')
+    assert.deepEqual(pickFreshOwnerMentions(all, 3), [], '水位到头了还挑出东西')
+    assert.deepEqual(pickFreshOwnerMentions(all, 0).length, 2, '从头数也没挑对')
+
+    const line = ownerMentionLine(mine)
+    assert.equal(line, 'B站：主人 @ 了你 2 条（@鱼神 你今天在吗）', `日志那行格式不对：${line}`)
+    assert.equal(ownerMentionLine([]), '', '没 @ 的时候不该占日志')
+    assert.ok(ownerMentionLine([{ text: 'x'.repeat(60) }]).includes(`${'x'.repeat(40)}…`), '长文本没截到 40 字')
+
+    const w = writeOwnerMentions(home, mine)
+    assert.ok(fs.existsSync(w.file), 'runtime/bili-owner-mentions.json 没写出来')
+    assert.equal(w.total, 2, `该存 2 条，存了 ${w.total}`)
+    const saved = readOwnerMentions(home)
+    assert.deepEqual(saved.items.map((r) => r.text), ['@鱼神 你今天在吗', '@小鱼 看一眼这个'], '存的不是那两条主人 @')
+    for (const it of saved.items) {
+      for (const k of ['text', 'at', 'title']) assert.ok(k in it, `少字段 ${k}`)
+    }
+    // 同一批再写一次：不重复堆
+    writeOwnerMentions(home, mine)
+    assert.equal(readOwnerMentions(home).items.length, 2, '同一条被重复记了')
+    // 只留最近 20 条，新的在前
+    const many = Array.from({ length: 25 }, (_, i) => ({ key: `at|9${i}|None`, at: '2026-11-01 16:00:00', from_owner: true, text: `第 ${i} 条` }))
+    const w2 = writeOwnerMentions(home, many)
+    assert.equal(w2.total, 20, `上限该是 20，实际 ${w2.total}`)
+    assert.deepEqual(readOwnerMentions(home).items.slice(0, 2).map((r) => r.text), ['第 0 条', '第 1 条'], '新的没排在前面')
+    return '水位挑主人 @ / 坏行跳过 / 日志行格式 / 20 条上限 / 去重 都对'
+  } finally {
+    try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 清不掉算了 */ }
+  }
+})
+
+// .keep 是主人定的「重要节点不要随便删」，但它有**两个执行者**——`lib/prune.js`
+// （管 D:\DSH\备份 的冷备）和 `lib/offsite.js` 自己的滚动（管 FULL 和 E 盘）。
+// 两处任何一处不认 `.keep`，那份就会被后来者挤掉，而且**不会报错**——正是"看起来正常"那种坏。
+// 这条真跑 offsite 的滚动（临时目录，4 份 keep=2）验带 .keep 的那份没被删；prune 那处锁源码。
+const { runOffsiteBackup: offsiteBackupFn } = await import(pathToFileURL(path.join(ROOT, 'lib', 'offsite.js')).href)
+ok('.keep 有人认：offsite 滚动跳过带 .keep 的那份', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'keep-probe-'))
+  try {
+    const names = ['2026-01-01_000001', '2026-01-01_000002', '2026-01-01_000003', '2026-01-01_000004']
+    for (const n of names) {
+      fs.mkdirSync(path.join(tmp, n), { recursive: true })
+      fs.writeFileSync(path.join(tmp, n, 'x.txt'), n)
+    }
+    const kept = names[0] // 最老，但带 .keep
+    fs.writeFileSync(path.join(tmp, kept, '.keep'), '')
+    const out = offsiteBackupFn({ target: tmp, keep: 2, roots: [] })
+    assert.ok(fs.existsSync(path.join(tmp, kept)), '带 .keep 的那份被滚掉了')
+    assert.ok(out.pruned.length >= 1, 'keep=2 却没滚任何一份，这条测试没生效')
+    assert.equal(out.pruned.includes(kept), false, '.keep 那份出现在 pruned 里')
+    has('lib/prune.js', '.keep')
+    return `滚掉 ${out.pruned.join(',')}；.keep 那份还在`
+  } finally {
+    try { fs.rmSync(tmp, { recursive: true, force: true }) } catch { /* 清不掉不影响结论 */ }
+  }
+})
+
+// 134. 2026-11-01 老板：「别一条条孤零零记『今天被骂了』，记成『因为我没看参考图 → 被指出来 → 我改错方向』。
+//      以后问一句就能顺着线翻回去。」
+//      关联记忆 = 点（<role>.json 的 events）+ 线（链条.jsonl）+ 挂载（链接.jsonl）。
+//      红线是「一个字段都不动已有记忆」，所以这条断言的核心不是"能读能写"，而是：
+//      **跑完 add/link/search/show 之后，<role>.json 一个字节都没变**（真家哈希 + 临时家样例两份都盯）。
+// 改｜2026-11-01 19:22｜大鱼·工作台(子代理)｜授权：主人｜scripts/regression.mjs 末尾新增第 134 条断言（没删改任何已有断言）｜断言内容：链条文件/四个命令在；临时家跑 add×2 → list 列出 → search 命中 → show 带教训 → link 挂事件；同内容稳定 id 不重复堆；跑完 <role>.json 不动：临时家整份字节不变，真家「已有事件」逐字段不变（真家是活的，她自己说句话就 appendEvent，整份哈希会误判）｜为什么：关联记忆的红线是「只加不改已有记忆」，光有代码不算，得有断言盯着｜可改：可改；哈希那两条不许放宽成「看起来没变」
+ok('关联记忆：链是线、事件是点——加链挂事件都不动 <role>.json', () => {
+  // ① 文件、关键字、四个命令都在
+  has('lib/memory-links.js', '链条.jsonl')
+  has('lib/memory-links.js', '链接.jsonl')
+  has('lib/memory-links.js', 'export function appendLink')
+  has('lib/memory-links.js', 'export function linkEvent')
+  has('lib/memory-links.js', 'export function chainOf')
+  for (const c of ['add', 'list', 'show', 'search']) has('scripts/memory-chain.mjs', `cmd === '${c}'`)
+  // find-any 里要有「链条」这一路（命中时按 [链条] 标题 → 教训 出一行）
+  has('scripts/find-any.mjs', '## 链条')
+  has('scripts/find-any.mjs', 'memory-chain.mjs')
+
+  // ② 真家：已有事件要是被改了，这里当场红。
+  //    为什么不比整个文件的哈希：真家是活的——她自己的会话随时 appendEvent（审计里 who=appendEvent），
+  //    满 200 条还会把最老的挤进冷档。拿整文件哈希当判据，会把她正常的说话判成"被人改了"。
+  //    红线本来也不是"文件不许变"，是"**已有的那几条事件，一个字段都不许变**"。
+  const realMem = path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'dayu', 'soul', 'memory', 'dayu.json')
+  const eventsById = (file) => {
+    try {
+      const j = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''))
+      return new Map((Array.isArray(j?.events) ? j.events : []).map((e) => [String(e?.id || ''), JSON.stringify(e)]))
+    } catch { return null }
+  }
+  const realBefore = fs.existsSync(realMem) ? eventsById(realMem) : null
+
+  const home = fs.mkdtempSync(path.join(tmpRoot(), 'dsh-chain-'))
+  try {
+    const memDir = path.join(home, 'dayu', 'soul', 'memory')
+    fs.mkdirSync(memDir, { recursive: true })
+    const memFile = path.join(memDir, 'dayu.json')
+    // 形状和真记忆一样的一份样例：跑完一个字节都不许变
+    const event = {
+      at: '2026-11-01T08:00:00.000Z', channel: '工作台', kind: 'note', text: '样例事件：只读字幕就下了判断',
+      source: '', verified: false, tier: 'normal', clarity: 'vivid', pinned: false,
+      lastSeenAt: '2026-11-01T08:00:00.000Z', recallCount: 0, by: '', id: 'm-probe000001',
+    }
+    fs.writeFileSync(memFile, `${JSON.stringify({ version: 1, summary: '', habits: [], dynamics: [], updatedAt: '2026-11-01T08:00:00.000Z', events: [event] }, null, 2)}\n`, 'utf8')
+    const before = fs.readFileSync(memFile)
+
+    const cli = (...a) => spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'memory-chain.mjs'), ...a], {
+      encoding: 'utf8', cwd: ROOT, env: { ...process.env, YUSHEN_TEST: '1', DSH_HOME: home },
+    })
+    const idOf = (r) => (String(r.stdout || '').match(/(c-[0-9a-f]{10})/) || [])[1]
+    const why = (r) => String(r.stderr || r.stdout || '').slice(0, 200)
+
+    const chainA = ['--role', 'dayu', '--title', '测试链甲：封面', '--step', '2026-11-01 17:01|老板|圈出参考图', '--step', '2026-11-01 17:17|她|才看清圈的是右边那张', '--lesson', '用户圈了图，先比对再动手', '--tags', '封面,核对事实']
+    const a1 = cli('add', ...chainA)
+    assert.equal(a1.status, 0, `add 甲 失败：${why(a1)}`)
+    const idA = idOf(a1)
+    assert.ok(idA, `add 没给出链 id：${a1.stdout}`)
+    const a2 = cli('add', '--role', 'dayu', '--title', '测试链乙：推广', '--step', '2026-11-01 17:56|她|说了发不了', '--lesson', '先查本机有没有工具')
+    assert.equal(a2.status, 0, `add 乙 失败：${why(a2)}`)
+    const idB = idOf(a2)
+    assert.notEqual(idA, idB, '两条不同的链拿到了同一个 id')
+
+    // 同一条再 add 一次：内容相同 = 同一个 id，不重复堆
+    const again = cli('add', ...chainA)
+    assert.equal(again.status, 0, `add 重复失败：${why(again)}`)
+    assert.equal(idOf(again), idA, '同内容的链没有稳定 id（同一条被记成两条）')
+
+    // list：两条都在，步数也报出来
+    const list = cli('list', '--role', 'dayu')
+    assert.equal(list.status, 0, `list 失败：${why(list)}`)
+    assert.ok(list.stdout.includes('测试链甲：封面') && list.stdout.includes('测试链乙：推广'), `list 没列出两条：\n${list.stdout}`)
+    assert.ok(list.stdout.includes('2 条'), `list 条数不对：\n${list.stdout}`)
+    assert.ok(list.stdout.includes('2 步'), `list 没报步数：\n${list.stdout}`)
+
+    // search：命中链甲，带出撞上的那一步；--brief 出 find-any 要的一行式
+    const s = cli('search', '参考图')
+    assert.equal(s.status, 0, `search 失败：${why(s)}`)
+    assert.ok(s.stdout.includes('测试链甲：封面'), `search 没命中链甲：\n${s.stdout}`)
+    assert.ok(s.stdout.includes('撞上这一步'), `search 没带出命中的那一步：\n${s.stdout}`)
+    assert.equal(s.stdout.includes('测试链乙：推广'), false, 'search 把没关系的链也命中了')
+    const b = cli('search', '参考图', '--brief')
+    assert.ok(b.stdout.includes('[链条] 测试链甲：封面 → '), `find-any 要的一行式不对：${b.stdout}`)
+    const miss = cli('search', '根本没有这个词')
+    assert.equal(miss.status, 0, 'search 没命中时不该报错（find-any 会当成没东西）')
+    assert.ok(miss.stdout.includes('没命中'), `search 没命中时没说清：${miss.stdout}`)
+
+    // show：完整一步一行 + 教训
+    const show = cli('show', idA)
+    assert.equal(show.status, 0, `show 失败：${why(show)}`)
+    assert.ok(show.stdout.includes('## 教训') && show.stdout.includes('用户圈了图，先比对再动手'), `show 没带教训：\n${show.stdout}`)
+    assert.ok(show.stdout.includes('17:01') && show.stdout.includes('圈出参考图'), `show 没把步骤列出来：\n${show.stdout}`)
+
+    // link：把样例事件挂上去，show 里要能看到事件原文（只写 链接.jsonl）
+    const lk = cli('link', '--role', 'dayu', '--event', 'm-probe000001', '--chain', idA)
+    assert.equal(lk.status, 0, `link 失败：${why(lk)}`)
+    const show2 = cli('show', idA)
+    assert.ok(show2.stdout.includes('样例事件：只读字幕就下了判断'), `show 没带出挂着的事件原文：\n${show2.stdout}`)
+    assert.ok(fs.existsSync(path.join(memDir, '链条.jsonl')), '链条.jsonl 没落在 soul/memory 下')
+    assert.ok(fs.existsSync(path.join(memDir, '链接.jsonl')), '链接.jsonl 没落在 soul/memory 下')
+
+    // ③ 红线：临时家整份字节不变（没有别人在写，就该一模一样）；
+    //    真家只认「已经有的事件一条都不许变」——新追加/挤进冷档是她自己的正常活动。
+    assert.ok(fs.readFileSync(memFile).equals(before), '跑完链条命令，临时家的 <role>.json 被改了——这是红线')
+    let realNote = '真家没碰'
+    if (realBefore) {
+      const realAfter = eventsById(realMem) || new Map()
+      const changed = [...realBefore.keys()].filter((id) => realAfter.has(id) && realAfter.get(id) !== realBefore.get(id))
+      assert.equal(changed.length, 0, `跑完链条命令，真家已有事件被改了：${changed.slice(0, 3).join(', ')}`)
+      realNote = `真家 ${realBefore.size} 条已有事件原样（期间新追加的不算我们头上）`
+    }
+
+    return `add/list/show/search/link 都对；同内容稳定 id 不重复堆；${realNote}`
+  } finally {
+    try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 清不掉不影响结论 */ }
+  }
+})
+
+// ── QQ 桥出站落库（2026-11-01）───────────────────────────────────────────────
+// "她说过的话"以前只有 MCP 发送工具那条路会落库；正常回复走 sendToQQ /
+// sendBurstToQQ，一条都不写（dayu 的会话档案 165 行里 incoming 159 / outgoing 6），
+// 事后翻会话像她一直没开口。这条锁三件事：① 三条文本发送路径都接了落库；
+// ② 写不进去必须有 WARN（不许再静默 skipped）；③ 现成档案上 direction 统计能数到 outgoing。
+ok('QQ 桥出站落库：她说的话也进会话档案（改前正常回复一条都不写）', () => {
+  const bridgeDir = process.env.QQ_BRIDGE_DIR || path.join('D:', 'deepseekTools', 'qq-bridge')
+  const bridgeFile = path.join(bridgeDir, 'src', 'bridge.js')
+  const brainFile = path.join(bridgeDir, 'src', 'conversation-brain.js')
+  const bridgeTest = path.join(bridgeDir, 'scripts', 'test-outbound-fact.mjs')
+  assert.ok(fs.existsSync(bridgeFile), `找不到桥源码：${bridgeFile}`)
+  const bridgeSrc = fs.readFileSync(bridgeFile, 'utf8')
+  const brainSrc = fs.readFileSync(brainFile, 'utf8')
+
+  // ① 源码锁：三个文本发送函数里都得有落库调用
+  for (const fn of ['function sendToQQ(', 'function sendBurstToQQ(', 'async function onebotSend(']) {
+    const at = bridgeSrc.indexOf(fn)
+    assert.ok(at > 0, `桥源码里找不到 ${fn}`)
+    assert.ok(bridgeSrc.slice(at, at + 4000).includes('recordOutgoingFactFor('), `${fn} 没接出站落库`)
+  }
+  // ② 失败要响：被校验挡下 / 写失败都得有 WARN，不能只处理 error 分支
+  assert.ok(bridgeSrc.includes('WARN 出站落库失败'), '出站写失败没有 WARN 日志（又会静默）')
+  assert.ok(brainSrc.includes('export function recordOutgoingFact'), 'conversation-brain 里没有 recordOutgoingFact')
+  assert.ok(brainSrc.includes('skipped:true, reason'), 'appendQQFact 的 skipped 还是不带原因（静默跳过）')
+
+  // ③ 现成 QQ 档案上数一遍 direction（只读，一个字节都不写）
+  let files = 0
+  let incoming = 0
+  let outgoing = 0
+  let outgoingWithText = 0
+  const walk = (dir) => {
+    let entries = []
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) { walk(full); continue }
+      if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue
+      if (path.basename(path.dirname(full)) !== 'qq') continue // 只看 QQ 通道档案
+      files += 1
+      for (const line of fs.readFileSync(full, 'utf8').split('\n').filter(Boolean)) {
+        let row
+        try { row = JSON.parse(line) } catch { continue }
+        if (row.direction === 'incoming') incoming += 1
+        if (row.direction === 'outgoing') { outgoing += 1; if (String(row.text || '').trim()) outgoingWithText += 1 }
+      }
+    }
+  }
+  walk(path.join(os.homedir(), '.dsh', 'dayu', 'conversations'))
+
+  // ④ 桥自己的离线自测（不发 QQ；全程在临时家目录里跑）
+  let testNote = ''
+  if (fs.existsSync(bridgeTest)) {
+    const r = spawnSync(process.execPath, ['--import', pathToFileURL(path.join(ROOT, 'scripts', '_test-sandbox.mjs')).href, bridgeTest], {
+      encoding: 'utf8',
+      env: { ...process.env, YUSHEN_TEST: '1', DSH_HOME: path.join(os.homedir(), '.dsh') },
+    })
+    const code = String(r.error?.code || '')
+    if (r.status === null && (code === 'EPERM' || code === 'EACCES')) testNote = '；桥离线自测跳过（这个环境不让开子进程）'
+    else { assert.ok(r.status === 0, `桥离线自测没过：${String(r.stdout || r.stderr || '').slice(0, 300)}`); testNote = '；桥离线自测绿' }
+  }
+  const sample = files
+    ? `真实 QQ 档案 ${files} 个：incoming ${incoming} / outgoing ${outgoing}（有正文 ${outgoingWithText}）`
+    : '这台机器还没有 QQ 会话档案'
+  const waiting = files && !outgoing ? '；档案里还没有 outgoing（桥要重启一次才会有新记录）' : ''
+  return `${sample}${waiting}${testNote}`
+})
+
+// 2026-11-02 小鱼：中文路径下 `new URL(import.meta.url).pathname` 会被编码成 `%E5%A4%A7…`，
+// 拼出来的路径永远不存在；外面套个 catch 一吞，就变成「这项检查一直空转」——
+// install-check 的 `presetIds` 恒为空就是这么来的（11-01 会审查出、11-02 修掉）。
+// 同一天我自己在实验脚本里又踩了一次。这条扫 scripts/：谁再用 .pathname 拼路径就红。
+ok('路径拼法不许用 URL 的 pathname（中文目录会被编码）', () => {
+  const dir = path.join(ROOT, 'scripts')
+  const all = fs.readdirSync(dir).filter((x) => x.endsWith('.mjs'))
+  const bad = []
+  for (const f of all) {
+    // 只查真的拿去拼路径的代码行；注释里写「别用 .pathname」不算（collect-evidence 和我自己都写过这种说明）
+    const lines = fs.readFileSync(path.join(dir, f), 'utf8').split('\n')
+    for (const ln of lines) {
+      if (/^\s*\/\//.test(ln)) continue
+      if (/new URL\([^)]*\)\.pathname/.test(ln)) { bad.push(f); break }
+    }
+  }
+  assert.deepEqual(bad, [], `还在用 .pathname 拼路径：${bad.join(', ')}`)
+  has('scripts/install-check.mjs', 'fileURLToPath(import.meta.url)')
+  return `scripts/ 下 ${all.length} 个 mjs 都没有这个毛病`
+})
+
+// 2026-11-02：记忆检索三件（倒排索引 / 别名表 / 有效期）——全部本地文件操作，零 LLM 调用。
+// 这条锁「接线」：索引怎么落盘、别名多少组、有效期只加字段、tick 每小时增量跑一次。
+ok('记忆检索三件：倒排落盘、别名 15~25 组、失效只加字段、tick 每小时增量', () => {
+  has('lib/inverted.js', 'export function buildIndex')
+  has('lib/inverted.js', "INDEX_NAME = '倒排.json'")
+  has('lib/inverted.js', 'MAX_BYTES = 50 * 1024 * 1024')
+  has('lib/inverted.js', 'mtimeMs')                       // 增量：mtime+size 没变就复用
+  has('scripts/reindex.mjs', '--force')
+  has('lib/recall-now.js', 'expandAliases')
+  has('lib/recall-now.js', 'includeExpired')
+  has('lib/memory.js', 'export function supersede')
+  has('scripts/supersede.mjs', '--old')
+  has('scripts/supersede.mjs', '--reason')
+  // 别名表：15~25 组，封面组要含「那张图」（回归里真拿它验别名扩展）
+  const aliases = JSON.parse(fs.readFileSync(path.join(ROOT, 'lib', 'aliases.json'), 'utf8'))
+  const groups = Object.keys(aliases).filter((k) => !k.startsWith('_'))
+  assert.ok(groups.length >= 15 && groups.length <= 25, `别名组数 ${groups.length} 不在 15~25`)
+  assert.ok(Array.isArray(aliases['封面']) && aliases['封面'].includes('那张图'), '别名表里封面组没有「那张图」')
+  // tick：接在每小时维护块里（媒体索引之后），120s 超时，失败只记一行
+  const tick = read('dayu/index.js')
+  const at = tick.indexOf("'scripts', 'reindex.mjs'")
+  assert.ok(at >= 0, 'tick 里没有调 scripts/reindex.mjs（索引会一直是旧的）')
+  const around = tick.slice(Math.max(0, at - 500), at + 600)
+  assert.ok(/timeout:\s*120000/.test(around), 'tick 调 reindex 没给 120s 超时')
+  const mediaAt = tick.indexOf("'index-media.mjs'")
+  assert.ok(mediaAt >= 0 && mediaAt < at, 'reindex 不在每小时维护块里（应紧跟媒体索引之后）')
+  assert.ok(/倒排索引没跑成/.test(around), '失败没有只记一行的分支')
+  return `别名 ${groups.length} 组；tick 紧跟媒体索引、120s、失败只记一行`
+})
+
+// 同一天的行为验证：临时家（2 live + 1 冷档 + 2 条记忆，含一条已过期）+ 别名表，真跑四项。
+ok('记忆检索三件：临时家真跑（倒排 / 别名 / 有效期 / 缺索引退化）', () => {
+  const script = path.join(ROOT, 'scripts', 'test-recall-index.mjs')
+  assert.ok(fs.existsSync(script), 'scripts/test-recall-index.mjs 不见了')
+  const sandboxUrl = pathToFileURL(path.join(ROOT, 'scripts', '_test-sandbox.mjs')).href
+  const realHome = path.join(os.homedir(), '.dsh')
+  const r = spawnSync(process.execPath, ['--import', sandboxUrl, script], {
+    encoding: 'utf8',
+    timeout: 180000,
+    env: { ...process.env, YUSHEN_TEST: '1', DSH_HOME: realHome },
+  })
+  const code = String(r.error?.code || '')
+  if (r.status === null && (code === 'EPERM' || code === 'EACCES')) {
+    skipped += 1
+    return `跳过：这个环境不让人开子进程（${code}）`
+  }
+  assert.ok(r.status !== null, `跑不起来：${code || '没有状态码'}`)
+  assert.equal(r.status, 0, String(r.stderr || r.stdout || '').slice(0, 400))
+  const lines = String(r.stdout || '').trim().split('\n')
+  assert.ok(lines.some((l) => l.includes('五组都过')), `测试没跑完：${lines.slice(-2).join(' / ')}`)
+  return lines.find((l) => l.startsWith('①')) || '四组都过'
+})
+
+// 2026-11-02｜授权：老板｜合并第 0 步（身份键）+ 第 1 步（merge 子包）的静态部分：
+// 为什么：这两步的红线是「id 必须含 device+session」和「合并只增不改、三个文件各管一段」，
+// 落不到断言就等于没做；顺带守住「sync 子包默认单机不加载」。
+ok('两端合并第 0/1 步：身份键与 sync 子包都在（静态）', () => {
+  for (const f of ['sync/merge.mjs', 'sync/full.mjs', 'scripts/merge.mjs', 'scripts/sync-full.mjs', 'scripts/test-merge.mjs']) {
+    assert.ok(fs.existsSync(path.join(ROOT, f)), `${f} 不存在（这一层是空话）`)
+  }
+  const mem = read('lib/memory.js')
+  assert.ok(/session = ''/.test(mem), 'appendEvent 没有 session 参数（同一句在两台设备会被去重掉一条）')
+  assert.ok(/\$\{dev\}\|\$\{sess\}\|\$\{when\}\|\$\{channel\}\|\$\{value\.slice\(0, 120\)\}/.test(mem), 'id 的算式里没有 device|session|at|channel|text（方案 v1 §1）')
+  assert.ok(/seq: nextSeq\(role, floor\)/.test(mem), 'appendEvent 没有分配逻辑时钟 seq')
+  const mg = read('sync/merge.mjs')
+  for (const needle of ['watermark.json', 'merge.log', 'disputes.jsonl', 'lastNightMerge', 'export function merge(', 'supersededBy']) {
+    assert.ok(mg.includes(needle), `sync/merge.mjs 里没有「${needle}」`)
+  }
+  const full = read('sync/full.mjs')
+  assert.ok(full.includes('export function exportAll') && full.includes('export function importReplace'), 'sync/full.mjs 缺全量导出/重建（方案 v1 §6）')
+  assert.ok(full.includes('coldIncluded'), '全量导出没标 coldIncluded')
+  // 默认单机不加载：常规运行时不许 import sync/（只有这几个脚本自己用）
+  for (const f of ['index.js', 'dayu/index.js', 'lib/memory.js', 'lib/soul.js', 'lib/recall-now.js']) {
+    assert.ok(!/from\s+['"][^'"]*sync\/(merge|full)\.mjs['"]/.test(read(f)), `${f} 把 sync/ 引进了常规运行时（方案 v1 §9：默认单机不加载）`)
+  }
+  return 'sync/merge.mjs、sync/full.mjs、两个 CLI 入口、验收脚本都在；id 含 device+session；sync/ 没进常规运行时'
+})
+
+// 2026-11-02｜授权：老板｜同一件事的真跑：临时家跑 scripts/test-merge.mjs
+// （身份键 / 全量重建 / 合并幂等 / 分歧清单 / 水位 / 拆两份 / 定型文档 / 睡眠窗口）。
+ok('两端合并第 0/1 步：临时家真跑（身份键 / 全量重建 / 幂等 / 分歧 / 水位）', () => {
+  const script = path.join(ROOT, 'scripts', 'test-merge.mjs')
+  assert.ok(fs.existsSync(script), 'scripts/test-merge.mjs 不见了')
+  const sandboxUrl = pathToFileURL(path.join(ROOT, 'scripts', '_test-sandbox.mjs')).href
+  const realHome = path.join(os.homedir(), '.dsh')
+  const r = spawnSync(process.execPath, ['--import', sandboxUrl, script], {
+    encoding: 'utf8',
+    timeout: 240000,
+    env: { ...process.env, YUSHEN_TEST: '1', DSH_HOME: realHome },
+  })
+  const code = String(r.error?.code || '')
+  if (r.status === null && (code === 'EPERM' || code === 'EACCES')) {
+    skipped += 1
+    return `跳过：这个环境不让人开子进程（${code}）`
+  }
+  assert.ok(r.status !== null, `跑不起来：${code || '没有状态码'}`)
+  assert.equal(r.status, 0, String(r.stderr || r.stdout || '').slice(0, 500))
+  const lines = String(r.stdout || '').trim().split('\n')
+  assert.ok(lines.some((l) => l.includes('七组都过')), `测试没跑完：${lines.slice(-2).join(' / ')}`)
+  return lines.find((l) => l.startsWith('④')) || '七组都过'
+})
+
+// 2026-11-02｜授权：老板｜session 要真进记忆 id，不能只在 appendEvent 签名里挂着。
+// 为什么：签名早就支持 session，但调用点没传，id = sha1(device||at|channel|text)——同一台设备
+// 不同会话的同文同分钟会被去重成一条。这条守两件事：
+//   ① 静态：dayu/index.js 里至少一处 appendEvent( 带 session（调用点一漏，id 里 session 就永远是空）；
+//   ② 真跑：临时家、同一设备、同一句话——不同 session = 2 条且 id 不同；同 session 重放 = 1 条。
+ok('session 真进记忆 id：调用点传了 + 临时家真跑（不同会话 2 条 / 同会话重放 1 条）', () => {
+  const src = read('dayu/index.js')
+  const calls = src.split('\n').filter((l) => l.includes('appendEvent('))
+  const withSession = calls.filter((l) => /appendEvent\([^)]*\bsession:\s*[A-Za-z_$][\w$.]*/.test(l))
+  assert.ok(withSession.length >= 1, `dayu/index.js 里 ${calls.length} 处 appendEvent( 没有一处带 session —— id 里的 session 永远是空`)
+  // 老数据没有 session 的后果必须写清楚（id 不变、不影响读取、只影响去重粒度）
+  const mem = read('lib/memory.js')
+  assert.ok(mem.includes('老数据没有 session 的后果'), 'lib/memory.js 没写「老数据没有 session」的后果')
+  // 真跑：子进程里改 DSH_HOME 到临时家再 import memory.js（它 import 时就定死家目录）
+  assert.ok(fs.existsSync(path.join(ROOT, 'scripts', 'test-memory-session.mjs')), 'scripts/test-memory-session.mjs 不见了')
+  runTestScript('scripts/test-memory-session.mjs')
+  return `${calls.length} 处调用里 ${withSession.length} 处带 session；临时家真跑：不同会话 2 条 id 不同、同会话重放去重`
+})
+
 console.log(`\n回归：通过 ${pass}，失败 ${fail}${skipped ? `，跳过 ${skipped}（环境不给子进程）` : ''}`)
 if (fail) process.exit(1)
+
+
+// 2026-11-02：README 里让人跑的脚本，必须真在包里（手机上装完发现 first-run.mjs 没打包）。
+// 这条查 dist：README 提到 scripts/*.mjs 的一个都不能少。
+ok('README 里让人跑的脚本，包里都有', () => {
+  const dist = path.join(ROOT, 'dist', 'dsh-yushen-twins')
+  has('README.md', 'first-run.mjs')
+  if (!fs.existsSync(dist)) return 'dist 还没打，跳过（打包后由 verify-tgz 兜）'
+  const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+  const wanted = [...new Set([...readme.matchAll(/scripts\/([A-Za-z0-9_\-\u4e00-\u9fa5]+\.mjs)/g)].map((m) => m[1]))]
+  // 这几个只在开发者/测试段出现，出厂包故意不带（带测试进包没意义，还涨体积）。
+  const DEV_ONLY = new Set(['test-residence.mjs', 'import-legacy.mjs', 'test-three-role-ui.mjs', 'nest-ui-check.mjs', 'style.mjs'])
+  const missing = wanted.filter((f) => !DEV_ONLY.has(f) && !fs.existsSync(path.join(dist, 'scripts', f)))
+  assert.deepEqual(missing, [], `README 提到但包里没有：${missing.join(', ')}`)
+  return `README 提到 ${wanted.length} 个脚本，包里都在`
+})
+// 2026-11-02 手机端实测：三个包共用的 cordis.patch.yml 把 name 写死成 dsh-yushen-twins，
+// 于是 mobile 装不上、lite 直接挂。打包必须从 package.json 生成，这条守住。
+ok('patch 里的 name 必须等于包名（手机端踩过）', () => {
+  const dist = path.join(ROOT, 'dist', 'dsh-yushen-twins')
+  if (!fs.existsSync(dist)) return 'dist 还没打，跳过'
+  const pkg = JSON.parse(fs.readFileSync(path.join(dist, 'package.json'), 'utf8').replace(/^\uFEFF/, ''))
+  const yml = fs.readFileSync(path.join(dist, 'cordis.patch.yml'), 'utf8')
+  const nameLine = (yml.match(/^\s*name:\s*(\S+)/m) || [])[1]
+  const idLine = (yml.match(/^\s*-\s*id:\s*(\S+)/m) || [])[1]
+  assert.equal(nameLine, pkg.name, `patch name=${nameLine} 与包名 ${pkg.name} 不一致`)
+  assert.equal(idLine, pkg.name, `patch id=${idLine} 与包名 ${pkg.name} 不一致`)
+  has('scripts/pack-release.mjs', 'cordis.patch.yml')
+  return `${pkg.name} 两处一致`
+})
+
+// 2026-11-02：tick 里 spawnSync 调的脚本，包里必须都有（reindex.mjs 曾是空的，每小时静默失败）。
+ok('tick 调的脚本都在包里', () => {
+  const dist = path.join(ROOT, 'dist', 'dsh-yushen-twins', 'scripts')
+  if (!fs.existsSync(dist)) return 'dist 还没打，跳过'
+  const idx = fs.readFileSync(path.join(ROOT, 'dayu', 'index.js'), 'utf8')
+  const refs = [...new Set([...idx.matchAll(/['"]scripts['"],\s*['"]([A-Za-z0-9_\-.]+\.mjs)['"]/g)].map((m) => m[1]))]
+  const missing = refs.filter((f) => !fs.existsSync(path.join(dist, f)))
+  assert.deepEqual(missing, [], `tick 引用了但包里没有：${missing.join(', ')}`)
+  return `${refs.length} 个引用脚本都在`
+})
+// 2026-11-02：出厂检验脚本必须在（三档真跑由 scripts/accept-release.mjs 做，这里只守接线）。
+ok('出厂检验：装得上、能建家、记得住、清单对得上', () => {
+  has('scripts/accept-release.mjs', 'patch 名与包名一致')
+  has('scripts/accept-release.mjs', 'MANIFEST 的 sha 都对得上')
+  has('scripts/accept-release.mjs', '出厂检验写入')
+  const dir = path.join(ROOT, 'release')
+  const list = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.tgz')) : []
+  assert.ok(list.length > 0, 'release 里没有包')
+  return `release 里有 ${list.length} 个包`
+})

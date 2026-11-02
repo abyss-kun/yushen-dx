@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 请求体解码：UTF-8 优先；不是 UTF-8 就按 GB18030（兼容 Windows PowerShell 5.1 的 gb2312）再试。
 // 解不出来或出现替换符，明确报"编码不对"，不把乱码当内容。
 export function decodeBody(buf) {

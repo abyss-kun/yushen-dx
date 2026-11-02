@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 刷B站人设同步：只写它自己的人设字段；用户自己写的人设不覆盖；每次都留备份。
 import fs from 'node:fs'
 import os from 'node:os'

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 任务经验（纯本地、按角色分开）
 // 记的是“这类活儿以前怎么干的、成没成、为什么”，只作**参考数据**：
 //   · 不是指令，不授予任何权限，不进人格，不改角色卡；
@@ -13,8 +14,10 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { residentRoleIds } from './roles.js'
 
-export const EXPERIENCE_ROLES = Object.freeze(['dayu', 'xiaoyu'])
+// 2026-11-01：名单从名册取，不再写死两条鱼。
+export function experienceRoles() { return residentRoleIds() }
 export const OUTCOMES = Object.freeze(['success', 'failed', 'partial'])
 
 export const MAX_TASK_ID = 80
@@ -50,8 +53,8 @@ function nowIso() {
 // 白名单严格匹配：不 trim、不宽容大小写；多一个空格就算非法。
 function assertRole(role) {
   const r = typeof role === 'string' ? role : null
-  if (!EXPERIENCE_ROLES.includes(r)) {
-    throw new Error(`未知角色：${String(role)}（只允许 ${EXPERIENCE_ROLES.join(' / ')}）`)
+  if (!experienceRoles().includes(r)) {
+    throw new Error(`未知角色：${String(role)}（只允许 ${experienceRoles().join(' / ')}）`)
   }
   return r
 }

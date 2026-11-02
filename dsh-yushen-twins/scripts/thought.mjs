@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 纠结记录（老板入口）：她两难时说的话，原样留档。
 // 用法：
 //   ELECTRON_RUN_AS_NODE=1 "<exe>" scripts/thought.mjs list [--role=xiaoyu] [--date=2026-10-25]

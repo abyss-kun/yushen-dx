@@ -1,3 +1,4 @@
+// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // B站 source adapter boundary. It stores no mind item by itself and requires explicit role choice.
 import { recordObservedMind } from './mind-store.js'
 // 角色从名册读（2026-10-27）
