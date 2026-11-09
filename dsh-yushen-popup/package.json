@@ -1,0 +1,24 @@
+{
+  "name": "dsh-yushen-popup",
+  "version": "0.1.0",
+  "description": "鱼神弹窗：卷轴画卷式的提醒框，重要的事弹给你看（独立插件，不依赖鱼神双子星）",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5"
+  },
+  "license": "AGPL-3.0-or-later"
+}

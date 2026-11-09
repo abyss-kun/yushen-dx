@@ -1,0 +1,6 @@
+# 鱼神弹窗：独立插件，只挂一个入口（不含鱼神双子星）。
+- insert:
+    - id: dsh-yushen-popup
+      name: dsh-yushen-popup
+      config:
+        enabled: true
