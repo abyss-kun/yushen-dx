@@ -5,10 +5,11 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
+import { dshHome, dayuHome } from './paths.js'
 
-const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
-const DATA = path.join(HOME, 'dayu')
+// 2026-11-12：账本目录**先找家**——有不一定有鱼神的 dayu 目录；没有就退到 dshHome 下，
+// 反正读不到时下面每个函数都返回空，不抛错、也不去建别人的目录。
+const DATA = dayuHome() || path.join(dshHome(), 'dayu')
 const DIR = path.join(DATA, 'events')
 
 const live = new Map()

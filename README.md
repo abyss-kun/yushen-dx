@@ -106,6 +106,14 @@ node node_modules/dsh-yushen-twins/scripts/restore-to.mjs --at "2026-10-31 18:10
 
 家目录整个没了：把备份盘里的 `dayu/`（至少含 `protection/store`）拷回 `~/.dsh/dayu/`，再跑一次 `restore-drill`。步骤见 [还原演练](docs/还原演练.md)。
 
+## 附带：弹窗插件（dsh-yushen-popup）
+
+同仓库里的 `dsh-yushen-popup/` 是一个**独立**的画卷式提醒弹窗：别的插件、脚本、QQ 桥想让她「弹出来跟你说一句」，推一条就行。
+
+- 独立安装、纯本地、不调模型；路径**自己检索**（环境变量 → 旁边认门牌 → 找不到就降级），换机器不用改代码；
+- 出厂默认关的三样：备份完成提醒、QQ/B站来源、每轮成本提醒（这些是鱼神自己的机制，别人机器上不一定有）；
+- 装法、开关、接口见 [dsh-yushen-popup/README.md](dsh-yushen-popup/README.md)；发群用的说明在 [dsh-yushen-popup/docs/QQ说明.md](dsh-yushen-popup/docs/QQ说明.md)。
+
 ## 许可
 
 **AGPL-3.0-or-later。个人使用免费。**

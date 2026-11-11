@@ -50,20 +50,29 @@ function makeEl(tag) {
     parentNode: null,
     title: '',
     classList: { add() {}, remove() {}, contains() { return false }, toggle() {} },
-    setAttribute() {},
-    getAttribute() { return null },
+    setAttribute(k, v) { if (!this.attrs) this.attrs = {}; this.attrs[k] = String(v) },
+    getAttribute(k) { return (this.attrs && this.attrs[k] != null) ? this.attrs[k] : null },
     removeAttribute() {},
     appendChild(c) { this.children.push(c); if (c) c.parentNode = this; return c },
     removeChild(c) { this.children = this.children.filter((x) => x !== c) },
     insertBefore(c) { this.children.push(c); return c },
-    addEventListener() {},
-    removeEventListener() {},
-    remove() {},
+    addEventListener(type, fn) { if (!this.__h) this.__h = {}; (this.__h[type] = this.__h[type] || []).push(fn) },
+    removeEventListener(type, fn) { if (!this.__h || !this.__h[type]) return; this.__h[type] = this.__h[type].filter((x) => x !== fn) },
+    dispatch(type, ev) {
+      const e = Object.assign({ type, stopPropagation() {}, preventDefault() {} }, ev || {})
+      for (const fn of ((this.__h && this.__h[type]) || [])) fn(e)
+      return e
+    },
+    remove() { this.removed = true },
     setPointerCapture() {},
     releasePointerCapture() {},
     querySelector() { return null },
     querySelectorAll() { return [] },
-    contains() { return false },
+    contains(node) {
+      let n = node
+      while (n) { if (n === this) return true; n = n.parentNode }
+      return false
+    },
     getBoundingClientRect() { return { left: 100, top: 100, width: 800, height: 600, right: 900, bottom: 700 } },
     focus() {},
     click() {},
@@ -84,8 +93,13 @@ const globalDoc = {
   })(),
   body: makeEl('body'),
   documentElement: makeEl('html'),
-  addEventListener() {},
-  removeEventListener() {},
+  addEventListener(type, fn) { if (!globalDoc.__h) globalDoc.__h = {}; (globalDoc.__h[type] = globalDoc.__h[type] || []).push(fn) },
+  removeEventListener(type, fn) { if (!globalDoc.__h || !globalDoc.__h[type]) return; globalDoc.__h[type] = globalDoc.__h[type].filter((x) => x !== fn) },
+  __dispatch(type, ev) {
+    const e = Object.assign({ type, stopPropagation() {}, preventDefault() {} }, ev || {})
+    for (const fn of ((globalDoc.__h && globalDoc.__h[type]) || [])) fn(e)
+    return e
+  },
   activeElement: null,
   querySelector() { return null },
   querySelectorAll() { return [] },
@@ -295,6 +309,179 @@ check('会话染色样式注入（userStack/assistantContent）', () => {
   const txt = String(style.textContent || '')
   if (!txt.includes('userStack') || !txt.includes('assistantContent')) throw new Error('规则里没 userStack/assistantContent: ' + txt.slice(0, 120))
   if (!txt.includes('#ff0000') || !txt.includes('#00ff00')) throw new Error('颜色没写进去: ' + txt.slice(0, 120))
+})
+
+// ---------- 6. 按钮真的能关（2026-11-11：老板截图"按键无效、关不掉"） ----------
+const closeTest = await (async () => {
+  try {
+    fakeWindow.__ysPopupShowing = false
+    fakeWindow.__ysPopupPending = []
+    created.length = 0
+    const p = fakeWindow.__yshenImportantPopup({ title: '关闭测试', body: '正文', confirmText: '知道了', cancelText: '好', autoExpand: true })
+    await new Promise((r) => setTimeout(r, 80))
+    const wrap = created.find((el) => el && el.id === 'ys-popup-wrap')
+    if (!wrap) return '没找到 wrap'
+    const okBtn = created.find((el) => el && el.getAttribute && el.getAttribute('data-ys-act') === 'ok')
+    if (!okBtn) return '按钮没有 data-ys-act（捕获兜底认不出）'
+    // 只派发到 document 捕获阶段：模拟"按钮自己的监听器没生效"的那种最坏情况
+    globalDoc.__dispatch('click', { target: okBtn })
+    await new Promise((r) => setTimeout(r, 360))
+    if (!wrap.removed) return '捕获兜底没把弹窗拆掉'
+    if (fakeWindow.__ysPopupShowing === true) return '关掉后 __ysPopupShowing 没复位，会吞后续弹窗'
+    const result = await Promise.race([p, new Promise((r) => setTimeout(() => r('timeout'), 300))])
+    if (result === 'timeout') return '关掉后 Promise 没有 resolve'
+    return '点按钮就关（不依赖按钮自身监听器）'
+  } catch (e) {
+    return '抛错：' + String((e && e.message) || e)
+  }
+})()
+check('按钮能关：捕获兜底兜住"点了没反应"', () => {
+  if (closeTest !== '点按钮就关（不依赖按钮自身监听器）') throw new Error(String(closeTest))
+})
+
+check('新会话没有用量时不报警（usageNoTurn）', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  if (!src.includes('usageNoTurn')) throw new Error('没有"新会话不算坏"的判据')
+  if (!/if \(usageNoTurn\) \{ failCount = 0/.test(src)) throw new Error('tick 没有把新会话的失败清零')
+})
+
+check('看门狗在位（显示标志卡住会自己复位）', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  if (!src.includes('__yspPopupWatchdog')) throw new Error('没有看门狗')
+  if (!src.includes('window.__ysPopupShowing = false')) throw new Error('看门狗不复位标志')
+})
+
+check('用量解析认得 K/M/万 和 tokens（不是只认 "N tok"）', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  for (const need of ['千', '万', '亿', 'tokens?']) {
+    if (!src.includes(need)) throw new Error('客户端里缺 ' + need)
+  }
+  if (!src.includes('usage-miss')) throw new Error('读不到用量时不留诊断')
+})
+
+check('host 有诊断路由 /yushen-popup/diag', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8')
+  if (!src.includes("'/yushen-popup/diag'")) throw new Error('没有 diag 路由')
+  if (!src.includes('popup-diag.jsonl')) throw new Error('没有落盘文件')
+})
+
+// ---------- 8. 一个键 vs 两个键（2026-11-11 老板：「好和知道了好像是一回事吧」） ----------
+const oneBtnTest = await (async () => {
+  try {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    fakeWindow.__ysPopupShowing = false
+    created.length = 0
+    fakeWindow.__yshenImportantPopup({ title: '单键测试', body: '只给确认', confirmText: '知道了', autoExpand: true })
+    await sleep(80)
+    const btns = created.filter((el) => el && el.tagName === 'BUTTON')
+    if (btns.length !== 1) return '纯通知出了 ' + btns.length + ' 个键（应为 1）'
+    if (btns[0].getAttribute('data-ys-act') !== 'close') return '单键的 act 不是 close，常驻时会被收成小画卷'
+    // 有"稍后"这种真选择时，仍是两个键
+    fakeWindow.__ysPopupShowing = false
+    created.length = 0
+    fakeWindow.__yshenImportantPopup({ title: '双键测试', body: '有选择', confirmText: '知道了', cancelText: '稍后', autoExpand: true })
+    await sleep(80)
+    const two = created.filter((el) => el && el.tagName === 'BUTTON')
+    if (two.length !== 2) return '有选择时只出了 ' + two.length + ' 个键（应为 2）'
+    return '通知 1 键（close）/ 有选择 2 键'
+  } catch (e) {
+    return '抛错：' + String((e && e.message) || e)
+  }
+})()
+check('按钮不重复：纯通知一个键，有选择才两个', () => {
+  if (oneBtnTest !== '通知 1 键（close）/ 有选择 2 键') throw new Error(String(oneBtnTest))
+})
+
+// ---------- 7. 同类提醒不糊脸（2026-11-11：老板「多个提醒会有多个弹窗，是好是坏」） ----------
+const dupTest = await (async () => {
+  try {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    fakeWindow.__ysPopupShowing = false
+    fakeWindow.__ysPopupPending = []
+    created.length = 0
+    fakeWindow.__yshenImportantPopup({ title: '重复测试', body: '第一次', autoExpand: true })
+    await sleep(80)
+    const first = created.filter((el) => el && el.id === 'ys-popup-wrap').length
+    const ret = await fakeWindow.__yshenImportantPopup({ title: '重复测试', body: '第二次', autoExpand: true })
+    const second = created.filter((el) => el && el.id === 'ys-popup-wrap').length
+    if (ret !== false) return '第二次没被吞掉（返回 ' + ret + '）'
+    if (second !== first) return '第二次还是开了新弹窗（' + first + ' → ' + second + '）'
+    return '重复的被吞掉，只留一个'
+  } catch (e) {
+    return '抛错：' + String((e && e.message) || e)
+  }
+})()
+check('同类提醒十分钟内只弹一次（其余记次数）', () => {
+  if (dupTest !== '重复的被吞掉，只留一个') throw new Error(String(dupTest))
+})
+
+// ---------- 9. 被动触发 + 出厂默认关（2026-11-11：老板「每一轮动的时候机制就动」「备份默认关」） ----------
+check('长轮询通道在（空闲时不再定时干问）', () => {
+  const host = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8')
+  if (!host.includes("'/yushen-popup/wait'")) throw new Error('宿主没有 /wait 路由')
+  if (!host.includes('waiters')) throw new Error('宿主没有唤醒机制')
+  if (!host.includes('long: true')) throw new Error('响应没标 long')
+  const ui = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  if (!ui.includes("'/yushen-popup/wait'")) throw new Error('前端没走长轮询')
+  if (!ui.includes('startPolling')) throw new Error('没有"老宿主"回退')
+})
+
+check('宿主接到会话事件就推「该算了」信号（不是靠前端轮询）', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8')
+  if (!src.includes("ctx.on('session/event'")) throw new Error('宿主没订阅 session/event')
+  if (!src.includes('__nudge')) throw new Error('没有推 __nudge 信号')
+})
+
+check('前端收到 __nudge 才现算，且一分钟最多一次', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  if (!src.includes('it.__nudge')) throw new Error('前端不处理 __nudge')
+  if (!src.includes('__yspNudgeAt')) throw new Error('没有 nudge 节流')
+})
+
+check('备份提醒默认关，且开的时候才看备份文件', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8')
+  if (!/sources:\s*\{[^}]*backup: false/.test(src)) throw new Error('DEFAULTS 里 backup 不是默认 false')
+  if (!src.includes("sources.backup !== true")) throw new Error('backupTick 没有按开关短路')
+  const ui = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  if (!ui.includes('sources.backup')) throw new Error('后台没有备份提醒开关')})
+
+// ---------- 10. 换机器：先检索、不写死（2026-11-12 老板「去到新家应该先检索」） ----------
+check('代码里没有写死的本机盘符路径', () => {
+  const files = ['index.js', 'client.js', 'lib/paths.js', 'lib/watch.js', 'lib/busy.js']
+  const bad = []
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8')
+    for (const line of src.split(/\r?\n/)) {
+      if (/https?:\/\//.test(line)) continue          // 网址不算
+      if (/^\s*(\/\/|\*)/.test(line)) continue        // 注释里的举例不算
+      if (/['"][A-Za-z]:[\\/]/.test(line)) bad.push(f + ': ' + line.trim().slice(0, 80))
+    }
+  }
+  if (bad.length) throw new Error('写死了盘符：' + bad.slice(0, 3).join(' | '))
+})
+
+const foreign = await (async () => {
+  try {
+    const os = await import('node:os')
+    const { pathToFileURL } = await import('node:url')
+    const tmp = fs.mkdtempSync(path.join(os.default.tmpdir(), 'yspopup-foreign-'))
+    const old = process.env.DSH_HOME
+    process.env.DSH_HOME = tmp
+    const mod = await import(pathToFileURL(path.join(ROOT, 'lib/paths.js')).href + '?v=' + Date.now())
+    const rows = mod.describe()
+    const dayu = mod.dayuHome()
+    const created = fs.readdirSync(tmp).length
+    process.env.DSH_HOME = old
+    if (!rows.every((r) => typeof r.ok === 'boolean')) return 'describe() 形状不对'
+    if (dayu !== '') return '没有 dayu 目录却返回了路径'
+    if (created !== 0) return '在别人家里建了 ' + created + ' 个文件'
+    return '空 home：不抛错 / dayu 返回空 / 不建文件'
+  } catch (e) {
+    return '抛错：' + String((e && e.message) || e)
+  }
+})()
+check('没有鱼神目录时优雅降级（不抛错、不乱建）', () => {
+  if (foreign !== '空 home：不抛错 / dayu 返回空 / 不建文件') throw new Error(String(foreign))
 })
 
 // ---------- 输出 ----------

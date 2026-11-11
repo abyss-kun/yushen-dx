@@ -1,176 +1,82 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
-// 路径总入口：所有外部目录都从这里来，别再往代码里写死盘符。
+// 路径总入口：**先看环境、再找家，不写死本机的盘符**。
 //
-// 为什么要有（2026-10-28）：交付检查发现 51 处写死路径散在 34 个文件里
-// （C:/Users/Administrator、D:/DSH、D:/deepseekTools、D:/AiTOOLS）。
-// 换个机器、换个用户名，插件第一步就崩。
-//
-// 规矩：
-//   1. 先看环境变量（给高级用户/测试用）；
-//   2. 再看几个常见候选（老机器上原来那个位置）；
-//   3. 都找不到 → 返回 ''，调用方必须优雅降级（不抛错、不假装能用）。
+// 2026-11-12 老板原话：「去到新家应该先检索，了解家里情况才对，而不是绝对路径写死本机的」。
+// 所以这里的规矩是：
+//   1. 环境变量优先（给高级用户 / 测试 / 多份安装用）；
+//   2. 其次在自己周围"认门牌"——从包根、工作区、用户目录这些**相对位置**往下找，
+//      按目录里的特征文件确认（package.json 的 name、state/、events/ 这些），而不是猜某个绝对路径；
+//   3. 都找不到就返回 ''，调用方必须优雅降级（不抛错、不假装能用）。
 import fs from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import path from 'node:path'
 import os from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const HOME = os.homedir()
 const exists = (p) => { try { return Boolean(p) && fs.existsSync(p) } catch { return false } }
 const firstExisting = (list, fallback = '') => list.find((p) => exists(p)) || fallback
 
-/** DSH 家目录（几乎所有人都是 ~/.dsh）。 */
+/** DSH 家目录（几乎所有人都是 ~/.dsh，可用 DSH_HOME 覆盖）。 */
 export function dshHome() {
   return process.env.DSH_HOME || path.join(HOME, '.dsh')
 }
 
-/** 鱼神自己的数据目录（记忆、运行时、账本都在这儿）。 */
-export function dayuHome() {
-  return path.join(dshHome(), 'dayu')
-}
-
-/** 包根目录（本文件在 lib/ 下，上一级就是包根）。
- * 注意：不能用 new URL(...).pathname——中文路径会被百分号编码（2026-10-28 实测踩过）。 */
+/** 包根目录（本文件在 lib/ 下，上一级就是包根）。不能用 URL.pathname，中文路径会被百分号编码。 */
 export function packageRoot() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 }
 
-/**
- * 工作区：原来的 D:\DSH\大小鱼。
- * 顺序：YUSHEN_WS → DSH_WORKSPACE → 包根目录的父级 → cwd。
- */
-/** 找 Python：先看环境变量，再看常见位置；找不到就回 'python'（让 PATH 兜）。 */
-export function pythonPath() {
-  if (process.env.DSH_PYTHON) return process.env.DSH_PYTHON
-  const cands = [
-    path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python311', 'python.exe'),
-    path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python312', 'python.exe'),
-    '/usr/bin/python3',
-    '/usr/local/bin/python3',
+/** "家"的候选位置：包根周围、cwd、用户目录。都是相对得来的，不写盘符。 */
+function homes() {
+  const root = packageRoot()
+  const out = [
+    path.dirname(root),            // 插件就放在工作区里时
+    path.dirname(path.dirname(root)),
+    process.cwd(),
+    HOME,
   ]
-  for (const c of cands) {
-    try { if (fs.existsSync(c)) return c } catch { /* 忽略 */ }
+  return [...new Set(out.filter(Boolean))]
+}
+
+/** 在一个目录里认"门牌"：同名目录 + 特征文件。 */
+function findNeighbor(name, marker) {
+  for (const base of homes()) {
+    const p = path.join(base, name)
+    if (!exists(p)) continue
+    if (!marker || exists(path.join(p, marker))) return p
   }
-  return 'python'
-}
-
-export function workspace() {
-  const env = process.env.YUSHEN_WS || ''
-  if (env) return env
-  // 包根目录的父级就是鱼神的工作区——优先于 cwd，因为 DSH 里每条会话的 cwd 可能是别的地方。
-  // 2026-10-31：原来只认「员工手册.md 或 大小鱼-框架定义.md 在父目录」，这两个一搬走就退化成 cwd，
-  // 全插件路径跟着错。改成多个标记里认一个，并留目录级兜底。
-  const parent = path.dirname(packageRoot())
-  const marks = ['员工手册.md', '大小鱼-框架定义.md', '基线清单.md', 'AGENTS.md', '最优方案.md']
-  if (marks.some((m) => exists(path.join(parent, m)))) return parent
-  if (exists(path.join(parent, 'dsh-yushen-twins')) || exists(path.join(parent, '记忆'))) return parent
-  return process.env.DSH_WORKSPACE || process.cwd()
-}
-
-/** QQ 桥根目录：装哪儿由用户定，找不到就是 ''。 */
-export function qqBridgeRoot() {
-  return process.env.QQ_BRIDGE_ROOT
-    || firstExisting([
-      path.join(workspace(), '..', 'deepseekTools', 'qq-bridge'),
-      path.join(HOME, 'qq-bridge'),
-      'D:/deepseekTools/qq-bridge',
-    ])
-}
-
-/** 桥的状态目录（social-v2.json、人设状态都在这儿）。 */
-export function qqBridgeState() {
-  return process.env.QQ_BRIDGE_STATE || (qqBridgeRoot() ? path.join(qqBridgeRoot(), 'state') : '')
-}
-
-/** 桥的源码目录（读代码用）。 */
-export function qqBridgeSrc() {
-  return process.env.QQ_BRIDGE_SRC || (qqBridgeRoot() ? path.join(qqBridgeRoot(), 'src') : '')
-}
-
-/** 本地小模型（llama-server + 模型文件）。 */
-export function localLlmDir() {
-  return process.env.YUSHEN_LOCAL_DIR
-    || firstExisting([path.join(workspace(), '..', 'deepseekTools', 'local-llm'), 'D:/deepseekTools/local-llm'])
-}
-
-/** 角色素材库（立绘原图）。 */
-export function assetRoot() {
-  return process.env.YUSHEN_ASSET_ROOT
-    || firstExisting([path.join(workspace(), 'assets', 'character-library'), 'D:/AiTOOLS/角色素材库'])
-}
-
-/** DSH 安装目录里的 app.asar（读宿主内部实现用）。 */
-export function asarPath() {
-  if (process.env.DSH_ASAR) return process.env.DSH_ASAR
-  const cands = [
-    path.join(process.env.LOCALAPPDATA || path.join(HOME, 'AppData', 'Local'), 'Programs', 'DeepSeek Harness', 'resources', 'app.asar'),
-    path.join(HOME, 'AppData', 'Local', 'Programs', 'DeepSeek Harness', 'resources', 'app.asar'),
-  ]
-  return firstExisting(cands)
-}
-
-/** DSH 的插件材质目录（qq-chat-v2 预设等）。 */
-export function pluginPresetsDir() {
-  return process.env.YUSHEN_PRESETS_DIR || path.join(dshHome(), 'plugins', 'qq-agent-presets', 'presets')
-}
-
-/** 跨机器的"能用/不能用"清单：给安装文档和诊断用。 */
-export function describe() {
-  const rows = [
-    ['DSH 家目录', dshHome()],
-    ['工作区', workspace()],
-    ['QQ 桥', qqBridgeRoot()],
-    ['桥状态', qqBridgeState()],
-    ['本地小模型', localLlmDir()],
-    ['素材库', assetRoot()],
-    ['宿主 asar', asarPath()],
-    ['预设目录', pluginPresetsDir()],
-  ]
-  return rows.map(([name, p]) => ({ name, path: p, ok: exists(p) }))
-}
-
-/** 共享知识库（可选）：没有就是空，调用方跳过。 */
-export function knowledgeBook() {
-  return process.env.YUSHEN_WORKSPACE_BOOK
-    || firstExisting([path.join(workspace(), '共享知识库.md'), 'D:/AiTOOLS/共享知识库.md'])
-}
-
-/** 异机备份目标盘：优先生成在工作区那块盘上，找不到再退回数据盘。 */
-export function offsiteDir() {
-  if (process.env.YUSHEN_OFFSITE_DIR) return process.env.YUSHEN_OFFSITE_DIR
-  const wsDrive = path.parse(workspace()).root || ''
-  const dataDrive = path.parse(dayuHome()).root || 'C:\\'
-  const base = wsDrive || dataDrive
-  return firstExisting([path.join(base, '鱼神备份'), path.join(dataDrive, '鱼神备份')], path.join(base, '鱼神备份'))
-}
-
-/** 宝藏图库（立绘/表情存放处）。 */
-export function treasureDir() {
-  return process.env.YUSHEN_TREASURE_ROOT
-    || process.env.TREASURE_ROOT
-    || firstExisting([path.join(dayuHome(), 'treasure'), 'D:/小肥鱼的宝藏'], path.join(dayuHome(), 'treasure'))
-}
-
-/**
- * 第二块盘的备份目标（2026-10-31 老板定：双备份，防的是磁盘坏）。
- * 规则：环境变量优先；否则在「不是工作区那块盘」的盘里，找已经存在的 <盘>\鱼神备份；
- * 都没有就返回 ''，调用方跳过（不假装备了）。
- */
-export function offsiteSecondDir() {
-  if (process.env.YUSHEN_OFFSITE2_DIR) return process.env.YUSHEN_OFFSITE2_DIR
-  const primary = path.parse(offsiteDir()).root || ''
-  const dataRoot = path.parse(dayuHome()).root || ''
-  const letters = ['E:', 'F:', 'G:', 'H:', 'D:', 'C:']
-  for (const letter of letters) {
-    const root = letter + path.sep
-    if (root === primary || root === dataRoot) continue
-    const dir = path.join(root, '鱼神备份')
-    if (exists(dir)) return dir
-  }
-  // 一块现成的都没有：退出等调用方跳过，不自动建盘
   return ''
 }
 
-/** 统计磁盘用的盘：工作区在哪块盘就统计哪块（那才是数据盘）。 */
-export function dataDrive() {
-  return path.parse(workspace()).root || path.parse(dayuHome()).root || 'C:\\'
+/** 鱼神的数据目录（记忆/账本/派活都在 ~/.dsh/dayu）。没有就是 ''。 */
+export function dayuHome() {
+  const p = path.join(dshHome(), 'dayu')
+  return exists(p) ? p : ''
+}
+
+/** QQ 桥根目录：先用环境变量，再在家的周围找带 state/ 的 qq-bridge。找不到就是 ''。 */
+export function qqBridgeRoot() {
+  const env = process.env.QQ_BRIDGE_ROOT
+  if (env) return env
+  return findNeighbor('qq-bridge', 'state')
+}
+
+/** 桥的状态目录。 */
+export function qqBridgeState() {
+  const env = process.env.QQ_BRIDGE_STATE
+  if (env) return env
+  const root = qqBridgeRoot()
+  return root ? path.join(root, 'state') : ''
+}
+
+/** 跨机器的"能用/不能用"清单：给诊断和换机器时自查用（不抛错，全返回结果）。 */
+export function describe() {
+  const rows = [
+    ['DSH 家目录', dshHome()],
+    ['插件包根', packageRoot()],
+    ['鱼神数据目录', dayuHome()],
+    ['QQ 桥', qqBridgeRoot()],
+    ['桥状态', qqBridgeState()],
+  ]
+  return rows.map(([name, p]) => ({ name, path: p, ok: exists(p) }))
 }

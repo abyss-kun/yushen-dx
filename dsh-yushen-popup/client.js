@@ -55,6 +55,9 @@ window.__ModuleLoader__.load({
       },
     }
 
+    // 同类提醒去重：badge|title → { at, n }（十分钟内只弹一次，其余计次）
+    const recentAlerts = new Map()
+
     function mountImportantPopup(opts = {}) {
       if (typeof document === 'undefined') return Promise.resolve(false)
       // 合并全局队列：同时来多条时，一个弹窗显示「未读 N 条」列表
@@ -63,6 +66,27 @@ window.__ModuleLoader__.load({
       for (const p2 of pending2) merged.push(p2)
       const items = merged
       const theme = (opts.theme === 'red' || (items[0] && items[0].theme === 'red')) ? 'red' : 'blue'
+      // 2026-11-11 老板：「多个提醒会有多个弹窗，是好是坏」——不好：
+      // 同一件事（同 badge+标题）十分钟内重复来，只弹一次，次数记下来写在正文里；
+      // 间隔超过十分钟的，算新的一次，照常弹。避免「别的会话刚跑了一轮」每 5 分钟糊一脸。
+      const dedupeMs = Number(opts.dedupeMs) > 0 ? Number(opts.dedupeMs) : 10 * 60 * 1000
+      const dk = String((items[0] && items[0].badge) || '') + '|' + String((items[0] && items[0].title) || '')
+      const nowMs = Date.now()
+      const seen = recentAlerts.get(dk) || { at: 0, n: 0 }
+      if (seen.at && nowMs - seen.at < dedupeMs) {
+        seen.n += 1
+        seen.at = nowMs
+        recentAlerts.set(dk, seen)
+        try { yspPushHistory(items[0] || opts) } catch { /* 忽略 */ }
+        return Promise.resolve(false)
+      }
+      recentAlerts.set(dk, { at: nowMs, n: 0 })
+      if (seen.n > 0 && items[0]) {
+        // 说明"刚才还来过 N 次"，一条顶 N 条
+        items[0] = Object.assign({}, items[0], {
+          body: String(items[0].body || '') + '\n（刚才 10 分钟里又来了 ' + seen.n + ' 次）',
+        })
+      }
       // 已有弹窗在显示 → 入队，等它关掉再弹（避免同时叠好几个）
       if (typeof window !== 'undefined' && window.__ysPopupShowing) {
         window.__ysPopupPending = window.__ysPopupPending || []
@@ -88,6 +112,18 @@ window.__ModuleLoader__.load({
         const _stroke = _strokeW > 0 ? (_strokeW + 'px ' + (_font.strokeColor || '#ffffff')) : '0 transparent'
         const wrap = document.createElement('div')
         wrap.setAttribute('data-ys-popup', '1')
+        wrap.id = 'ys-popup-wrap'
+        // 2026-11-11 老板：「按键无效，而且没有关闭」——先别猜，留证据。
+        // 每次点按钮/点外面/按 Esc 都往 host 记一行；下次再出问题，看日志就知道是"事件没到"还是"到了没生效"。
+        const yspDiag = function (why, extra) {
+          try {
+            fetch('/yushen-popup/diag', {
+              method: 'POST', credentials: 'same-origin',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ why: why, extra: extra || null, title: String((items[0] && items[0].title) || '') }),
+            }).catch(function () { /* 诊断写不上不影响弹窗 */ })
+          } catch { /* 忽略 */ }
+        }
         // 音效（点击水声）：本地素材，失败静默
         const playClick = () => {
           try {
@@ -150,10 +186,10 @@ window.__ModuleLoader__.load({
           position: 'absolute', left: '27%', right: '27%',
           top: '26%', bottom: '42%',
           display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'safe center',
-          gap: '1.4cqw', padding: '0 2.4cqw 5cqw', boxSizing: 'border-box',
+          gap: '1.4cqw', padding: '0 2.4cqw 5cqw', boxSizing: 'border-box', overflowY: 'auto', minHeight: 0,
           color: _font.textColor || (LIGHT ? '#1b2a38' : T.colors.text),
           fontFamily: _font.fontFamily || 'inherit',
-          fontSize: FS(1.6),
+          fontSize: FS(1.3),
           WebkitTextStroke: _stroke,
           fontWeight: _font.fontWeight || '',
           textShadow: '0 2px 12px rgba(0,20,40,.7)',
@@ -191,7 +227,7 @@ window.__ModuleLoader__.load({
           content.appendChild(h)
           const p = document.createElement('p')
           p.textContent = it.body || ''
-          Object.assign(p.style, { margin: '0', fontSize: FS(1.9), lineHeight: '1.75', color: _font.textColor || (LIGHT ? '#2a3a48' : T.colors.body), WebkitTextStroke: _stroke, fontWeight: _font.fontWeight || '', whiteSpace: 'pre-wrap', width: '100%', wordBreak: 'break-word', textAlign: 'center' })
+          Object.assign(p.style, { margin: '0', fontSize: FS(1.5), lineHeight: '1.75', color: _font.textColor || (LIGHT ? '#2a3a48' : T.colors.body), WebkitTextStroke: _stroke, fontWeight: _font.fontWeight || '', whiteSpace: 'pre-wrap', width: '100%', wordBreak: 'break-word', textAlign: 'center' })
           content.appendChild(p)
           // 两个按钮：同一风格、同色系，不分主次，放框外下方
           const _bs = (_font && _font.buttonStyle) || 'crystal'
@@ -231,20 +267,28 @@ window.__ModuleLoader__.load({
             back.addEventListener('click', (e) => { e.stopPropagation(); showList() })
             btnRow.appendChild(back)
           }
-          const cancel = document.createElement('button')
-          cancel.textContent = it.cancelText || '关掉'
-          Object.assign(cancel.style, btnBase)
-          cancel.style.filter = 'brightness(.92)'
-          cancel.addEventListener('click', (e) => { e.stopPropagation(); playClick(); finish(false) })
-          btnRow.appendChild(cancel)
+          // 2026-11-11 老板：「好和知道了好像是一回事吧」——对，纯通知的两个键都是"关"。
+          // 规矩改成：**不给 cancelText 就只出一个键**（知道了 / 好），一个键就是"看完关掉"，不进常驻；
+          // 真有第二个选择（比如「稍后」）才出两个键。
+          const single = !it.cancelText
+          if (!single) {
+            const cancel = document.createElement('button')
+            cancel.textContent = it.cancelText
+            cancel.setAttribute('data-ys-act', 'cancel')
+            Object.assign(cancel.style, btnBase)
+            cancel.style.filter = 'brightness(.92)'
+            cancel.addEventListener('click', (e) => { e.stopPropagation(); try { yspDiag('click-cancel') } catch { /* 忽略 */ }; playClick(); finish(false) })
+            btnRow.appendChild(cancel)
+          }
           const ok = document.createElement('button')
-          ok.textContent = it.confirmText || '好'
+          ok.textContent = it.confirmText || (single ? '知道了' : '好')
+          ok.setAttribute('data-ys-act', single ? 'close' : 'ok')
           // 主按钮同一套风格，只是略亮一点、字重更实（不偏离主题）
           Object.assign(ok.style, btnBase)
           ok.style.filter = 'brightness(1.12)'
           ok.style.fontWeight = '700'
           ok.style.boxShadow = String(btnBase.boxShadow || '') + ', 0 0 1.6cqw rgba(255,255,255,.25)'
-          ok.addEventListener('click', (e) => { e.stopPropagation(); playClick(); finish(true) })
+          ok.addEventListener('click', (e) => { e.stopPropagation(); try { yspDiag(single ? 'click-close' : 'click-ok') } catch { /* 忽略 */ }; playClick(); finish(!single) })
           btnRow.appendChild(ok)
         }
         const showList = () => {
@@ -289,6 +333,7 @@ window.__ModuleLoader__.load({
           // 返回：回到主界面（所有子页面都有）
           const backBtn = document.createElement('button')
           backBtn.textContent = '返回'
+          backBtn.setAttribute('data-ys-act', 'close')
           Object.assign(backBtn.style, listBtn)
           backBtn.addEventListener('click', (e) => { e.stopPropagation(); finish(false) })
           btnRow.appendChild(backBtn)
@@ -296,6 +341,7 @@ window.__ModuleLoader__.load({
           if (!opts.closeOnly) {
             const readAll = document.createElement('button')
             readAll.textContent = '全部已读'
+            readAll.setAttribute('data-ys-act', 'close')
             Object.assign(readAll.style, listBtn)
             readAll.addEventListener('click', (e) => { e.stopPropagation(); finish(false) })
             btnRow.appendChild(readAll)
@@ -361,34 +407,81 @@ window.__ModuleLoader__.load({
         let done = false
         let opened = false
         let suspended = false
-        const onKey = (e) => { if (e.key === 'Escape') finish(false) }
-        const finish = (result) => {
-          if (done) return
-          done = true
-          // 常驻：点「好/知道了」不销毁，收成悬浮画卷留在屏幕
-          if (_stay && result) {
-            try { suspend() } catch { /* 忽略 */ }
-            try { resolve(true) } catch { /* 忽略 */ }
+        // 2026-11-11 老板：「按键无效，而且没有关闭」。原来的 finish 里任何一句抛错（比如 onWheel 还没就绪、
+        // 或者宿主那边删了节点），done 已经置 true，后面再点就全部空转，弹窗永远关不掉。
+        // 现在：每一步单独 try，最后无论如何都从 DOM 里摘掉；并且关掉后一定复位 __ysPopupShowing，
+        // 免得一条弹窗把后面所有弹窗都吃掉。
+        const cleanup = (keepFloating, result) => {
+          try { document.removeEventListener('keydown', onKey, true) } catch { /* 忽略 */ }
+          try { document.removeEventListener('keydown', onEnter, true) } catch { /* 忽略 */ }
+          try { document.removeEventListener('pointerdown', repairPointer, true) } catch { /* 忽略 */ }
+          try { document.removeEventListener('click', onClickCapture, true) } catch { /* 忽略 */ }
+          try { window.removeEventListener('wheel', onWheel, { passive: false }) } catch { /* 忽略 */ }
+          try { if (typeof window !== 'undefined') window.__ysPopupShowing = false } catch { /* 忽略 */ }
+          if (keepFloating) {
+            try { suspend() } catch { try { wrap.remove() } catch { /* 忽略 */ } }
+            try { resolve(result) } catch { /* 忽略 */ }
             return
           }
-          document.removeEventListener('keydown', onKey, true)
-          window.removeEventListener('wheel', onWheel, { passive: false })
-          try { wrap.style.opacity = '0' } catch { /* noop */ }
+          try { wrap.style.opacity = '0' } catch { /* 忽略 */ }
+          try { wrap.style.pointerEvents = 'none' } catch { /* 忽略 */ }
           setTimeout(() => {
             try { wrap.remove() } catch { /* 已移除 */ }
             try { noDragStyle.remove() } catch { /* 已移除 */ }
           }, 260)
-          try { yspPushHistory(items[0] || opts) } catch { /* 忽略 */ }
-          resolve(result)
+          try { resolve(result) } catch { /* 忽略 */ }
           try {
-            if (typeof window !== 'undefined') window.__ysPopupShowing = false
             const q = (typeof window !== 'undefined' && Array.isArray(window.__ysPopupPending)) ? window.__ysPopupPending : []
             if (q.length && typeof window.__yshenImportantPopup === 'function') {
               setTimeout(function () { window.__yshenImportantPopup(q.shift()) }, 260)
             }
           } catch { /* 忽略 */ }
         }
+        const finish = (result) => {
+          if (done) return
+          done = true
+          try { yspDiag('finish', { result: !!result, stay: !!_stay }) } catch { /* 忽略 */ }
+          try { yspPushHistory(items[0] || opts) } catch { /* 忽略 */ }
+          try { cleanup(!!(_stay && result), result) } catch {
+            try { wrap.remove() } catch { /* 忽略 */ }
+            try { if (typeof window !== 'undefined') window.__ysPopupShowing = false } catch { /* 忽略 */ }
+          }
+        }
+        // 2026-11-11：按钮"点了没反应"的兜底。不靠按钮自己的监听器——在 document 上用捕获阶段拦一次：
+        // 只要这一下点在弹窗里的按钮上，就直接按 data-ys-act 收尾。按钮自己的监听器要是没触发/抛错，这里照样关。
+        const onClickCapture = (e) => {
+          try {
+            if (done) return
+            const t = e && e.target
+            if (!t) return
+            if (!(typeof wrap.contains === 'function' && wrap.contains(t))) return
+            let el = t
+            while (el && el !== wrap) {
+              if (el.tagName && String(el.tagName).toLowerCase() === 'button') break
+              el = el.parentNode
+            }
+            if (!el || el === wrap) return
+            const act = (el.getAttribute && el.getAttribute('data-ys-act')) || ''
+            yspDiag('capture-click', { act: act, label: String(el.textContent || '').slice(0, 16) })
+            if (act === 'ok') { playClick(); finish(true) }
+            else if (act === 'cancel' || act === 'close') { playClick(); finish(false) }
+          } catch { /* 忽略 */ }
+        }
+        document.addEventListener('click', onClickCapture, true)
+        const onKey = (e) => { if (e.key === 'Escape') { try { yspDiag('esc') } catch { /* 忽略 */ } finish(false) } }
         document.addEventListener('keydown', onKey, true)
+        // 2026-11-11：如果 wrap 曾经被设成 pointer-events:none（收拢/让位那条路留下的），
+        // 弹窗看着好好的、点哪儿都没反应——所有子元素都点不到。这里在任意一次按下时自检并修回来。
+        const repairPointer = () => {
+          try {
+            if (done || suspended) return
+            if (String(wrap.style.pointerEvents || '') === 'none') {
+              wrap.style.pointerEvents = 'auto'
+              diag('repair-pointer')
+            }
+          } catch { /* 忽略 */ }
+        }
+        document.addEventListener('pointerdown', repairPointer, true)
         const onEnter = (e) => {
           if (e.key === 'Enter' && !e.isComposing) {
             const el = document.activeElement
@@ -399,11 +492,18 @@ window.__ModuleLoader__.load({
           }
         }
         document.addEventListener('keydown', onEnter, true)
-        wrap.addEventListener('click', (e) => { if (e.target === wrap) suspend() })
+        // 点弹窗外面的暗色区域：常驻设置开着就收成悬浮画卷；没开就直接关（以前一律 suspend，等于点外面也关不掉）
+        wrap.addEventListener('click', (e) => {
+          if (e.target !== wrap) return
+          try { yspDiag('backdrop', { stay: !!_stay }) } catch { /* 忽略 */ }
+          if (_stay) { try { suspend(); return } catch { /* 兜底关掉 */ } }
+          finish(false)
+        })
 
         const reveal = () => {
           if (opened) return
           opened = true
+          wrap.style.pointerEvents = 'auto'
           wingL.style.transform = 'none'
           wingR.style.transform = 'none'
           applyPartScale()
@@ -494,6 +594,15 @@ window.__ModuleLoader__.load({
             lastPos = target
             savePos(target)
           }
+          // 和小黑板避让：画卷要落的位置如果压在黑板上，往左挪开（两者独立存在，但别叠死）
+          try {
+            const memoEl = document.getElementById('ysp-memo')
+            if (memoEl && memoEl.style.display !== 'none') {
+              const mr = memoEl.getBoundingClientRect()
+              const hit = target.x + pad > mr.left && target.x - pad < mr.right && target.y + pad > mr.top && target.y - pad < mr.bottom
+              if (hit) target = clampPos({ x: mr.left - pad, y: target.y })
+            }
+          } catch { /* 忽略 */ }
           const dx = target.x - (r.left + r.width / 2)
           const dy = target.y - (r.top + r.height / 2)
           stage.style.transformOrigin = '50% 50%'
@@ -712,6 +821,255 @@ window.__ModuleLoader__.load({
     }
     try { window.__yshenImportantPopup = mountImportantPopup } catch { /* window 不可用 */ }
 
+    // 2026-11-11：显示标志看门狗。__ysPopupShowing 一旦被卡住（弹窗被删了、或某条路径忘了复位），
+    // 后面所有弹窗都会只进队列不显示，界面上看着就是"点了没反应"。5 秒检查一次，DOM 里没有弹窗就复位。
+    if (typeof window !== 'undefined' && typeof setInterval === 'function' && !window.__yspPopupWatchdog) {
+      window.__yspPopupWatchdog = setInterval(function () {
+        try {
+          if (!window.__ysPopupShowing) return
+          const el = (typeof document.querySelector === 'function') ? document.querySelector('[data-ys-popup]') : null
+          if (el) return
+          window.__ysPopupShowing = false
+          const q = Array.isArray(window.__ysPopupPending) ? window.__ysPopupPending : []
+          if (q.length && typeof window.__yshenImportantPopup === 'function') window.__yshenImportantPopup(q.shift())
+        } catch { /* 忽略 */ }
+      }, 5000)
+    }
+
+    // ── 小黑板：常驻右上角的临时备忘（最近会话自动 + 手写事项） ──
+    const MEMO_KEY = 'yspopup.memo.items'
+    function yspReadMemo() { try { return JSON.parse(localStorage.getItem(MEMO_KEY) || '[]') || [] } catch { return [] } }
+    function yspSaveMemo(items) { try { localStorage.setItem(MEMO_KEY, JSON.stringify(items)) } catch { /* 忽略 */ } }
+    // 小黑板是否在显示：用来让「常驻画卷」让位，避免两个常驻悬浮抢地方
+    function yspMemoVisible() {
+      try {
+        const el = document.getElementById('ysp-memo')
+        return !!(el && el.style.display !== 'none')
+      } catch { return false }
+    }
+
+    function mountMemoBoard() {
+      if (typeof document === 'undefined') return
+      if (document.getElementById('ysp-memo')) return
+      const T = POPUP_THEMES.blue
+      const el = document.createElement('div')
+      el.id = 'ysp-memo'
+      el.style.cssText = 'position:fixed;right:18px;top:96px;width:min(380px,calc(100vw - 36px));z-index:2147482000;cursor:grab;user-select:none'
+      const stage = document.createElement('div')
+      stage.style.cssText = 'position:relative;width:100%;aspect-ratio:2366 / 1772;container-type:inline-size;transition:transform .15s ease'
+      const mk = function (part, box) {
+        const im = document.createElement('img')
+        im.src = '/yushen-popup/assets/blue/' + part + '.png'
+        im.alt = ''
+        im.draggable = false
+        Object.assign(im.style, { position: 'absolute', pointerEvents: 'none', userSelect: 'none', width: box.w + '%', top: box.y + '%' })
+        if (box.right != null) im.style.right = box.right + '%'
+        else im.style.left = box.x + '%'
+        stage.appendChild(im)
+        return im
+      }
+      mk('crown', { x: T.crown[0], y: T.crown[1], w: T.crown[2] })
+      mk('left', { x: T.wingL[0], y: T.wingL[1], w: T.wingL[2] })
+      mk('right', { right: T.wingR[0], y: T.wingR[1], w: T.wingR[2] })
+      mk('frame', { x: T.frame[0], y: T.frame[1], w: T.frame[2] })
+      mk('bottom', { x: T.bottom[0], y: T.bottom[1], w: T.bottom[2] })
+      // 框内内容区
+      const content = document.createElement('div')
+      Object.assign(content.style, {
+        position: 'absolute', left: '27%', right: '27%', top: '26%', bottom: '42%',
+        display: 'flex', flexDirection: 'column', gap: '1.2cqw', overflowY: 'auto', overflowX: 'hidden',
+        color: '#eaf7ff', fontSize: '3.6cqw', textShadow: '0 2px 12px rgba(0,20,40,.7)', cursor: 'default',
+        padding: '0 1cqw',
+      })
+      const title = document.createElement('div')
+      title.textContent = '小黑板'
+      title.style.cssText = 'font-size:4.2cqw;font-weight:600;color:#f2fbff;letter-spacing:.1em;text-align:center'
+      const memoBox = document.createElement('div')
+      memoBox.style.cssText = 'display:flex;flex-direction:column;gap:1cqw'
+      const addBtn = document.createElement('button')
+      addBtn.textContent = '+ 添加一行'
+      addBtn.style.cssText = 'margin-top:.8cqw;padding:.5cqw 1cqw;border-radius:1.2cqw;border:1px dashed rgba(140,210,255,.45);background:rgba(20,40,60,.5);color:#9fd4ff;cursor:pointer;font-size:3.2cqw'
+      content.appendChild(title)
+      content.appendChild(memoBox)
+      content.appendChild(addBtn)
+      stage.appendChild(content)
+      el.appendChild(stage)
+      document.body.appendChild(el)
+      const applyOn = function () {
+        let on = true
+        try { on = localStorage.getItem('yspopup.memo.enabled') !== '0' } catch { on = true }
+        el.style.display = on ? 'block' : 'none'
+      }
+      applyOn()
+      // 2026-11-11 老板：「开关不能立刻生效，是没跑通还是要重启」——是等下一轮 30 秒的检查。
+      // 现在把"现在就看一眼开关"挂出去，保存设置时立刻调。
+      try { if (typeof window !== 'undefined') window.__yspMemoOn = applyOn } catch { /* 忽略 */ }
+      // 拖动
+      let drag = null
+      el.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('button,input,[contenteditable]')) return
+        const r = el.getBoundingClientRect()
+        drag = { dx: e.clientX - r.left, dy: e.clientY - r.top }
+        el.style.cursor = 'grabbing'
+        try { el.setPointerCapture(e.pointerId) } catch { /* 忽略 */ }
+      })
+      el.addEventListener('pointermove', function (e) {
+        if (!drag) return
+        const w = el.offsetWidth
+        el.style.left = Math.max(0, Math.min(window.innerWidth - w, e.clientX - drag.dx)) + 'px'
+        el.style.top = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - drag.dy)) + 'px'
+        el.style.right = 'auto'
+      })
+      el.addEventListener('pointerup', function () {
+        if (!drag) return
+        drag = null
+        el.style.cursor = 'grab'
+        try { localStorage.setItem('yspopup.memo.pos', JSON.stringify({ left: el.style.left, top: el.style.top })) } catch { /* 忽略 */ }
+      })
+      try {
+        const pos = JSON.parse(localStorage.getItem('yspopup.memo.pos') || 'null')
+        if (pos && pos.left && pos.top) { el.style.left = pos.left; el.style.top = pos.top; el.style.right = 'auto' }
+      } catch { /* 忽略 */ }
+      // 滚轮缩放
+      let zoom = 1
+      el.addEventListener('wheel', function (e) {
+        e.preventDefault()
+        zoom = Math.max(0.7, Math.min(1.6, zoom + (e.deltaY > 0 ? -0.08 : 0.08)))
+        stage.style.transform = 'scale(' + zoom.toFixed(2) + ')'
+        stage.style.transformOrigin = 'top left'
+      }, { passive: false })
+      // 待办列表
+      const renderMemo = function () {
+        memoBox.textContent = ''
+        const items = yspReadMemo()
+        items.forEach(function (it, i) {
+          const row = document.createElement('div')
+          row.style.cssText = 'display:flex;gap:1cqw;align-items:flex-start'
+          const box = document.createElement('input')
+          box.type = 'checkbox'
+          box.checked = !!it.done
+          box.style.cssText = 'margin-top:.4cqw;cursor:pointer'
+          box.onchange = function () { items[i].done = box.checked; yspSaveMemo(items); renderMemo() }
+          const txt = document.createElement('div')
+          txt.contentEditable = 'true'
+          txt.textContent = it.text || ''
+          txt.style.cssText = 'flex:1;font-size:3.6cqw;outline:none;color:' + (it.done ? '#66748a' : '#dfe9f5') + ';text-decoration:' + (it.done ? 'line-through' : 'none') + ';min-height:4cqw;word-break:break-word;cursor:text'
+          txt.onblur = function () { items[i].text = txt.textContent.trim(); yspSaveMemo(items); if (!items[i].text) { items.splice(i, 1); yspSaveMemo(items); renderMemo() } }
+          txt.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); txt.blur() }
+          })
+          const del = document.createElement('button')
+          del.textContent = '×'
+          del.style.cssText = 'background:transparent;border:none;color:#66748a;cursor:pointer;font-size:3.4cqw;padding:0 .5cqw'
+          del.onclick = function () { items.splice(i, 1); yspSaveMemo(items); renderMemo() }
+          row.appendChild(box)
+          row.appendChild(txt)
+          row.appendChild(del)
+          memoBox.appendChild(row)
+        })
+        if (!items.length) {
+          const d = document.createElement('div')
+          d.textContent = '点「+ 添加一行」写今天要做的事'
+          d.style.cssText = 'font-size:3cqw;color:#66748a;text-align:center'
+          memoBox.appendChild(d)
+        }
+      }
+      addBtn.onclick = function () {
+        const items = yspReadMemo()
+        items.push({ text: '', done: false })
+        yspSaveMemo(items)
+        renderMemo()
+        try {
+          const boxes = memoBox.querySelectorAll('[contenteditable]')
+          if (boxes.length) boxes[boxes.length - 1].focus()
+        } catch { /* 忽略 */ }
+      }
+      renderMemo()
+      setInterval(applyOn, 30000)
+    }
+
+    // 在消息下面的「用量 X tok」旁边标出本轮花费：优先用真实账本（能对上 tokens 的那轮），对不上才估算
+    function mountInlineCost() {
+      if (typeof document === 'undefined') return
+      const marked = new WeakSet()
+      const parseTok = function (num, unit) {
+        let n = parseFloat(num)
+        if (!isFinite(n)) return 0
+        if (unit === 'K' || unit === 'k') n *= 1000
+        else if (unit === 'M' || unit === 'm') n *= 1000000
+        else if (unit === 'W' || unit === 'w' || unit === '万') n *= 10000
+        return Math.round(n)
+      }
+      const estimate = function (tokens) {
+        const peak = yspIsPeak(Date.now())
+        const p = YSP_PRICE[peak ? 'peak' : 'off']
+        return (tokens * (0.99 * p.hit + 0.01 * p.miss)) / 1e6 * YSP_USD_CNY
+      }
+      let realCache = null
+      const loadReal = function () {
+        fetch('/yushen-popup/real', { credentials: 'same-origin' })
+          .then(function (r) { return r.json() })
+          .then(function (d) { if (d && d.ok) realCache = d })
+          .catch(function () { /* 忽略 */ })
+      }
+      loadReal()
+      setInterval(loadReal, 60000)
+      // 在真实账本里找 tokens 对得上的那轮（误差 < 2%），用它的真实 cost
+      const matchCost = function (tokens) {
+        try {
+          if (!realCache || !Array.isArray(realCache.recent)) return null
+          for (let i = realCache.recent.length - 1; i >= 0; i--) {
+            const e = realCache.recent[i]
+            const et = Number(e.tokens) || 0
+            if (et && Math.abs(et - tokens) / Math.max(tokens, 1) < 0.02) return Number(e.cost) || null
+          }
+        } catch { /* 忽略 */ }
+        return null
+      }
+      const mark = function () {
+        if (document.hidden) return
+        try {
+          if (localStorage.getItem('yspopup.inlineCost') === '0') return
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+          let n
+          while ((n = walker.nextNode())) {
+            const t = n.nodeValue || ''
+            const m = /用量\s*([\d.]+)\s*([KMW万]?)\s*tok/i.exec(t)
+            if (!m) continue
+            const parent = n.parentElement
+            if (!parent || marked.has(parent) || parent.hasAttribute('data-ysp-cost-parent')) continue
+            if (parent.closest('#ysp-memo, #ysp-cd-choice, [data-ys-popup], [data-ysp-cost]')) continue
+            if (parent.querySelector('[data-ysp-cost]')) continue
+            if (String(parent.textContent || '').indexOf('¥') >= 0) continue
+            const tokens = parseTok(m[1], m[2])
+            if (!tokens) continue
+            const real = matchCost(tokens)
+            const cost = real != null ? real : estimate(tokens)
+            const span = document.createElement('span')
+            span.setAttribute('data-ysp-cost', '1')
+            span.textContent = ' · ' + (real != null ? '¥' : '约 ¥') + cost.toFixed(2)
+            span.style.cssText = 'margin-left:6px;color:#9fd4ff;font-size:11px;opacity:.85;cursor:default'
+            parent.appendChild(span)
+            parent.setAttribute('data-ysp-cost-parent', '1')
+            marked.add(parent)
+          }
+        } catch { /* 忽略 */ }
+      }
+      mark()
+      // 保存设置后立刻重扫一遍（不然要等下一次 DOM 变化才生效）
+      try { if (typeof window !== 'undefined') window.__yspInlineOn = mark } catch { /* 忽略 */ }
+      let lastMark = 0
+      try {
+        const obs = new MutationObserver(function () {
+          const now = Date.now()
+          if (now - lastMark < 1500) return
+          lastMark = now
+          mark()
+        })
+        obs.observe(document.body, { childList: true, subtree: true })
+      } catch { /* 忽略 */ }
+    }
+
 
     // ── 弹窗控制台（后台独立页面：左侧分类 + 右侧开关） ──
     const TABS = [
@@ -725,6 +1083,25 @@ window.__ModuleLoader__.load({
       const [msg, setMsg] = React.useState('')
       // 任务页数据（hooks 必须在组件顶层，不能写在分支里）
       const [busy, setBusy] = React.useState(null)
+      const [realUsage, setRealUsage] = React.useState(null)
+      React.useEffect(function () {
+        let live = true
+        const load = function () {
+          fetch('/yushen-popup/real', { credentials: 'same-origin' })
+            .then(function (r) { return r.json() })
+            .then(function (d) { if (live && d && d.ok) setRealUsage(d) })
+            .catch(function () { /* 忽略 */ })
+        }
+        load()
+        const t = setInterval(load, 30000)
+        return function () { live = false; clearInterval(t) }
+      }, [])
+      const [sessWin, setSessWin] = React.useState(60)
+      const [sessTick, setSessTick] = React.useState(0)
+      React.useEffect(function () {
+        const t = setInterval(function () { setSessTick(function (x) { return x + 1 }) }, 5000)
+        return function () { clearInterval(t) }
+      }, [])
       React.useEffect(function () {
         let live = true
         const load = function () {
@@ -743,8 +1120,8 @@ window.__ModuleLoader__.load({
           .then(function (d) { if (d && d.ok) setCfg(d.config) })
           .catch(function () { /* 忽略 */ })
       }, [])
-      const save = function () {
-        setMsg('保存中…')
+      const save = function (quiet) {
+        if (!quiet) setMsg('保存中…')
         fetch('/yushen-popup/config', {
           method: 'POST', credentials: 'same-origin',
           headers: { 'content-type': 'application/json' },
@@ -760,11 +1137,32 @@ window.__ModuleLoader__.load({
               }))
             } catch { /* 忽略 */ }
             try { localStorage.setItem('yspopup.view', JSON.stringify({ zoomView: cfg.zoomView || 'expanded', reopenView: cfg.reopenView || 'expanded' })) } catch { /* 忽略 */ }
-            setMsg('已保存')
+            try { localStorage.setItem('yspopup.memo.enabled', cfg.memoEnabled === false ? '0' : '1') } catch { /* 忽略 */ }
+            try { localStorage.setItem('yspopup.inlineCost', cfg.inlineCost === false ? '0' : '1') } catch { /* 忽略 */ }
+            try { localStorage.setItem('yspopup.memo.auto', cfg.memoAutoSessions ? '1' : '0') } catch { /* 忽略 */ }
+            // 2026-11-11 老板：「不能改成立刻生效吗」——能。保存完当场把受开关控制的那几处重跑一遍，
+            // 不用等 30~60 秒的定时检查，更不用重启。
+            try { if (window.__yspMemoOn) window.__yspMemoOn() } catch { /* 忽略 */ }
+            try { if (window.__yspInlineOn) window.__yspInlineOn() } catch { /* 忽略 */ }
+            try { if (window.__yspApplyChatColors) window.__yspApplyChatColors() } catch { /* 忽略 */ }
+            try { if (window.__yspReloadCfg) window.__yspReloadCfg() } catch { /* 忽略 */ }
+            if (!quiet) setMsg('已保存')
           } else setMsg('没存成')
         }).catch(function (e) { setMsg('没存成：' + String(e && e.message || e)) })
       }
-      const set = function (patch) { setCfg(Object.assign({}, cfg, patch)) }
+      // 2026-11-11 老板：「后台的开关不能立刻生效，是没跑通还是要重启」——两者都不是，是**要按保存**。
+      // 现在改成：改一下就自动存（500 毫秒防抖），存完立刻应用到界面，不用再找保存键。
+      let autoSaveTimer = null
+      const scheduleAutoSave = function () {
+        try {
+          if (autoSaveTimer) clearTimeout(autoSaveTimer)
+          autoSaveTimer = setTimeout(function () { autoSaveTimer = null; try { save(true) } catch { /* 忽略 */ } }, 500)
+        } catch { /* 忽略 */ }
+      }
+      const set = function (patch) {
+        setCfg(Object.assign({}, cfg, patch))
+        scheduleAutoSave()
+      }
       // 会话染色配置（字体美化页的「会话」块用）
       const setChat = function (patch) {
         const cur = (cfg && cfg.chatColors) || {}
@@ -809,6 +1207,11 @@ window.__ModuleLoader__.load({
           radio('mode', 'ritual', '卷轴仪式（弹出是收拢画卷，点开才展开）'),
           bar('紧急事件直接弹 — 要紧的事是否跳过卷轴直接显示'),
           check('urgentDirect', '紧急的事跳过仪式，直接给你看'),
+          bar('小黑板 — 常驻在页面右上角的临时备忘（默认空白，自己写事项）'),
+          check('memoEnabled', '显示小黑板'),
+          check('memoAutoSessions', '小黑板里自动列出最近会话（默认关，黑板保持空白）'),
+          check('inlineCost', '在消息下面的「用量 X tok」旁直接显示本轮花费（减少弹窗）'),
+          h('div', { style: { color: '#999', fontSize: '12px' } }, '可拖动、可折叠；手写事项存在本地，重启不丢。开着小黑板时，弹窗点「好」只还原黑板，不另挂画卷。'),
           bar('关闭后 — 点「好/知道了」之后弹窗怎么处理'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: (function () { try { return localStorage.getItem('yspopup.stay') === '1' } catch { return false } })(),
@@ -835,33 +1238,129 @@ window.__ModuleLoader__.load({
           check('hoverFx', '悬停时有反馈（提亮 / 稍后提示）'))
       } else if (tab === 'reminder') {
         const ta = (cfg && cfg.tokenAlert) || {}
+        const setTa = function (patch) { set({ tokenAlert: Object.assign({}, ta, patch) }) }
+        const peakNow = (function () { try { return window.__yspIsPeak ? window.__yspIsPeak(Date.now()) : null } catch { return null } })()
         body = h('div', null,
-          bar('会话 token 提醒 — 单个会话上下文快满时弹窗提醒你'),
+          bar('会话 token 提醒 — 每轮成本 / 累计花费 / 上下文容量，三条线各自可调'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: ta.enabled !== false,
-            onChange: function (e) { set({ tokenAlert: Object.assign({}, ta, { enabled: e.target.checked }) }) },
-          }), '开着（默认开）'),
-          h('div', { style: S.row }, h('span', { style: S.key }, '8 万时'),
-            h('input', {
-              type: 'number', min: 1000, step: 1000, style: S.num,
-              value: ta.warnAt || 80000,
-              onChange: function (e) { set({ tokenAlert: Object.assign({}, ta, { warnAt: Number(e.target.value) || 80000 }) }) },
-            }), h('span', { style: { color: '#999', fontSize: '12px' } }, 'token — 蓝框提醒一次')),
-          h('div', { style: S.row }, h('span', { style: S.key }, '15 万时'),
-            h('input', {
-              type: 'number', min: 1000, step: 1000, style: S.num,
-              value: ta.dangerAt || 150000,
-              onChange: function (e) { set({ tokenAlert: Object.assign({}, ta, { dangerAt: Number(e.target.value) || 150000 }) }) },
-            }), h('span', { style: { color: '#999', fontSize: '12px' } }, 'token — 红框加重提醒一次')),
+            onChange: function (e) { setTa({ enabled: e.target.checked }) },
+          }), '总开关（开着）'),
+          h('label', { style: S.check }, h('input', {
+            type: 'checkbox', checked: ta.checkOnOpen !== false,
+            onChange: function (e) { setTa({ checkOnOpen: e.target.checked }) },
+          }), '每次打开页面检查一次'),
+          h('label', { style: S.check }, h('input', {
+            type: 'checkbox', checked: !!ta.repeatOnOpen,
+            onChange: function (e) { setTa({ repeatOnOpen: e.target.checked }) },
+          }), '重启后同一会话也再提醒（默认关：每会话每级只提醒一次）'),
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.otherSessionAlert !== false,
+            onChange: function (e) { setTa({ otherSessionAlert: e.target.checked }) } }), '其他会话完成一轮时也提醒（不切过去也弹）'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '其他会话'),
+            h('input', { type: 'number', min: 60, max: 600, step: 60, style: S.num, value: ta.otherIntervalSec || 300,
+              onChange: function (e) { setTa({ otherIntervalSec: Math.max(60, Number(e.target.value) || 300) }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '秒一次（默认 300 = 5 分钟）')),
+
+          bar('成本线 — 超过就弹（¥，按当前峰谷和缓存估算）'),
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.roundEnabled !== false,
+            onChange: function (e) { setTa({ roundEnabled: e.target.checked }) } }), '每轮成本线开着'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '每轮'),
+            h('input', { type: 'number', min: 0.01, step: 0.01, style: S.num, value: ta.roundLine || 0.1,
+              onChange: function (e) { setTa({ roundLine: Number(e.target.value) || 0.1 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '¥/轮 — 参考：上下文 8 万、峰时全价约 ¥0.17/轮')),
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.totalEnabled !== false,
+            onChange: function (e) { setTa({ totalEnabled: e.target.checked }) } }), '累计花费线开着'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '累计'),
+            h('input', { type: 'number', min: 1, step: 1, style: S.num, value: ta.totalLine || 10,
+              onChange: function (e) { setTa({ totalLine: Number(e.target.value) || 10 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '¥，之后每 +'),
+            h('input', { type: 'number', min: 1, step: 1, style: S.num, value: ta.totalStep || 10,
+              onChange: function (e) { setTa({ totalStep: Number(e.target.value) || 10 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '¥ 再提醒一次（估算）')),
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.contextEnabled !== false,
+            onChange: function (e) { setTa({ contextEnabled: e.target.checked }) } }), '上下文容量线开着'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '容量'),
+            h('input', { type: 'number', min: 10000, step: 10000, style: S.num, value: ta.contextLimit || 500000,
+              onChange: function (e) { setTa({ contextLimit: Number(e.target.value) || 500000 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, 'token — 上限 100 万，默认 50 万')),
+
+          bar('频率与静默'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '检查'),
+            h('input', { type: 'number', min: 60, max: 3600, step: 60, style: S.num, value: ta.intervalSec || 300,
+              onChange: function (e) { setTa({ intervalSec: Math.max(60, Number(e.target.value) || 300) }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '秒一次（默认 300 = 5 分钟；页面隐藏时暂停）')),
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.quietEnabled !== false,
+            onChange: function (e) { setTa({ quietEnabled: e.target.checked }) } }), '启用静默时段（这个时段只记录不弹）'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '静默'),
+            h('input', { type: 'number', min: 0, max: 23, step: 1, style: S.num, value: ta.quietStart != null ? ta.quietStart : 0,
+              onChange: function (e) { setTa({ quietStart: Number(e.target.value) || 0 }) } }),
+            h('span', null, '—'),
+            h('input', { type: 'number', min: 0, max: 24, step: 1, style: S.num, value: ta.quietEnd != null ? ta.quietEnd : 8,
+              onChange: function (e) { setTa({ quietEnd: Number(e.target.value) || 8 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '点 — 这个时段只记录不弹')),
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.limitEnabled !== false,
+            onChange: function (e) { setTa({ limitEnabled: e.target.checked }) } }), '启用每小时限弹（防刷屏）'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '限弹'),
+            h('input', { type: 'number', min: 1, max: 20, step: 1, style: S.num, value: ta.maxPerHour || 3,
+              onChange: function (e) { setTa({ maxPerHour: Number(e.target.value) || 3 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '次/小时 — 防刷屏')),
+          h('label', { style: S.check }, h('input', {
+            type: 'checkbox', checked: !!ta.silentMode,
+            onChange: function (e) { setTa({ silentMode: e.target.checked }) },
+          }), '只记录不弹（后台看曲线，不打扰）'),
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.crossSessionAlert !== false,
+            onChange: function (e) { setTa({ crossSessionAlert: e.target.checked }) } }), '切回会话时提醒（其他会话期间涨了也提醒）'),
+
+          bar('稍后（CD）与强制提醒'),
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.cdEnabled !== false,
+            onChange: function (e) { setTa({ cdEnabled: e.target.checked }) } }), '启用「稍后」CD'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '稍后'),
+            h('input', { type: 'number', min: 5, max: 120, step: 5, style: S.num, value: ta.cdMinutes || 10,
+              onChange: function (e) { setTa({ cdMinutes: Number(e.target.value) || 10 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '分钟 — 点「稍后」等这么久；连续稍后自动翻倍（上限 2 小时）')),
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.forceEnabled !== false,
+            onChange: function (e) { setTa({ forceEnabled: e.target.checked }) } }), '启用强制提醒（贵到爆时无视稍后）'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '强制'),
+            h('input', { type: 'number', min: 0.1, step: 0.1, style: S.num, value: ta.forceRoundLine || 0.5,
+              onChange: function (e) { setTa({ forceRoundLine: Number(e.target.value) || 0.5 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '¥/轮 或 上下文 ≥'),
+            h('input', { type: 'number', min: 0.5, max: 0.99, step: 0.05, style: S.num, value: ta.forceContextPct || 0.8,
+              onChange: function (e) { setTa({ forceContextPct: Number(e.target.value) || 0.8 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '×上限 — 无视 CD 强制提醒一次（每小时最多 1 次）')),
+
+          bar('缓存与数据'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '缓存'),
+            h('select', { value: String(ta.cacheManual ? 'manual' : 'auto'),
+              onChange: function (e) {
+                if (e.target.value === 'auto') setTa({ cacheManual: false })
+                else setTa({ cacheManual: true, cacheAssumption: ta.cacheAssumption || 0.8 })
+              } },
+              h('option', { value: 'auto' }, '自动估算（80%）'),
+              h('option', { value: 'manual' }, '手动')),
+            h('input', { type: 'number', min: 0, max: 100, step: 5, style: S.num, value: Math.round((ta.cacheAssumption || 0.8) * 100),
+              disabled: !ta.cacheManual,
+              onChange: function (e) { setTa({ cacheAssumption: (Number(e.target.value) || 80) / 100 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '% 命中（只影响估算，不影响真实账单）')),
+          h('div', { style: S.row }, h('span', { style: S.key }, '冷档'),
+            h('input', { type: 'number', min: 1, max: 30, step: 1, style: S.num, value: ta.coldDays || 3,
+              onChange: function (e) { setTa({ coldDays: Number(e.target.value) || 3 }) } }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '天 — 这么久没打开的会话清掉提醒状态（不删聊天记录）')),
+          peakNow !== null ? h('div', { style: { color: '#9fd4ff', fontSize: '12px', marginTop: '4px' } },
+            '现在是' + (peakNow ? '峰时（全价）' : '谷时（半价）') + ' · 峰时=工作日 9-12/14-18，其余含周末全天都是谷时') : null,
+          h('div', { style: { marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' } },
+            h('button', { style: S.btn, onClick: function () { try { window.__yspTokenCheck && window.__yspTokenCheck() ; setMsg('已检查一次') } catch { setMsg('检查失败') } } }, '立即检查一次'),
+            h('button', { style: S.btn, onClick: function () { try { localStorage.removeItem('yspopup.sessions'); setMsg('已清空会话提醒状态') } catch { setMsg('清空失败') } } }, '清空提醒状态')),
+
           bar('确认后做什么（都要点弹窗的确认才执行，不做全自动）'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: !!(ta.actions && ta.actions.summarize),
-            onChange: function (e) { set({ tokenAlert: Object.assign({}, ta, { actions: Object.assign({}, ta.actions || {}, { summarize: e.target.checked }) }) }) },
-          }), '确认后帮我总结（往输入框发“总结会话要点”的指令）'),
+            onChange: function (e) { setTa({ actions: Object.assign({}, ta.actions, { summarize: e.target.checked }) }) },
+          }), '确认后帮我总结'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: !!(ta.actions && ta.actions.newSession),
-            onChange: function (e) { set({ tokenAlert: Object.assign({}, ta, { actions: Object.assign({}, ta.actions || {}, { newSession: e.target.checked }) }) }) },
-          }), '确认后开新会话（点击侧边栏「新会话」）'),
+            onChange: function (e) { setTa({ actions: Object.assign({}, ta.actions, { newSession: e.target.checked }) }) },
+          }), '确认后开新会话'),
+
           bar('哪些事件弹 — 勾上的事件才会弹窗提醒'),
           check('events.incident', '出问题'),
           check('events.ask', '有人找你'),
@@ -879,10 +1378,68 @@ window.__ModuleLoader__.load({
                 }),
                 pair[1])
             })),
+          // 2026-11-11 老板：「备份这种提醒的可以开关，我们有备份机制别人不一定有，所以出厂有些默认是关」
+          h('label', { style: { display: 'flex', gap: '6px', alignItems: 'center', cursor: 'pointer', marginTop: '8px', color: '#cfe9ff' } },
+            h('input', {
+              type: 'checkbox',
+              checked: !!(cfg.sources && cfg.sources.backup === true),
+              onChange: function (e) { set({ sources: Object.assign({}, cfg.sources || {}, { backup: e.target.checked }) }) },
+            }),
+            '备份完成提醒（默认关：这是鱼神自己的备份机制，别人不一定有）'),
           h('div', { style: { color: '#999', fontSize: '12px', marginTop: '4px' } },
             '外部推事件用 POST /yushen-popup/event（{ source, badge, title, body }），推来就弹。'),
           h('div', { style: { color: '#999', fontSize: '12px', marginTop: '6px' } },
-            '每级只弹一次（记在本地），开新会话后重新计。数据来源：页面上的「用量 X tok」。'))
+            '提醒会写：为什么弹 / 现在峰还是谷 / 上下文多少 / 每轮约多少钱 / 累计约多少 / 建议。数据来源：页面「用量 X tok」（估算，不是账单）。'),
+          h('div', { style: { marginTop: '18px' } },
+            bar('真实账本 — DSH 自己的用量文件，和平台账单对齐（不是估算）'),
+            realUsage ? h('div', null,
+              h('div', { style: { fontSize: '13px', marginBottom: '4px' } },
+                '今日真实：¥' + Number(realUsage.todayUsage || 0).toFixed(2) + '（账本 records 合计 ¥' + Number(realUsage.todayEventsCost || 0).toFixed(2) + '，' + Number(realUsage.todayEventsCount || 0) + ' 轮）'),
+              h('div', { style: { fontSize: '13px', marginBottom: '4px' } }, '余额：¥' + Number(realUsage.lastBalance || 0).toFixed(2)),
+              h('div', { style: { color: '#999', fontSize: '12px', marginBottom: '2px' } }, '最近几轮真实花费：'),
+              (realUsage.recent || []).slice().reverse().map(function (e, i) {
+                return h('div', { key: String(i), style: { display: 'flex', gap: '10px', fontSize: '12px', padding: '2px 0', color: '#aab6c6' } },
+                  h('span', { style: { minWidth: '58px', color: '#66748a' } }, String(e.at || '').slice(11, 19)),
+                  h('span', { style: { minWidth: '70px' } }, '¥' + Number(e.cost || 0).toFixed(4)),
+                  h('span', { style: { color: '#66748a' } }, e.tokens ? (e.tokens / 10000).toFixed(0) + ' 万 tok' : ''))
+              })) : h('div', { style: { color: '#999', fontSize: '12px' } }, '读取中…')),
+          h('div', { style: { marginTop: '18px' } },
+            bar('最近会话 — 过去多久里用过几个（只统计弹窗检测过的）'),
+            h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+              [[30, '30 分钟'], [60, '1 小时'], [180, '3 小时'], [1440, '24 小时']].map(function (pair) {
+                return h('button', {
+                  key: String(pair[0]),
+                  style: Object.assign({}, S.btn, sessWin === pair[0] ? { background: 'rgba(120,190,255,.25)', borderColor: 'rgba(160,220,255,.7)' } : {}),
+                  onClick: function () { setSessWin(pair[0]) },
+                }, pair[1])
+              })),
+            (function () {
+              void sessTick
+              try {
+                const now = Date.now()
+                const all = yspReadSessions()
+                const cur = yspSessionKey() || 'main'
+                const list = Object.keys(all).map(function (k) {
+                  const s = all[k] || {}
+                  return { key: k, last: Number(s.lastSeenAt) || 0, tokens: Number(s.tokens) || 0, spent: Number(s.spentEst) || 0, rounds: Number(s.rounds) || 0, reminded: s.reminded || {} }
+                }).filter(function (x) { return now - x.last <= sessWin * 60000 }).sort(function (a, b) { return b.last - a.last })
+                if (!list.length) return h('div', { style: { color: '#999', fontSize: '12px', marginTop: '6px' } }, '这段时间没有检测到会话活动（页面刚打开还没读到用量也算没活动）')
+                return h('div', { style: { marginTop: '6px' } }, list.map(function (x, i) {
+                  const isCur = x.key === cur
+                  const mins = Math.max(0, Math.round((now - x.last) / 60000))
+                  const grew = x.rounds > 0 && !x.reminded.round
+                  return h('div', { key: String(i), style: { display: 'flex', gap: '10px', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,.06)' } },
+                    h('span', { style: { minWidth: '52px', color: isCur ? '#9fd4ff' : '#ccc', fontSize: '12px', fontWeight: isCur ? 600 : 400 } }, isCur ? '当前' : '其他'),
+                    h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px' } }, x.key.indexOf('::') >= 0 ? String(x.key.split('::')[1] || x.key).slice(0, 18) : x.key.slice(-8)),
+                    h('span', { style: { color: '#999', fontSize: '12px', minWidth: '58px' } }, mins === 0 ? '刚刚' : mins + ' 分钟前'),
+                    h('span', { style: { color: '#999', fontSize: '12px', minWidth: '64px' } }, '约 ' + yspFmt(x.tokens) + ' tok'),
+                    h('span', { style: { color: '#999', fontSize: '12px', minWidth: '64px' } }, '累计 ¥' + (Math.round(x.spent * 100) / 100).toFixed(2)),
+                    grew ? h('span', { style: { color: '#ffb347', fontSize: '11px' } }, '有增长、未提醒') : null)
+                }))
+              } catch { return null }
+            })(),
+            h('div', { style: { color: '#999', fontSize: '12px', marginTop: '4px' } },
+              '「有增长、未提醒」= 这个会话检测到增长后还没弹过提醒（近似“跑完了还没处理”）。当前会话高亮；数字是估算。')))
       } else if (tab === 'theme') {
         body = h('div', null,
           bar('主题 — 弹窗用哪种颜色：蓝=平时，红=警醒，默认=两者自动分配'),
@@ -1030,7 +1587,7 @@ window.__ModuleLoader__.load({
       } else {
         body = h('div', null,
           bar('给别的插件用 — 其他插件调这些接口就能弹窗'),
-          h('pre', { style: S.pre }, "window.__yshenImportantPopup({\n  theme: 'blue' | 'red',\n  items: [{ badge, title, body }],\n  autoExpand: false,\n  badge: '要紧',\n  title: '标题',\n  body: '正文',\n  confirmText: '好',\n  cancelText: '关掉',\n})"),
+          h('pre', { style: S.pre }, "window.__yshenImportantPopup({\n  theme: 'blue' | 'red',\n  items: [{ badge, title, body }],\n  autoExpand: false,\n  badge: '要紧',\n  title: '标题',\n  body: '正文',\n  confirmText: '知道了',   // 不给 cancelText = 只出一个键（看完关掉）\n  // cancelText: '稍后',   // 真有第二个选择时才给\n})"),
           h('div', { style: { color: '#999', fontSize: '12px', marginTop: '6px' } }, '也可以让后台直接推：POST /yushen-popup/preview'))
       }
 
@@ -1048,7 +1605,7 @@ window.__ModuleLoader__.load({
               onClick: function () {
                 window.__yshenImportantPopup && window.__yshenImportantPopup({
                   theme: 'blue', autoExpand: cfg.mode === 'auto', badge: '蓝色预览',
-                  title: '蓝色画卷', body: '平时用这版，和深海蓝界面统一。', confirmText: '好', cancelText: '关掉',
+                  title: '蓝色画卷', body: '平时用这版，和深海蓝界面统一。', confirmText: '好',
                 })
               },
             }, '预览蓝'),
@@ -1057,7 +1614,7 @@ window.__ModuleLoader__.load({
               onClick: function () {
                 window.__yshenImportantPopup && window.__yshenImportantPopup({
                   theme: 'red', autoExpand: cfg.mode === 'auto', badge: '要紧',
-                  title: '红色画卷', body: '更张扬，适合真正要紧、需要你拍板的事。', confirmText: '好', cancelText: '关掉',
+                  title: '红色画卷', body: '更张扬，适合真正要紧、需要你拍板的事。', confirmText: '好',
                 })
               },
             }, '预览红'),
@@ -1141,93 +1698,643 @@ window.__ModuleLoader__.load({
       } catch { /* 忽略 */ }
     }
 
-    // ── 会话 token 提醒：读页面「用量 X tok」，超阈值弹窗（每级只弹一次） ──
+    // ── 会话 token 提醒：峰谷 + 每轮成本 + 累计 + 容量 + CD（2026-11-10 重写） ──
+    // 价格：DeepSeek 官方 deepseek-flash（2026-11-10 查）美元/百万 token，¥7.2/$ 换算
+    const YSP_PRICE = {
+      peak: { hit: 0.006, miss: 0.3, out: 1.2 },
+      off: { hit: 0.003, miss: 0.15, out: 0.6 },
+    }
+    const YSP_USD_CNY = 7.2
+    // 峰时 = 工作日 09:00-12:00 / 14:00-18:00（北京时间）；周末全天、节假日全天是谷时。
+    // 节假日表近似（未含调休）；表里没有的日期按普通工作日算。
+    const YSP_HOLIDAYS = new Set([
+      '2026-01-01', '2026-01-02', '2026-01-03',
+      '2026-02-16', '2026-02-17', '2026-02-18', '2026-02-19', '2026-02-20', '2026-02-21', '2026-02-22',
+      '2026-04-04', '2026-04-05', '2026-04-06',
+      '2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05',
+      '2026-06-19', '2026-06-20', '2026-06-21',
+      '2026-09-25', '2026-09-26', '2026-09-27',
+      '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07',
+    ])
+    function yspYmd(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+    }
+    function yspIsPeak(now) {
+      const d = new Date(now)
+      const day = d.getDay()
+      if (day === 0 || day === 6) return false
+      if (YSP_HOLIDAYS.has(yspYmd(d))) return false
+      const m = d.getHours() * 60 + d.getMinutes()
+      return (m >= 540 && m < 720) || (m >= 840 && m < 1080)
+    }
+    try { window.__yspIsPeak = yspIsPeak } catch { /* 忽略 */ }
+    function yspUnitPrice(peak, cache) {
+      const p = YSP_PRICE[peak ? 'peak' : 'off']
+      return (cache * p.hit + (1 - cache) * p.miss) * YSP_USD_CNY
+    }
+    function yspRoundCost(tokens, peak, cache, outTokens) {
+      const p = YSP_PRICE[peak ? 'peak' : 'off']
+      const inCost = (tokens * (cache * p.hit + (1 - cache) * p.miss)) / 1e6
+      const outCost = ((outTokens || 400) * p.out) / 1e6
+      return (inCost + outCost) * YSP_USD_CNY
+    }
+    function yspFmt(n) { return n >= 10000 ? (n / 10000).toFixed(1) + ' 万' : String(Math.round(n)) }
+    function yspYuan(x) { return '¥' + (Math.round(x * 100) / 100).toFixed(2) }
+    const YSP_SESS_KEY = 'yspopup.sessions'
+    function yspReadSessions() { try { return JSON.parse(localStorage.getItem(YSP_SESS_KEY) || '{}') || {} } catch { return {} } }
+    function yspSaveSessions(m) { try { localStorage.setItem(YSP_SESS_KEY, JSON.stringify(m)) } catch { /* 忽略 */ } }
+    // 当前会话标题：先从页面找（DSH 聊天区顶部），拿不到才退到 document.title
+    function yspReadSessionTitle() {
+      try {
+        const sels = ['[data-session-title]', '[class*="session-title"]', '[class*="sessionTitle"]', '[class*="conversation-title"]', '[class*="conversationTitle"]', '[class*="chat-title"]', '[class*="chatTitle"]', '[class*="thread-title"]']
+        for (let i = 0; i < sels.length; i++) {
+          const el = document.querySelector(sels[i])
+          const t = el && el.textContent ? String(el.textContent).trim() : ''
+          if (t) return t.slice(0, 30)
+        }
+        const t = String(document.title || '').replace(/^.*?[·\-—|]\s*/, '').trim()
+        if (t && !/^DeepSeek Harness$/i.test(t)) return t.slice(0, 30)
+      } catch { /* 忽略 */ }
+      return ''
+    }
+    function yspSessionKey() {
+      try {
+        const el = document.querySelector('[data-session-id]')
+        if (el) return String(el.getAttribute('data-session-id'))
+      } catch { /* 忽略 */ }
+      const title = yspReadSessionTitle()
+      return (location.pathname || '/') + '::' + (title || 'main')
+    }
+    function yspSessionGet(all, key) {
+      const s = all[key] || {}
+      return {
+        tokens: Number(s.tokens) || 0,
+        lastSeenAt: Number(s.lastSeenAt) || 0,
+        spentEst: Number(s.spentEst) || 0,
+        rounds: Number(s.rounds) || 0,
+        cdUntil: Number(s.cdUntil) || 0,
+        cdCount: Number(s.cdCount) || 0,
+        forceAt: Number(s.forceAt) || 0,
+        hits: Array.isArray(s.hits) ? s.hits.filter(function (t) { return Date.now() - t < 3600000 }) : [],
+        reminded: s.reminded || {},
+      }
+    }
+
+    function yspMountCdChoice(baseMinutes, onPick) {
+      if (typeof document === 'undefined') return
+      try { const old = document.getElementById('ysp-cd-choice'); if (old) old.remove() } catch { /* 忽略 */ }
+      const box = document.createElement('div')
+      box.id = 'ysp-cd-choice'
+      box.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483000;background:rgba(12,20,30,.97);border:1px solid rgba(140,210,255,.5);border-radius:14px;padding:18px 20px;color:#eaf7ff;font-size:14px;box-shadow:0 12px 40px rgba(0,0,0,.6);min-width:260px'
+      const title = document.createElement('div')
+      title.textContent = '多久后再提醒？'
+      title.style.cssText = 'font-size:15px;margin-bottom:12px;color:#bfe9ff'
+      box.appendChild(title)
+      const base = Math.max(5, Number(baseMinutes) || 10)
+      const opts = [
+        [base, base + ' 分钟后'],
+        [base * 2, (base * 2) + ' 分钟后'],
+        [Math.min(120, base * 4), Math.min(120, base * 4) + ' 分钟后'],
+        [-1, '本会话不再提醒'],
+      ]
+      let done = false
+      const finish = function (mins) {
+        if (done) return
+        done = true
+        try { box.remove() } catch { /* 忽略 */ }
+        onPick(mins)
+      }
+      opts.forEach(function (pair) {
+        const b = document.createElement('button')
+        b.textContent = pair[1]
+        b.style.cssText = 'display:block;width:100%;margin:6px 0;padding:8px 12px;border-radius:8px;border:1px solid rgba(140,210,255,.35);background:rgba(30,50,70,.6);color:#dff1ff;cursor:pointer;font-size:13px'
+        b.onclick = function () { finish(pair[0]) }
+        box.appendChild(b)
+      })
+      const cancel = document.createElement('button')
+      cancel.textContent = '取消'
+      cancel.style.cssText = 'display:block;width:100%;margin-top:10px;padding:6px;border:none;background:transparent;color:#8899aa;cursor:pointer;font-size:12px'
+      cancel.onclick = function () { finish(null) }
+      box.appendChild(cancel)
+      document.body.appendChild(box)
+    }
+
     function mountTokenAlert() {
       if (typeof window === 'undefined' || typeof document === 'undefined') return
       if (window.__ysTokenAlertMounted) return
       window.__ysTokenAlertMounted = true
-      const KEY = 'yspopup.tokenAlerted'
-      const readSeen = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {} } catch { return {} } }
-      const markSeen = (level) => {
-        try {
-          const m = readSeen()
-          m[level] = Date.now()
-          localStorage.setItem(KEY, JSON.stringify(m))
-        } catch { /* 忽略 */ }
-      }
-      const readTokens = () => {
-        const txt = (document.body && document.body.innerText) || ''
-        const m = /用量\s*([\d.]+)\s*([KM]?)\s*tok/i.exec(txt)
-        if (!m) return null
-        let n = parseFloat(m[1])
-        if (!isFinite(n)) return null
-        if (m[2] === 'K' || m[2] === 'k') n *= 1000
-        if (m[2] === 'M' || m[2] === 'm') n *= 1000000
-        return Math.round(n)
-      }
-      const fmt = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + ' 万' : String(n))
       let cfg = null
-      const loadCfg = () => {
+      let failCount = 0
+      let broken = false
+      let brokenNotified = false
+      // 2026-11-11 老板：「读不到是因为新开了一个会话」——新会话页面上本来就没有「用量 X tok」，
+      // 那不是数据源坏了。readUsage 会把"页面上压根没出现用量字样"记在这里，tick 见到就静默。
+      let usageNoTurn = false
+      let hidden = document.hidden
+      let lastCfgAt = 0
+      let lastMutAt = 0
+      let inited = false
+      let lastKey = ''
+      let lastReadTokens = 0
+      let lastEventTs = 0
+      try { lastEventTs = Number(localStorage.getItem('yspopup.lastEventTs')) || 0 } catch { lastEventTs = 0 }
+      let justSwitched = false
+      let lastTickAt = 0
+      const loadCfg = function () {
         fetch('/yushen-popup/config', { credentials: 'same-origin' })
           .then(function (r) { return r.json() })
-          .then(function (d) { if (d && d.ok) cfg = d.config })
+          .then(function (d) {
+            if (!d || !d.ok) return
+            cfg = d.config
+            lastCfgAt = Date.now()
+            if (!inited) {
+              inited = true
+              const ta = cfg.tokenAlert || {}
+              if (ta.repeatOnOpen) {
+                const all = yspReadSessions()
+                const key = yspSessionKey() || 'main'
+                const st = yspSessionGet(all, key)
+                st.reminded = {}
+                st.cdUntil = 0
+                st.cdCount = 0
+                all[key] = st
+                yspSaveSessions(all)
+              }
+              if (ta.enabled !== false && ta.checkOnOpen !== false) tick(true)
+            }
+          })
           .catch(function () { /* 忽略 */ })
       }
-      loadCfg()
-      setInterval(function () {
+      const numOf = function (s) {
+        if (s == null) return null
+        const n = parseFloat(String(s).replace(/,/g, ''))
+        return isFinite(n) ? n : null
+      }
+      // 读页面上的用量明细（DSH 每轮结束显示：本轮用量 / 缓存命中 / 未缓存输入 / 缓存读取 / 输出）
+      // 2026-11-11：读不到用量时把"页面上到底长什么样"记一行，别再靠猜 DSH 改了哪。
+      const diag = function (why, extra) {
         try {
-          if (!cfg || !cfg.tokenAlert || !cfg.tokenAlert.enabled) return
-          const n = readTokens()
-          if (!n) return
-          const warnAt = Number(cfg.tokenAlert.warnAt) || 80000
-          const dangerAt = Number(cfg.tokenAlert.dangerAt) || 150000
-          const seen = readSeen()
-          if (n >= dangerAt && !seen.danger && typeof window.__yshenImportantPopup === 'function') {
-            markSeen('danger')
-            const acts2 = (cfg.tokenAlert && cfg.tokenAlert.actions) || {}
+          fetch('/yushen-popup/diag', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ why: why, extra: extra || null }),
+          }).catch(function () { /* 忽略 */ })
+        } catch { /* 忽略 */ }
+      }
+      // 用量读法（2026-11-11 重写）：
+      //   DSH 现在把用量渲染成「用量 12.2K tok」这样的按钮（button[aria-haspopup] 里的 label），
+      //   K/M/万/千 这些简写要认得；tok/s 是速度，不是总数，别当成本轮用量。
+      //   先按按钮找（最准），再退回整页文本（老结构）。
+      const readUsage = function () {
+        const UNIT = { K: 1e3, k: 1e3, '千': 1e3, M: 1e6, m: 1e6, W: 1e4, w: 1e4, '万': 1e4, '亿': 1e8 }
+        const pick = function (m) {
+          if (!m) return null
+          const n = parseFloat(String(m[1]).replace(/,/g, ''))
+          if (!isFinite(n)) return null
+          return Math.round(n * (UNIT[m[2]] || 1))
+        }
+        const ANCHOR = /用量\s*([\d][\d,.]*)\s*(千|万|亿|[KkMmWw])?\s*(?:tok|tokens?)\b(?!\s*\/)/i
+        const ANY = /([\d][\d,.]*)\s*(千|万|亿|[KkMmWw])?\s*(?:tok|tokens?)\b(?!\s*\/)/i
+        const txt = (document.body && document.body.innerText) || ''
+        let total = null
+        let sample = ''
+        // a) 那一枚用量按钮
+        try {
+          const btns = document.querySelectorAll('button[aria-haspopup]')
+          for (const b of btns) {
+            const t = String((b.innerText || b.textContent || ''))
+            if (!/用量/.test(t)) continue
+            if (!sample) sample = t.slice(0, 160)
+            const hit = pick(ANCHOR.exec(t))
+            if (hit != null) { total = hit; break }
+          }
+        } catch { /* 老结构没有这种按钮 */ }
+        // b) 整页文本
+        if (total == null) total = pick(ANCHOR.exec(txt))
+        if (total == null) total = pick(ANY.exec(txt))
+        const grab = function (re) { const m = re.exec(txt); return m ? m[1] : null }
+        const hitPct = numOf(grab(/缓存命中\s*([\d.]+)\s*%/i))
+        const missIn = numOf(grab(/未缓存输入\s*([\d,]+)\s*(?:tok|tokens?)/i))
+        const cacheRead = numOf(grab(/缓存读取\s*([\d,]+)\s*(?:tok|tokens?)/i))
+        const out = numOf(grab(/输出\s*([\d,]+)\s*(?:tok|tokens?)/i))
+        if (total == null && missIn != null && cacheRead != null) total = missIn + cacheRead
+        if (total == null) {
+          // 页面上连 "tok" 字样都没有 = 新会话/这一轮还没跑完，页面本来就没有用量可读。
+          // 这不是"数据源坏了"，别报、也别记失败（老板 2026-11-11：「读不到是因为新开了一个会话」）。
+          usageNoTurn = !/tok/i.test(txt) && !/tok/i.test(sample)
+          if (!usageNoTurn) diag('usage-miss', { sample: (sample || txt).slice(0, 600), hasBody: !!txt })
+          return null
+        }
+        usageNoTurn = false
+        return { total: Math.round(total), hitPct, missIn, cacheRead, out }
+      }
+      // 真实每轮成本：缓存读取按 hit 价、未缓存输入按 miss 价、输出按 out 价；没明细才用总 token × 命中率兜底
+      const calcCost = function (u, peak) {
+        if (!u) return 0
+        const p = YSP_PRICE[peak ? 'peak' : 'off']
+        let hit = u.cacheRead
+        let miss = u.missIn
+        if (hit == null || miss == null) {
+          const hp = u.hitPct != null ? Math.max(0, Math.min(1, u.hitPct / 100)) : 0.8
+          hit = (u.total || 0) * hp
+          miss = (u.total || 0) * (1 - hp)
+        }
+        const outT = u.out != null ? u.out : 400
+        return (hit * p.hit + miss * p.miss + outT * p.out) / 1e6 * YSP_USD_CNY
+      }
+      const readTokens = function () { const u = readUsage(); return u ? u.total : null }
+      const selfHeal = function () {
+        try {
+          const sc = document.querySelector('[class*="scroll"], [class*="messages"]')
+          if (sc) sc.scrollTop = 0
+        } catch { /* 忽略 */ }
+        return new Promise(function (resolve) { setTimeout(function () { resolve(readTokens()) }, 800) })
+      }
+      const notifyBroken = function () {
+        if (brokenNotified) return
+        brokenNotified = true
+        // 2026-11-11：一天最多喊一次（以前每次读到失败都可能再弹，弹窗就赖在屏幕上）
+        try {
+          const last = Number(localStorage.getItem('yspopup.brokenAt') || 0)
+          if (Date.now() - last < 6 * 3600 * 1000) return
+          localStorage.setItem('yspopup.brokenAt', String(Date.now()))
+        } catch { /* 存不了就照弹 */ }
+        diag('notify-broken')
+        try {
+          if (window.__yshenImportantPopup) {
             window.__yshenImportantPopup({
-              theme: 'red',
-              autoExpand: true,
-              badge: '上下文很满了',
-              title: '会话已经用了 ' + fmt(n) + ' token',
-              body: '上下文快到 ' + fmt(dangerAt) + ' 了，再聊下去会开始压缩/变慢，重要的东西可能被挤掉。\n要不要开个新会话，或者先让我把要点记下来？'
-                + (acts2.summarize ? '\n（你配了"确认后帮我总结"：点确认我就开始总结。）' : '')
-                + (acts2.newSession ? '\n（你配了"确认后开新会话"：点确认我就开个新的。）' : ''),
-              confirmText: (acts2.summarize && acts2.newSession) ? '总结并开新会话' : (acts2.summarize ? '帮我总结' : (acts2.newSession ? '开新会话' : '知道了')),
-              cancelText: '先记着',
-            }).then(function (ok) {
-              if (!ok) return
-              if (acts2.summarize) yspSendToComposer('帮我把这段会话的要点总结一下，写成简短的记忆条目。')
-              if (acts2.newSession) setTimeout(yspOpenNewSession, 600)
-            })
-          } else if (n >= warnAt && !seen.warn && typeof window.__yshenImportantPopup === 'function') {
-            markSeen('warn')
-            const acts = (cfg.tokenAlert && cfg.tokenAlert.actions) || {}
-            window.__yshenImportantPopup({
-              theme: 'blue',
-              autoExpand: true,
-              badge: '上下文提醒',
-              title: '会话用了 ' + fmt(n) + ' token',
-              body: '单个会话的上下文是有限的。到 ' + fmt(warnAt) + ' 了，提醒你一下——不用现在处理，心里有数就行。'
-                + (acts.summarize ? '\n（你配了"确认后帮我总结"：点确认我就开始总结。）' : '')
-                + (acts.newSession ? '\n（你配了"确认后开新会话"：点确认我就开个新的。）' : ''),
-              confirmText: (acts.summarize && acts.newSession) ? '总结并开新会话' : (acts.summarize ? '帮我总结' : (acts.newSession ? '开新会话' : '知道了')),
-              cancelText: '好',
-            }).then(function (ok) {
-              if (!ok) return
-              if (acts.summarize) yspSendToComposer('帮我把这段会话的要点总结一下，写成简短的记忆条目。')
-              if (acts.newSession) setTimeout(yspOpenNewSession, 600)
+              theme: 'blue', autoExpand: true, badge: '数据源',
+              title: '读不到「用量 X tok」了',
+              body: '自动修复一次无效。可能是 DSH 界面文案变了。\n后台 → 提醒 → 数据源自检 可以手动重试。',
+              confirmText: '知道了',
             })
           }
+        } catch { /* 忽略 */ }
+      }
+      const tick = function (force) {
+        if (!cfg || !cfg.tokenAlert || cfg.tokenAlert.enabled === false) return
+        if (hidden) return
+        const now = Date.now()
+        const ta = cfg.tokenAlert
+        const minGap = Math.max(60, Number(ta.intervalSec || 300)) * 1000
+        if (!force && now - lastTickAt < minGap) return
+        lastTickAt = now
+        const peak = yspIsPeak(now)
+        const usage = readUsage()
+        const tokens = usage ? usage.total : null
+        lastReadTokens = tokens || lastReadTokens
+        if (!tokens) {
+          if (usageNoTurn) { failCount = 0; broken = false; brokenNotified = false; return }
+          // 切了会话：新会话那一页可能还没渲染出用量，先把计数清掉，别拿上一条会话的失败去报警
+          const k0 = yspSessionKey() || 'main'
+          if (lastKey && lastKey !== k0) {
+            lastKey = k0
+            failCount = 0
+            broken = false
+            brokenNotified = false
+            setTimeout(function () { tick(true) }, 1500)
+            return
+          }
+          failCount += 1
+          if (failCount >= 3 && !broken) {
+            broken = true
+            selfHeal().then(function (v) {
+              if (v) { broken = false; failCount = 0; brokenNotified = false; tick(true) }
+              else notifyBroken()
+            })
+          }
+          return
+        }
+        failCount = 0
+        broken = false
+        brokenNotified = false
+        const hour = new Date(now).getHours()
+        const qs = Number(ta.quietStart != null ? ta.quietStart : 0)
+        const qe = Number(ta.quietEnd != null ? ta.quietEnd : 8)
+        const quiet = qs < qe ? (hour >= qs && hour < qe) : (hour >= qs || hour < qe)
+        const key = yspSessionKey() || 'main'
+        if (lastKey && lastKey !== key) {
+          // 切会话：先把旧会话记一下，等页面渲染完（1.5s）再读新会话，避免把旧会话的数字记到新会话头上
+          const oldKey = lastKey
+          lastKey = key
+          justSwitched = true
+          const all0 = yspReadSessions()
+          if (all0[oldKey]) { all0[oldKey].lastSeenAt = now; yspSaveSessions(all0) }
+          setTimeout(function () { tick(true) }, 1500)
+          return
+        }
+        lastKey = key
+        const all = yspReadSessions()
+        const s = yspSessionGet(all, key)
+        const roundCost = calcCost(usage, peak)
+        const prevTokens = s.tokens
+        const grew = tokens > prevTokens ? tokens - prevTokens : 0
+        if (tokens > s.tokens) { s.spentEst += roundCost; s.rounds += 1 }
+        s.tokens = Math.max(tokens, s.tokens)
+        s.lastSeenAt = now
+        const coldMs = (Number(ta.coldDays) || 3) * 86400000
+        Object.keys(all).forEach(function (k) {
+          if (k !== key && all[k] && now - (Number(all[k].lastSeenAt) || 0) > coldMs) delete all[k]
+        })
+        all[key] = s
+        const roundLine = Number(ta.roundLine) || 0.1
+        const totalLine = Number(ta.totalLine) || 10
+        const totalStep = Number(ta.totalStep) || 10
+        const contextLimit = Number(ta.contextLimit) || 500000
+        const forceRound = Number(ta.forceRoundLine) || 0.5
+        const forcePct = Number(ta.forceContextPct) || 0.8
+        const forceHit = ta.forceEnabled !== false && (roundCost >= forceRound || tokens >= contextLimit * forcePct)
+        const hits = s.hits.filter(function (t) { return now - t < 3600000 })
+        const overFreq = ta.limitEnabled !== false && hits.length >= (Number(ta.maxPerHour) || 3)
+        const cdActive = ta.cdEnabled !== false && s.cdUntil > now
+        const quietOn = ta.quietEnabled !== false
+        const inForceWindow = forceHit && now - s.forceAt > 3600000
+        if (ta.silentMode) { yspSaveSessions(all); return }
+        if (!inForceWindow && ((quietOn && quiet) || cdActive || (ta.limitEnabled !== false && overFreq))) { yspSaveSessions(all); return }
+        const dueTotal = !s.reminded.total ? (s.spentEst >= totalLine) : (s.spentEst >= (s.reminded.total || 0) + totalStep)
+        let trigger = ''
+        if (inForceWindow) trigger = 'force'
+        else if (ta.roundEnabled !== false && roundCost >= roundLine && !s.reminded.round) trigger = 'round'
+        else if (ta.totalEnabled !== false && dueTotal) trigger = 'total'
+        else if (ta.contextEnabled !== false && tokens >= contextLimit && !s.reminded.context) trigger = 'context'
+        if (!trigger) { yspSaveSessions(all); return }
+        const d = new Date(now)
+        const timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+        const switchHint = (function () {
+          const m = d.getHours() * 60 + d.getMinutes()
+          if (peak) {
+            if (m < 720) return '约 ' + Math.ceil((720 - m) / 60) + ' 小时后转谷时（半价）'
+            return '约 ' + Math.ceil((1080 - m) / 60) + ' 小时后转谷时（半价）'
+          }
+          const day = d.getDay()
+          if (day === 0 || day === 6) return '今天全天谷时（半价）'
+          if (m < 540) return '明天 9 点后是峰时（全价）'
+          if (m < 840) return '约 ' + Math.ceil((840 - m) / 60) + ' 分钟后转峰时（全价）'
+          return '今晚都是谷时（半价）'
+        })()
+        const why = trigger === 'round' ? '每轮 ≥ ' + yspYuan(roundLine)
+          : trigger === 'total' ? '累计 ≥ ' + yspYuan(Math.max(totalLine, (s.reminded.total || 0) + totalStep))
+            : trigger === 'context' ? '上下文到容量线'
+              : '每轮或上下文到强制线'
+        const sessTitle = (function () {
+          try { return yspReadSessionTitle() || '当前会话' } catch { return '当前会话' }
+        })()
+        const bodyLines = [
+          '会话：' + sessTitle,
+          '每轮 ' + yspYuan(roundCost) + '（' + (peak ? '峰时' : '谷时') + ' · ' + (usage && usage.hitPct != null ? Math.round(usage.hitPct) + '% 缓存' : '缓存未知') + '）',
+          '上下文 ' + yspFmt(tokens) + ' / ' + yspFmt(contextLimit),
+          '累计 ' + yspYuan(s.spentEst) + '（' + s.rounds + ' 轮）',
+          '原因：' + why,
+        ]
+        if (justSwitched && grew >= 500 && ta.crossSessionAlert !== false) {
+          bodyLines.splice(3, 0, '你不在这个会话时又跑了约 ' + yspFmt(grew) + ' token')
+        }
+        const winMin = Number(ta.recentWindowMin) || 60
+        const others = Object.keys(all).filter(function (k) {
+          return k !== key && now - (Number(all[k].lastSeenAt) || 0) <= winMin * 60000
+        }).length
+        if (others > 0) bodyLines.splice(2, 0, '最近 ' + winMin + ' 分钟你还用过 ' + others + ' 个会话')
+        justSwitched = false
+        const body = bodyLines.join('\n')
+        hits.push(now)
+        s.hits = hits
+        if (trigger === 'round') s.reminded.round = true
+        if (trigger === 'total') s.reminded.total = Math.max(totalLine, (s.reminded.total || 0) + totalStep)
+        if (trigger === 'context') s.reminded.context = true
+        if (trigger === 'force') s.forceAt = now
+        yspSaveSessions(all)
+        try {
+          if (!window.__yshenImportantPopup) return
+          window.__yshenImportantPopup({
+            theme: (trigger === 'context' || trigger === 'force') ? 'red' : 'blue',
+            autoExpand: true,
+            badge: trigger === 'context' ? '上下文' : (trigger === 'force' ? '强制提醒' : (trigger === 'total' ? '累计花费' : '每轮成本')),
+            title: (sessTitle ? sessTitle + ' · ' : '') + (trigger === 'context' ? '上下文 ' + yspFmt(tokens)
+              : (trigger === 'force' ? '每轮 ' + yspYuan(roundCost) + '（强制线）'
+                : (trigger === 'total' ? '累计 ' + yspYuan(s.spentEst)
+                  : '每轮 ' + yspYuan(roundCost)))),
+            body: body,
+            confirmText: (ta.actions && ta.actions.summarize && ta.actions.newSession) ? '总结并开新会话'
+              : ((ta.actions && ta.actions.summarize) ? '帮我总结'
+                : ((ta.actions && ta.actions.newSession) ? '开新会话' : '知道了')),
+            cancelText: '稍后',
+          }).then(function (ok) {
+            if (ok) {
+              if (ta.actions && ta.actions.summarize) yspSendToComposer('帮我把这段会话的要点总结一下，写成简短的记忆条目。')
+              if (ta.actions && ta.actions.newSession) setTimeout(yspOpenNewSession, 600)
+              return
+            }
+            const baseMin = Number(ta.cdMinutes) || 10
+            const n = yspReadSessions()
+            const st = yspSessionGet(n, key)
+            st.cdCount = Math.min(4, st.cdCount + 1)
+            const mult = Math.min(8, Math.pow(2, st.cdCount - 1))
+            st.cdUntil = now + baseMin * mult * 60000
+            n[key] = st
+            yspSaveSessions(n)
+          })
         } catch { /* 提醒失败不影响别的 */ }
-      }, 5000)
+      }
+      window.__yspTokenCheck = function () { tick(true) }
+      loadCfg()
+      const loop = function () {
+        if (Date.now() - lastCfgAt > 60000) loadCfg()
+        tick()
+        const sec = Math.max(60, Number((cfg && cfg.tokenAlert && cfg.tokenAlert.intervalSec) || 300))
+        setTimeout(loop, sec * 1000)
+      }
+      setTimeout(loop, 1200)
+      try {
+        const obs = new MutationObserver(function () {
+          const now = Date.now()
+          if (now - lastMutAt < 1000) return
+          lastMutAt = now
+          tick()
+        })
+        obs.observe(document.body, { childList: true, subtree: true })
+      } catch { /* 忽略 */ }
+      document.addEventListener('visibilitychange', function () {
+        hidden = document.hidden
+        if (!hidden) tick(true)
+      })
+      // 其他会话完成一轮的提醒：读 DSH 真实账本 events，当前页面没动、账本却在长 → 别的会话跑了
+      let lastOtherAt = 0
+      try { lastOtherAt = Number(localStorage.getItem('yspopup.lastOtherAt')) || 0 } catch { lastOtherAt = 0 }
+      const checkOthers = function () {
+        if (!cfg || !cfg.tokenAlert || cfg.tokenAlert.enabled === false) return
+        if (cfg.tokenAlert.otherSessionAlert === false) return
+        if (hidden) return
+        fetch('/yushen-popup/real', { credentials: 'same-origin' })
+          .then(function (r) { return r.json() })
+          .then(function (d) {
+            if (!d || !d.ok || !Array.isArray(d.recent) || !d.recent.length) return
+            const last = d.recent[d.recent.length - 1]
+            const at = last && last.at ? Date.parse(last.at) : 0
+            if (!at || at <= lastOtherAt) return
+            const prevAt = lastOtherAt
+            lastOtherAt = at
+            try { localStorage.setItem('yspopup.lastOtherAt', String(at)) } catch { /* 忽略 */ }
+            if (!prevAt) return
+            // 当前会话自己也在动 → 多半是自己的轮，不打扰
+            const cur = readUsage()
+            const curTotal = cur ? cur.total : 0
+            if (curTotal && lastReadTokens && curTotal !== lastReadTokens) return
+            try {
+              if (!window.__yshenImportantPopup) return
+              window.__yshenImportantPopup({
+                theme: 'blue', autoExpand: true, badge: '其他会话',
+                title: '别的会话刚跑了一轮',
+                body: '约 ¥' + Number(last.cost || 0).toFixed(2) + (last.tokens ? ' / ' + Math.round(last.tokens / 10000) + ' 万 tok' : '') + '\n你这边没动。要看就切过去，不看也行。',
+                confirmText: '知道了',
+              })
+            } catch { /* 忽略 */ }
+          })
+          .catch(function () { /* 忽略 */ })
+      }
+      // 间隔可调（后台 otherIntervalSec，默认 300 秒）；配置改了下一轮就用新的
+      const otherLoop = function () {
+        checkOthers()
+        const sec = Math.max(60, Number((cfg && cfg.tokenAlert && cfg.tokenAlert.otherIntervalSec) || 300))
+        setTimeout(otherLoop, sec * 1000)
+      }
+      setTimeout(otherLoop, 5000)
+      // 给「宿主推来的信号」留两个把手：来了就现算，不用等定时器
+      try { if (typeof window !== 'undefined') { window.__yspTick = tick; window.__yspCheckOthers = checkOthers; window.__yspReloadCfg = loadCfg } } catch { /* 忽略 */ }
     }
 
     try { if (typeof window !== 'undefined') window.__ysAdminPage = AdminPage } catch { /* 调试用 */ }
+
+    // 错误边界：后台渲染崩了要把错误显示出来，而不是白屏（fake React 没有 Component 时退化成透传）
+    let YspErrorBoundary = function (props) { return props.children }
+    if (typeof React.Component === 'function') {
+      YspErrorBoundary = class extends React.Component {
+        constructor(props) {
+          super(props)
+          this.state = { err: null }
+        }
+        static getDerivedStateFromError(err) {
+          return { err }
+        }
+        componentDidCatch(err) {
+          try { console.error('[yspopup] AdminPage 渲染出错', err) } catch { /* 忽略 */ }
+        }
+        render() {
+          if (this.state.err) {
+            const msg = String((this.state.err && this.state.err.message) || this.state.err || '未知错误')
+            const stack = String((this.state.err && this.state.err.stack) || '').slice(0, 600)
+            return h('div', { style: { padding: '20px', color: '#ff8a8a', fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' } },
+              '弹窗后台渲染出错：' + msg + '\n\n' + stack)
+          }
+          return this.props.children
+        }
+      }
+    }
     return {
       inject: ['slots'],
       apply: function (ctx) {
         try { mountTokenAlert() } catch { /* 提醒挂不上不影响弹窗 */ }
+        try { mountMemoBoard() } catch { /* 黑板挂不上不影响弹窗 */ }
+        try { mountInlineCost() } catch { /* 花费标签挂不上不影响弹窗 */ }
+        // 拉 host 的预览/备份队列；备份事件顺手广播给桌宠（localStorage）
+        try {
+          const handleItems = function (items) {
+            if (!Array.isArray(items)) return 0
+            items.forEach(function (it) {
+              // 2026-11-11 老板：「不能每一轮动的时候机制就动吗」——宿主推来的"该算了"信号，
+              // 不弹窗，只把提醒那套叫起来跑一遍（新会话没用量时它会自己静默）。
+              if (it && it.__nudge) {
+                try {
+                  const mine = (typeof yspSessionKey === 'function') ? yspSessionKey() : ''
+                  if (it.sid && mine && String(it.sid) !== String(mine)) {
+                    try { if (window.__yspCheckOthers) window.__yspCheckOthers() } catch { /* 忽略 */ }
+                  } else if (Date.now() - (window.__yspNudgeAt || 0) > 60000) {
+                    // 有人正在跑就现算，但一分钟最多一次——被动触发不是为了把轮询换成更密的轮询
+                    window.__yspNudgeAt = Date.now()
+                    try { if (window.__yspTick) window.__yspTick(true) } catch { /* 忽略 */ }
+                  }
+                } catch { /* 忽略 */ }
+                return
+              }
+              if (window.__yshenImportantPopup) window.__yshenImportantPopup(it)
+              if (it && it.badge === '备份') {
+                try {
+                  localStorage.setItem('ysp.pet.say', JSON.stringify({
+                    text: (it.title || '备份完成') + (it.body ? '：' + String(it.body).replace(/\n/g, ' ') : ''),
+                    at: Date.now(),
+                  }))
+                } catch { /* 忽略 */ }
+              }
+            })
+            return items.length
+          }
+          const pullPreview = function () {
+            return fetch('/yushen-popup/preview', { credentials: 'same-origin' })
+              .then(function (r) { return r.json() })
+              .then(function (d) { return (d && d.ok) ? handleItems(d.items) : 0 })
+              .catch(function () { return 0 })
+          }
+          // 2026-11-11 老板：「别的会话在跑的时候也被动拉起，根本不需要主动去轮询啊」
+          // 对——检测早就不是轮询了（宿主在 session/event 上，所有会话的动静都从它过）；
+          // 慢的只有"送货"这一段。所以改成**长轮询**：请求挂在宿主那边，有东西立刻回，
+          // 没有就 20 秒后自己断，前端马上再挂一次。空闲时是"一个安静的请求挂着"，不是每 15 秒干问一遍。
+          // 宿主根本不认 /wait（老版本）时才退回定时轮询。
+          let mode = 'wait'
+          let pollTimer = null
+          let lastPullAt = 0
+          let idleMs = 15000
+          const IDLE_MIN = 15000
+          const IDLE_MAX = 120000
+          const pullNow = function (force) {
+            const now = Date.now()
+            if (!force && now - lastPullAt < 5000) return 0
+            lastPullAt = now
+            try { return window.__ysPopupShowing ? 0 : pullPreview() } catch { return 0 }
+          }
+          const pullSoon = function () {
+            if (pollTimer) return
+            pollTimer = setTimeout(function () {
+              pollTimer = null
+              idleMs = IDLE_MIN      // 页面动了 = 回到勤快档
+              pullNow(false)
+            }, 800)
+          }
+          const startPolling = function () {
+            if (mode === 'poll') return
+            mode = 'poll'
+            try {
+              const obs = new MutationObserver(function () { pullSoon() })
+              obs.observe(document.body, { childList: true, subtree: true })
+            } catch { /* 老浏览器没有 MutationObserver 就靠保底 */ }
+            try {
+              document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) { idleMs = IDLE_MIN; pullNow(true) }
+              })
+            } catch { /* 忽略 */ }
+            const backstop = function () {
+              const hid = (typeof document !== 'undefined') && document.hidden
+              setTimeout(function () {
+                Promise.resolve(pullNow(true)).then(function (n) {
+                  idleMs = (Number(n) > 0) ? IDLE_MIN : Math.min(IDLE_MAX, Math.round(idleMs * 2))
+                }).catch(function () { /* 忽略 */ })
+                backstop()
+              }, hid ? 300000 : idleMs)
+            }
+            backstop()
+            pullNow(true)
+          }
+          const waitLoop = function () {
+            if (mode !== 'wait') return
+            fetch('/yushen-popup/wait', { credentials: 'same-origin' })
+              .then(function (r) { return r.json() })
+              .then(function (d) {
+                if (!d || d.ok !== true || d.long !== true) { startPolling(); return }
+                if (Array.isArray(d.items) && d.items.length) handleItems(d.items)
+                setTimeout(waitLoop, 60)
+              })
+              .catch(function () { setTimeout(waitLoop, 2000) })
+          }
+          waitLoop()
+        } catch { /* 忽略 */ }
         // 关闭提醒：后台还有在跑的任务时，关窗口弹系统确认（白话）
         try {
           let busyCount = 0
@@ -1287,7 +2394,14 @@ window.__ModuleLoader__.load({
         ))
         wrap('main', () => slots.register(
           { name: 'main', key: 'dsh-yushen-popup', id: 'dsh-yushen-popup', label: '弹窗控制台' },
-          function (props) { return h(AdminPage, props) },
+          function (props) {
+            try {
+              return h(YspErrorBoundary, null, h(AdminPage, props))
+            } catch (e) {
+              return h('div', { style: { padding: '20px', color: '#ff8a8a', fontSize: '13px' } },
+                '弹窗后台渲染出错：' + String((e && e.message) || e))
+            }
+          },
         ))
       },
     }
