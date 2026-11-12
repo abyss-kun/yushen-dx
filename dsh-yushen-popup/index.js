@@ -204,23 +204,38 @@ const DEFAULTS = {
     forceEnabled: true,       // 强制提醒开关
     crossSessionAlert: true,  // 切回会话时提醒（其他会话期间涨了也提醒）
     recentWindowMin: 60,      // 「最近会话」统计窗口（分钟）
-    memoEnabled: true,        // 显示小黑板（常驻备忘）
-    memoAutoSessions: false,  // 小黑板里自动显示最近会话（默认关：黑板默认空白）
-    inlineCost: true,         // 在消息下面的「用量 X tok」旁直接显示本轮花费
     coldDays: 3,              // 冷档：几天没读的会话清掉提醒状态
     actions: { summarize: false, newSession: false },
   },
+  // 2026-11-12 修：这三个是**界面开关**，以前误放在 tokenAlert 里，而前端按顶层读 → 面板勾选和实际行为对不上
+  // （勾着也关不掉小黑板、气泡花费点了没反应）。现在挪到顶层，并在 readConf 里兼容旧配置。
+  memoEnabled: true,        // 显示小黑板（常驻备忘）
+  memoAutoSessions: false,  // 小黑板里自动显示最近会话（默认关：黑板默认空白）
+  inlineCost: true,         // 在消息下面的「用量 X tok」旁直接显示本轮花费
   sources: { qq: false, bili: false, local: true, backup: false },  // QQ/B站事件默认不弹；备份提醒也默认关（2026-11-11 老板：备份是我们自己的机制，别人不一定有）
+}
+
+// 老配置里这三个键藏在 tokenAlert 下面；读的时候抬到顶层，免得"面板显示了、实际没生效"。
+const LIFT_KEYS = ['memoEnabled', 'memoAutoSessions', 'inlineCost']
+function liftLegacy(conf) {
+  try {
+    const ta = conf && conf.tokenAlert
+    if (!ta) return conf
+    for (const k of LIFT_KEYS) {
+      if (conf[k] === undefined && ta[k] !== undefined) conf[k] = ta[k]
+    }
+  } catch { /* 配置坏了就原样返回 */ }
+  return conf
 }
 
 function readConf() {
   try {
     if (fs.existsSync(CONF)) {
       const raw = JSON.parse(fs.readFileSync(CONF, 'utf8'))
-      return { ...DEFAULTS, ...raw, events: { ...DEFAULTS.events, ...(raw.events || {}) }, eventColors: { ...DEFAULTS.eventColors, ...(raw.eventColors || {}) }, tokenAlert: { ...DEFAULTS.tokenAlert, ...(raw.tokenAlert || {}), actions: { ...DEFAULTS.tokenAlert.actions, ...((raw.tokenAlert && raw.tokenAlert.actions) || {}) } }, sources: { ...DEFAULTS.sources, ...(raw.sources || {}) } }
+      return liftLegacy({ ...DEFAULTS, ...raw, events: { ...DEFAULTS.events, ...(raw.events || {}) }, eventColors: { ...DEFAULTS.eventColors, ...(raw.eventColors || {}) }, tokenAlert: { ...DEFAULTS.tokenAlert, ...(raw.tokenAlert || {}), actions: { ...DEFAULTS.tokenAlert.actions, ...((raw.tokenAlert && raw.tokenAlert.actions) || {}) } }, sources: { ...DEFAULTS.sources, ...(raw.sources || {}) } })
     }
   } catch { /* 配置坏了用默认 */ }
-  return { ...DEFAULTS, events: { ...DEFAULTS.events }, eventColors: { ...DEFAULTS.eventColors }, tokenAlert: { ...DEFAULTS.tokenAlert, actions: { ...DEFAULTS.tokenAlert.actions } }, sources: { ...DEFAULTS.sources } }
+  return liftLegacy({ ...DEFAULTS, events: { ...DEFAULTS.events }, eventColors: { ...DEFAULTS.eventColors }, tokenAlert: { ...DEFAULTS.tokenAlert, actions: { ...DEFAULTS.tokenAlert.actions } }, sources: { ...DEFAULTS.sources } })
 }
 function writeConf(next) {
   fs.mkdirSync(DIR, { recursive: true })

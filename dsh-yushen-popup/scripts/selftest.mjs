@@ -484,6 +484,17 @@ check('没有鱼神目录时优雅降级（不抛错、不乱建）', () => {
   if (foreign !== '空 home：不抛错 / dayu 返回空 / 不建文件') throw new Error(String(foreign))
 })
 
+check('界面开关在顶层（memoEnabled/inlineCost 不埋在 tokenAlert 里）', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8')
+  if (!src.includes('const LIFT_KEYS')) throw new Error('没有旧配置抬升逻辑')
+  if (!src.includes('liftLegacy(')) throw new Error('readConf 没用 liftLegacy')
+  if (!/^\s*memoEnabled: true,/m.test(src)) throw new Error('memoEnabled 不在顶层默认值里')
+  const seg = src.slice(src.indexOf('tokenAlert: {'), src.indexOf('sources:'))
+  for (const k of ['memoEnabled', 'memoAutoSessions', 'inlineCost']) {
+    if (seg.includes(k + ':')) throw new Error('tokenAlert 里还有 ' + k)
+  }
+})
+
 // ---------- 输出 ----------
 console.log('=== dsh-yushen-popup 自检 ===')
 let fail = 0
