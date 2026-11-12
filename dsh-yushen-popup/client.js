@@ -108,6 +108,10 @@ window.__ModuleLoader__.load({
         // 「关闭后保留悬浮窗」：读本地设置
         let _stay = false
         try { _stay = localStorage.getItem('yspopup.stay') === '1' } catch { _stay = false }
+        // 2026-11-12：点空白处到底干嘛，以前是写死的（常驻就收、否则关），面板上那三个单选其实没生效。
+        // 现在从 localStorage 读用户选的那个，弹窗创建时就用。
+        let _blank = 'fold'
+        try { _blank = localStorage.getItem('yspopup.blankAction') || 'fold' } catch { _blank = 'fold' }
         const _strokeW = Number(_font.strokeWidth) || 0
         const _stroke = _strokeW > 0 ? (_strokeW + 'px ' + (_font.strokeColor || '#ffffff')) : '0 transparent'
         const wrap = document.createElement('div')
@@ -189,7 +193,7 @@ window.__ModuleLoader__.load({
           gap: '1.4cqw', padding: '0 2.4cqw 5cqw', boxSizing: 'border-box', overflowY: 'auto', minHeight: 0,
           color: _font.textColor || (LIGHT ? '#1b2a38' : T.colors.text),
           fontFamily: _font.fontFamily || 'inherit',
-          fontSize: FS(1.3),
+          fontSize: FS(1.6),
           WebkitTextStroke: _stroke,
           fontWeight: _font.fontWeight || '',
           textShadow: '0 2px 12px rgba(0,20,40,.7)',
@@ -207,11 +211,42 @@ window.__ModuleLoader__.load({
         })
         stage.appendChild(btnRow)
 
+        // 2026-11-12 老板：「内容框图片不能向下拉伸、不能往下扩展」。
+        // 内容装不下时，把画框**纵向拉长一点**（最多 25%），底饰和按钮跟着下移，内容区跟着变高；
+        // 再多就还走滚动。拉伸用 object-fit: fill，所以画框会稍微变形——先这么办，看着不对再换九宫格切图。
+        let grown = false
+        const growToFit = () => {
+          try {
+            if (grown || window.__yspNoGrow === true) return
+            const sh = stage.clientHeight || (stage.getBoundingClientRect() || {}).height || 0
+            if (!sh) return
+            const need = content.scrollHeight
+            const have = content.clientHeight
+            if (need <= have + 2) return
+            const fr = frame.getBoundingClientRect()
+            if (!fr || !fr.height) return
+            const k = Math.min(0.25, Math.max(0, (need - have) / Math.max(1, have)) * 0.85)
+            if (k <= 0.02) return
+            const extra = fr.height * k
+            frame.style.height = ((fr.height + extra) / sh * 100).toFixed(2) + '%'
+            frame.style.objectFit = 'fill'
+            const shift = extra / sh * 100
+            ;[bottom, btnRow].forEach((el2) => {
+              const t0 = parseFloat(String(el2.style.top || '0')) || 0
+              el2.style.top = (t0 + shift).toFixed(2) + '%'
+            })
+            const b0 = parseFloat(String(content.style.bottom || '42')) || 42
+            content.style.bottom = Math.max(6, b0 - shift).toFixed(2) + '%'
+            grown = true
+            try { yspDiag('grow', { k: Math.round(k * 100) }) } catch { /* 忽略 */ }
+          } catch { /* 拉伸失败就保持滚动 */ }
+        }
+
         const mkBadge = (text) => {
           const b = document.createElement('div')
           b.textContent = text || '提醒'
           Object.assign(b.style, {
-            fontSize: FS(1.7), letterSpacing: '.28em', padding: '.4cqw 1.6cqw',
+            fontSize: FS(1.9), letterSpacing: '.28em', padding: '.4cqw 1.6cqw',
             border: '1px solid ' + T.colors.border, borderRadius: '999px',
             color: T.colors.badge, background: T.colors.badgeBg, alignSelf: 'center',
           })
@@ -223,17 +258,17 @@ window.__ModuleLoader__.load({
           content.appendChild(mkBadge(it.badge || '提醒'))
           const h = document.createElement('h2')
           h.textContent = it.title || ''
-          Object.assign(h.style, { margin: '0', fontSize: FS(3.4), fontWeight: '600', letterSpacing: '.05em', color: (_font.titleColor || _font.textColor) || (LIGHT ? '#12202c' : T.colors.title), width: '100%', wordBreak: 'break-word', textAlign: 'center', WebkitTextStroke: _stroke, fontWeight: _font.fontWeight || '' })
+          Object.assign(h.style, { margin: '0', fontSize: FS(3.9), fontWeight: '600', letterSpacing: '.05em', color: (_font.titleColor || _font.textColor) || (LIGHT ? '#12202c' : T.colors.title), width: '100%', wordBreak: 'break-word', textAlign: 'center', WebkitTextStroke: _stroke, fontWeight: _font.fontWeight || '' })
           content.appendChild(h)
           const p = document.createElement('p')
           p.textContent = it.body || ''
-          Object.assign(p.style, { margin: '0', fontSize: FS(1.5), lineHeight: '1.75', color: _font.textColor || (LIGHT ? '#2a3a48' : T.colors.body), WebkitTextStroke: _stroke, fontWeight: _font.fontWeight || '', whiteSpace: 'pre-wrap', width: '100%', wordBreak: 'break-word', textAlign: 'center' })
+          Object.assign(p.style, { margin: '0', textDecoration: 'none', fontSize: FS(1.8), lineHeight: '1.75', color: _font.textColor || (LIGHT ? '#2a3a48' : T.colors.body), WebkitTextStroke: _stroke, fontWeight: _font.fontWeight || '', whiteSpace: 'pre-wrap', width: '100%', wordBreak: 'break-word', textAlign: 'center' })
           content.appendChild(p)
           // 两个按钮：同一风格、同色系，不分主次，放框外下方
           const _bs = (_font && _font.buttonStyle) || 'crystal'
           const _accent = (_font && _font.accentColor) || ''
           const btnBase = {
-            font: 'inherit', fontSize: FS(2), padding: '1cqw 2.6cqw', borderRadius: '1.2cqw', cursor: 'pointer',
+            font: 'inherit', fontSize: FS(2.3), padding: '1cqw 2.6cqw', borderRadius: '1.2cqw', cursor: 'pointer',
             fontWeight: '600', color: T.colors.btnText,
           }
           if (_bs === 'glass') {
@@ -318,7 +353,7 @@ window.__ModuleLoader__.load({
           // 列表模式的按钮放到框外按钮行（和详情一致）
           const _bs0 = (_font && _font.buttonStyle) || 'crystal'
           const listBtn = {
-            font: 'inherit', fontSize: FS(2), padding: '1cqw 2.6cqw', borderRadius: '1.2cqw', cursor: 'pointer',
+            font: 'inherit', fontSize: FS(2.3), padding: '1cqw 2.6cqw', borderRadius: '1.2cqw', cursor: 'pointer',
             fontWeight: '600', color: T.colors.btnText,
             border: '1px solid ' + T.colors.accentBorder,
             background: T.colors.accentBg,
@@ -492,12 +527,13 @@ window.__ModuleLoader__.load({
           }
         }
         document.addEventListener('keydown', onEnter, true)
-        // 点弹窗外面的暗色区域：常驻设置开着就收成悬浮画卷；没开就直接关（以前一律 suspend，等于点外面也关不掉）
+        // 点弹窗外面的暗色区域：按面板上选的「点空白处」来做（fold 收成画卷 / close 直接关 / none 不动）
         wrap.addEventListener('click', (e) => {
           if (e.target !== wrap) return
-          try { yspDiag('backdrop', { stay: !!_stay }) } catch { /* 忽略 */ }
-          if (_stay) { try { suspend(); return } catch { /* 兜底关掉 */ } }
-          finish(false)
+          try { yspDiag('backdrop', { blank: _blank, stay: !!_stay }) } catch { /* 忽略 */ }
+          if (_blank === 'none') return
+          if (_blank === 'close') { finish(false); return }
+          try { suspend() } catch { finish(false) }
         })
 
         const reveal = () => {
@@ -522,6 +558,11 @@ window.__ModuleLoader__.load({
           crownHit.style.pointerEvents = 'auto'
           axis.style.opacity = '0'
           axis.style.pointerEvents = 'none'
+          // 2026-11-12 修：展开时把"未读数"那个大数字收掉。
+          // 以前只在 suspend() 里设成 1、resume() 里设回 0；走别的路径（直接 reveal）就会留一个
+          // 大数字压在正文上——看起来就像"字上压了一根横杠"。
+          try { countEl.style.opacity = '0' } catch { /* 忽略 */ }
+          setTimeout(growToFit, 90)
         }
         // 重新卷起：把两翼收回、主体藏起来（点缩小的画卷时先做这个，再展开）
         const rollUp = () => {
@@ -1137,6 +1178,7 @@ window.__ModuleLoader__.load({
               }))
             } catch { /* 忽略 */ }
             try { localStorage.setItem('yspopup.view', JSON.stringify({ zoomView: cfg.zoomView || 'expanded', reopenView: cfg.reopenView || 'expanded' })) } catch { /* 忽略 */ }
+            try { localStorage.setItem('yspopup.blankAction', cfg.blankAction || 'fold') } catch { /* 忽略 */ }
             try { localStorage.setItem('yspopup.memo.enabled', cfg.memoEnabled === false ? '0' : '1') } catch { /* 忽略 */ }
             try { localStorage.setItem('yspopup.inlineCost', cfg.inlineCost === false ? '0' : '1') } catch { /* 忽略 */ }
             try { localStorage.setItem('yspopup.memo.auto', cfg.memoAutoSessions ? '1' : '0') } catch { /* 忽略 */ }
@@ -1205,28 +1247,27 @@ window.__ModuleLoader__.load({
           bar('弹出方式 — 弹出时带不带仪式感'),
           radio('mode', 'auto', '直接通知（弹出即展开，不搞仪式）'),
           radio('mode', 'ritual', '卷轴仪式（弹出是收拢画卷，点开才展开）'),
-          bar('紧急事件直接弹 — 要紧的事是否跳过卷轴直接显示'),
-          check('urgentDirect', '紧急的事跳过仪式，直接给你看'),
-          bar('小黑板 — 常驻在页面右上角的临时备忘（默认空白，自己写事项）'),
-          check('memoEnabled', '显示小黑板'),
-          check('memoAutoSessions', '小黑板里自动列出最近会话（默认关，黑板保持空白）'),
-          check('inlineCost', '在消息下面的「用量 X tok」旁直接显示本轮花费（减少弹窗）'),
-          h('div', { style: { color: '#999', fontSize: '12px' } }, '可拖动、可折叠；手写事项存在本地，重启不丢。开着小黑板时，弹窗点「好」只还原黑板，不另挂画卷。'),
-          bar('关闭后 — 点「好/知道了」之后弹窗怎么处理'),
+          bar('要紧的事 — 跳过仪式，直接给你看'),
+          check('urgentDirect', '紧急的事不搞仪式，直接展开'),
+          bar('关掉的时候 — 点「好/知道了」和点弹窗外面各做什么'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: (function () { try { return localStorage.getItem('yspopup.stay') === '1' } catch { return false } })(),
             onChange: function (e) { try { localStorage.setItem('yspopup.stay', e.target.checked ? '1' : '0') } catch { /* 忽略 */ } set({ stayOnClose: e.target.checked }) },
-          }), '保留悬浮窗（关掉就收成画卷留在屏幕上，不消失）'),
-          bar('滚轮缩放时 — 弹窗显示成什么样'),
-          radio('zoomView', 'expanded', '展开的样子（能看到内容）'),
-          radio('zoomView', 'rolled', '收拢的画卷（只有外壳）'),
-          bar('缩放后再打开 — 从收起状态点开后显示什么'),
-          radio('reopenView', 'expanded', '直接展开（看到内容）'),
-          radio('reopenView', 'rolled', '还是收拢的画卷（要再点一下才展开）'),
-          bar('点空白处 — 点击弹窗外面的空白区域时做什么'),
-          radio('blankAction', 'fold', '收成画卷'),
+          }), '确认键保留悬浮窗（关掉后收成小画卷留在屏幕；不开就是直接消失）'),
+          bar('点弹窗外面 — 做什么'),
+          radio('blankAction', 'fold', '收成画卷（留屏）'),
           radio('blankAction', 'close', '直接关闭'),
-          radio('blankAction', 'none', '无效（什么都不发生）'))
+          radio('blankAction', 'none', '什么都不做'),
+          bar('卷起来的画卷 — 滚轮缩小时长什么样、再点开又是什么'),
+          radio('zoomView', 'expanded', '缩放时保持展开（能看到内容）'),
+          radio('zoomView', 'rolled', '缩放时收拢成画卷（只有外壳）'),
+          radio('reopenView', 'expanded', '点开时直接展开'),
+          radio('reopenView', 'rolled', '点开时还是收拢（要再点一下）'),
+          bar('桌面上的小东西 — 常驻备忘、花费标签'),
+          check('memoEnabled', '显示小黑板（常驻右上角的临时备忘）'),
+          check('memoAutoSessions', '小黑板里自动列出最近会话（默认关，黑板保持空白）'),
+          check('inlineCost', '在消息下面的「用量 X tok」旁显示本轮花费'),
+          h('div', { style: { color: '#999', fontSize: '12px' } }, '小黑板可拖动、可折叠；手写事项存在本地，重启不丢。'))
       } else if (tab === 'feel') {
         body = h('div', null,
           bar('声音 — 点击弹窗时是否出声'),

@@ -293,11 +293,11 @@ check('弹窗字号应用（fontSize=large 放大 1.12 倍）', () => {
   fakeWindow.__ysPopupShowing = false
   created.length = 0
   fakeWindow.__yshenImportantPopup({ title: '字号测试', body: '正文', autoExpand: true })
-  // 标题基准 3.4cqw * 1.12 = 3.81cqw
-  const hit = created.find((el) => el.style && String(el.style.fontSize || '') === '3.81cqw')
+  // 标题基准 3.9cqw * 1.12 = 4.37cqw
+  const hit = created.find((el) => el.style && String(el.style.fontSize || '') === '4.37cqw')
   if (!hit) {
     const sizes = created.map((el) => el.style && el.style.fontSize).filter(Boolean).slice(0, 8)
-    throw new Error('没有元素用上 3.81cqw；实际字号: ' + JSON.stringify(sizes))
+    throw new Error('没有元素用上 4.37cqw；实际字号: ' + JSON.stringify(sizes))
   }
 })
 
