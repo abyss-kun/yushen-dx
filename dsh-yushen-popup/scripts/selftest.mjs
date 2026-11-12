@@ -398,6 +398,13 @@ check('同一时间只有一幅（收起来的旧的就拆掉）', () => {
   if (singleTest !== '任意时刻只有一幅') throw new Error(String(singleTest))
 })
 
+check('保存读的是最新 cfg（不是 500ms 前的闭包）', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  if (!src.includes('const cfgRef = React.useRef(cfg)')) throw new Error('没有 cfgRef')
+  if (!src.includes('JSON.stringify(cur)')) throw new Error('保存没发最新 cfg')
+  if (!src.includes('cfgRef.current = next')) throw new Error('连续点开关会互相覆盖')
+})
+
 check('收起时是画卷形态（内容收起、只留外壳）', () => {
   const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
   const i = src.indexOf('const suspend = () =>')

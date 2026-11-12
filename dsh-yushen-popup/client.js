@@ -1106,7 +1106,11 @@ window.__ModuleLoader__.load({
       const mark = function () {
         if (document.hidden) return
         try {
-          if (localStorage.getItem('yspopup.inlineCost') === '0') return
+          if (localStorage.getItem('yspopup.inlineCost') === '0') {
+            // 关掉时把已经标上去的也摘掉，不然面板关了标签还在
+            try { document.querySelectorAll('[data-ysp-cost]').forEach(function (n) { n.remove() }) } catch { /* 忽略 */ }
+            return
+          }
           const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
           let n
           while ((n = walker.nextNode())) {
@@ -1157,6 +1161,11 @@ window.__ModuleLoader__.load({
     function AdminPage() {
       const [tab, setTab] = React.useState('display')
       const [cfg, setCfg] = React.useState(null)
+      // 2026-11-12 老板：「后台开关关不掉，而且不能即时跟随」——
+      // 自动保存是 500ms 防抖，回调里用的是**触发那一刻闭包里的旧 cfg**，所以存回去的是改之前的值。
+      // 这里用个 ref 一直指向最新的 cfg，保存时读它。
+      const cfgRef = React.useRef(cfg)
+      cfgRef.current = cfg
       const [msg, setMsg] = React.useState('')
       // 任务页数据（hooks 必须在组件顶层，不能写在分支里）
       const [busy, setBusy] = React.useState(null)
@@ -1198,26 +1207,27 @@ window.__ModuleLoader__.load({
           .catch(function () { /* 忽略 */ })
       }, [])
       const save = function (quiet) {
+        const cur = (cfgRef.current || cfg || {})
         if (!quiet) setMsg('保存中…')
         fetch('/yushen-popup/config', {
           method: 'POST', credentials: 'same-origin',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(cfg),
+          body: JSON.stringify(cur),
         }).then(function (r) { return r.json() }).then(function (d) {
           if (d && d.ok) {
             setCfg(d.config)
             try {
               localStorage.setItem('yspopup.font', JSON.stringify({
-                fontFamily: cfg.fontFamily || '', fontSize: cfg.fontSize || '',
-                textColor: cfg.textColor || '', accentColor: cfg.accentColor || '', titleColor: cfg.titleColor || '', strokeColor: cfg.strokeColor || '', strokeWidth: Number(cfg.strokeWidth) || 0, fontWeight: cfg.fontWeight || '',
-                scheme: cfg.scheme || 'dark', buttonStyle: cfg.buttonStyle || 'crystal', sound: cfg.sound !== false,
+                fontFamily: cur.fontFamily || '', fontSize: cur.fontSize || '',
+                textColor: cur.textColor || '', accentColor: cur.accentColor || '', titleColor: cur.titleColor || '', strokeColor: cur.strokeColor || '', strokeWidth: Number(cur.strokeWidth) || 0, fontWeight: cur.fontWeight || '',
+                scheme: cur.scheme || 'dark', buttonStyle: cur.buttonStyle || 'crystal', sound: cur.sound !== false,
               }))
             } catch { /* 忽略 */ }
-            try { localStorage.setItem('yspopup.view', JSON.stringify({ zoomView: cfg.zoomView || 'expanded', reopenView: cfg.reopenView || 'expanded' })) } catch { /* 忽略 */ }
-            try { localStorage.setItem('yspopup.blankAction', cfg.blankAction || 'fold') } catch { /* 忽略 */ }
-            try { localStorage.setItem('yspopup.memo.enabled', cfg.memoEnabled === false ? '0' : '1') } catch { /* 忽略 */ }
-            try { localStorage.setItem('yspopup.inlineCost', cfg.inlineCost === false ? '0' : '1') } catch { /* 忽略 */ }
-            try { localStorage.setItem('yspopup.memo.auto', cfg.memoAutoSessions ? '1' : '0') } catch { /* 忽略 */ }
+            try { localStorage.setItem('yspopup.view', JSON.stringify({ zoomView: cur.zoomView || 'expanded', reopenView: cur.reopenView || 'expanded' })) } catch { /* 忽略 */ }
+            try { localStorage.setItem('yspopup.blankAction', cur.blankAction || 'fold') } catch { /* 忽略 */ }
+            try { localStorage.setItem('yspopup.memo.enabled', cur.memoEnabled === false ? '0' : '1') } catch { /* 忽略 */ }
+            try { localStorage.setItem('yspopup.inlineCost', cur.inlineCost === false ? '0' : '1') } catch { /* 忽略 */ }
+            try { localStorage.setItem('yspopup.memo.auto', cur.memoAutoSessions ? '1' : '0') } catch { /* 忽略 */ }
             // 2026-11-11 老板：「不能改成立刻生效吗」——能。保存完当场把受开关控制的那几处重跑一遍，
             // 不用等 30~60 秒的定时检查，更不用重启。
             try { if (window.__yspMemoOn) window.__yspMemoOn() } catch { /* 忽略 */ }
@@ -1238,12 +1248,14 @@ window.__ModuleLoader__.load({
         } catch { /* 忽略 */ }
       }
       const set = function (patch) {
-        setCfg(Object.assign({}, cfg, patch))
+        const next = Object.assign({}, cfgRef.current || cfg || {}, patch)
+        cfgRef.current = next   // 立刻生效：连着点两个开关也不会互相覆盖
+        setCfg(next)
         scheduleAutoSave()
       }
       // 会话染色配置（字体美化页的「会话」块用）
       const setChat = function (patch) {
-        const cur = (cfg && cfg.chatColors) || {}
+        const cur = ((cfgRef.current || cfg || {}).chatColors) || {}
         const next = Object.assign({ on: true, mine: '#dff1ff', theirs: '#e6eef7', fontFamily: '', fontSize: '' }, cur, patch)
         set({ chatColors: next })
         try { localStorage.setItem('yspopup.chatColors', JSON.stringify(next)) } catch { /* 忽略 */ }
@@ -1258,7 +1270,7 @@ window.__ModuleLoader__.load({
       const setDeep = function (key, val) {
         const parts = String(key).split('.')
         if (parts.length === 1) { set({ [key]: val }); return }
-        const root = Object.assign({}, cfg[parts[0]] || {})
+          const root = Object.assign({}, ((cfgRef.current || cfg || {})[parts[0]]) || {})
         root[parts[1]] = val
         set({ [parts[0]]: root })
       }
