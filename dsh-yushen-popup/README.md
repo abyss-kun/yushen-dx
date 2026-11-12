@@ -57,7 +57,16 @@ POST /yushen-popup/preview
 
 右上角有「重新加载界面」——改了客户端代码点它，等于刷新页面（DSH 打包版没有 Ctrl+R）。
 
-配置存在 `~/.dsh/dsh-yushen-popup/config.json`。**改完自动保存、当场生效**（不用按保存键，也不用重启）。
+配置存在 `~/.dsh/dsh-yushen-popup/config.json`。
+
+## 文档在哪
+
+| 想看什么 | 打开 |
+|---|---|
+| 发群 / 介绍给别人 | [docs/QQ说明.md](docs/QQ说明.md) |
+| 改代码怎么算改完 | [docs/开发流程.md](docs/开发流程.md) |
+| 改弹窗行为先看状态 | [docs/弹窗状态.md](docs/弹窗状态.md) |
+| 每个目录放什么 | [docs/目录说明.md](docs/目录说明.md) |**改完自动保存、当场生效**（不用按保存键，也不用重启）。
 
 ## 安装
 
