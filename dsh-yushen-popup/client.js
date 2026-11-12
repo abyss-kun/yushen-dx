@@ -679,7 +679,10 @@ window.__ModuleLoader__.load({
           const dy = target.y - (r.top + r.height / 2)
           stage.style.transformOrigin = '50% 50%'
           stage.style.transition = 'transform .5s cubic-bezier(.2,.8,.2,1)'
-          stage.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(.12)'
+          // 2026-11-12 老板：「关闭之后内容没了应该变成画卷形态」——先收拢（藏内容、露轴心），再缩到角落。
+          // 以前只缩放不收拢，缩起来的是"带内容的整幅"，看着还是那张有字的框。
+          try { rollUp() } catch { /* 收不拢就直接缩 */ }
+          stage.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(.30)'
           stage.style.cursor = 'pointer'
           stage.style.pointerEvents = 'auto'
           wrap.style.background = 'transparent'
@@ -724,7 +727,7 @@ window.__ModuleLoader__.load({
           const dx = e.clientX - dragStart.x
           const dy = e.clientY - dragStart.y
           if (Math.abs(dx) + Math.abs(dy) > 6) dragMoved = true
-          stage.style.transform = 'translate(' + (dragBase.x + dx) + 'px,' + (dragBase.y + dy) + 'px) scale(.12)'
+          stage.style.transform = 'translate(' + (dragBase.x + dx) + 'px,' + (dragBase.y + dy) + 'px) scale(.30)'
         })
         const endDrag = () => {
           if (!dragging) return

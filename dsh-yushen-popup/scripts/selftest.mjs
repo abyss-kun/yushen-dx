@@ -398,6 +398,14 @@ check('同一时间只有一幅（收起来的旧的就拆掉）', () => {
   if (singleTest !== '任意时刻只有一幅') throw new Error(String(singleTest))
 })
 
+check('收起时是画卷形态（内容收起、只留外壳）', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  const i = src.indexOf('const suspend = () =>')
+  if (i < 0) throw new Error('找不到 suspend')
+  const seg = src.slice(i, i + 3600)
+  if (!seg.includes('rollUp()')) throw new Error('收起时没有收拢（还是会留着内容）')
+})
+
 check('新会话没有用量时不报警（usageNoTurn）', () => {
   const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
   if (!src.includes('usageNoTurn')) throw new Error('没有"新会话不算坏"的判据')
