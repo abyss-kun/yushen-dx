@@ -339,6 +339,33 @@ check('按钮能关：捕获兜底兜住"点了没反应"', () => {
   if (closeTest !== '点按钮就关（不依赖按钮自身监听器）') throw new Error(String(closeTest))
 })
 
+// ---------- 6b. 「关闭」不拆弹窗，收成画框（2026-11-12 老板：关闭之后变回画框） ----------
+const foldTest = await (async () => {
+  try {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    fakeWindow.__ysPopupShowing = false
+    fakeWindow.__ysPopupPending = []
+    created.length = 0
+    const p = fakeWindow.__yshenImportantPopup({ title: '收成画框', body: '正文', confirmText: '知道了', cancelText: '关闭', cancelAction: 'fold', autoExpand: true })
+    await sleep(80)
+    const wrap = created.find((el) => el && el.id === 'ys-popup-wrap')
+    const btn = created.find((el) => el && el.getAttribute && el.getAttribute('data-ys-act') === 'fold')
+    if (!btn) return '没有 fold 按钮'
+    globalDoc.__dispatch('click', { target: btn })
+    await sleep(200)
+    if (wrap.removed) return '被拆掉了（应该收成画框留在屏上）'
+    if (fakeWindow.__ysPopupShowing === true) return '__ysPopupShowing 没复位（会吞后面的弹窗）'
+    const r = await Promise.race([p, sleep(300).then(() => 'timeout')])
+    if (r === 'timeout') return 'Promise 没 resolve'
+    return '收成画框：不拆 / 标志复位 / resolve(false)'
+  } catch (e) {
+    return '抛错：' + String((e && e.message) || e)
+  }
+})()
+check('「关闭」= 收成画框（不消失、能再点开）', () => {
+  if (foldTest !== '收成画框：不拆 / 标志复位 / resolve(false)') throw new Error(String(foldTest))
+})
+
 check('新会话没有用量时不报警（usageNoTurn）', () => {
   const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
   if (!src.includes('usageNoTurn')) throw new Error('没有"新会话不算坏"的判据')

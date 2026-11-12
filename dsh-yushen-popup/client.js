@@ -307,12 +307,21 @@ window.__ModuleLoader__.load({
           // 真有第二个选择（比如「稍后」）才出两个键。
           const single = !it.cancelText
           if (!single) {
+            // 2026-11-12 老板：「按键应该是稍后改成关闭……关闭之后没有内容了就应该变回画框」
+            // 次按钮默认是「关掉就消失」；传 cancelAction:'fold' 就是**收成画框**（内容收起、外框留在角落）。
+            const cancelAct = it.cancelAction === 'fold' ? 'fold' : 'cancel'
             const cancel = document.createElement('button')
             cancel.textContent = it.cancelText
-            cancel.setAttribute('data-ys-act', 'cancel')
+            cancel.setAttribute('data-ys-act', cancelAct)
             Object.assign(cancel.style, btnBase)
             cancel.style.filter = 'brightness(.92)'
-            cancel.addEventListener('click', (e) => { e.stopPropagation(); try { yspDiag('click-cancel') } catch { /* 忽略 */ }; playClick(); finish(false) })
+            cancel.addEventListener('click', (e) => {
+              e.stopPropagation()
+              try { yspDiag(cancelAct === 'fold' ? 'click-fold' : 'click-cancel') } catch { /* 忽略 */ }
+              playClick()
+              if (cancelAct === 'fold') toFrame()
+              else finish(false)
+            })
             btnRow.appendChild(cancel)
           }
           const ok = document.createElement('button')
@@ -472,6 +481,19 @@ window.__ModuleLoader__.load({
             }
           } catch { /* 忽略 */ }
         }
+        // 2026-11-12 老板：「关闭之后没有内容了就应该变回画框」——收起内容，外框留在角落（小画卷）。
+        // 做法：suspend() 把整幅缩到角落；done 置 true 防止重复；resolve(false) 让调用方继续；
+        // 再把 __ysPopupShowing 放开，免得一条"收起来的"弹窗把后面的弹窗全吞了。
+        // 点那张小画卷会走 resume()，那里会把 done 复位，所以还能再点开。
+        const toFrame = () => {
+          if (done) return
+          done = true
+          try { yspDiag('to-frame') } catch { /* 忽略 */ }
+          try { yspPushHistory(items[0] || opts) } catch { /* 忽略 */ }
+          try { suspend() } catch { try { wrap.remove() } catch { /* 忽略 */ } }
+          try { resolve(false) } catch { /* 忽略 */ }
+          try { if (typeof window !== 'undefined') window.__ysPopupShowing = false } catch { /* 忽略 */ }
+        }
         const finish = (result) => {
           if (done) return
           done = true
@@ -499,6 +521,7 @@ window.__ModuleLoader__.load({
             const act = (el.getAttribute && el.getAttribute('data-ys-act')) || ''
             yspDiag('capture-click', { act: act, label: String(el.textContent || '').slice(0, 16) })
             if (act === 'ok') { playClick(); finish(true) }
+            else if (act === 'fold') { playClick(); toFrame() }
             else if (act === 'cancel' || act === 'close') { playClick(); finish(false) }
           } catch { /* 忽略 */ }
         }
@@ -657,6 +680,7 @@ window.__ModuleLoader__.load({
         }
         const resume = () => {
           suspended = false
+          done = false // 从小画卷点开 = 重新开始，按钮要能再点
           countEl.style.opacity = '0'
           wrap.style.background = 'rgba(3,10,14,.74)'
           wrap.style.pointerEvents = 'auto'
@@ -1303,7 +1327,7 @@ window.__ModuleLoader__.load({
             h('span', { style: { color: '#999', fontSize: '12px' } }, '秒一次（默认 300 = 5 分钟）')),
 
           bar('成本线 — 超过就弹（¥，按当前峰谷和缓存估算）'),
-          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.roundEnabled !== false,
+          h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.roundEnabled === true,
             onChange: function (e) { setTa({ roundEnabled: e.target.checked }) } }), '每轮成本线开着'),
           h('div', { style: S.row }, h('span', { style: S.key }, '每轮'),
             h('input', { type: 'number', min: 0.01, step: 0.01, style: S.num, value: ta.roundLine || 0.1,
@@ -1324,6 +1348,7 @@ window.__ModuleLoader__.load({
             h('input', { type: 'number', min: 10000, step: 10000, style: S.num, value: ta.contextLimit || 500000,
               onChange: function (e) { setTa({ contextLimit: Number(e.target.value) || 500000 }) } }),
             h('span', { style: { color: '#999', fontSize: '12px' } }, 'token — 上限 100 万，默认 50 万')),
+          h('div', { style: { color: '#999', fontSize: '12px', marginTop: '6px' } }, '默认：每轮线**关**（消息下面的小标已经写着本轮花费）；累计线开，¥10 起、每 +¥10 再提醒；容量线开，50 万 tok。三条各管各的，互不影响。'),
 
           bar('频率与静默'),
           h('div', { style: S.row }, h('span', { style: S.key }, '检查'),
@@ -2158,7 +2183,9 @@ window.__ModuleLoader__.load({
             confirmText: (ta.actions && ta.actions.summarize && ta.actions.newSession) ? '总结并开新会话'
               : ((ta.actions && ta.actions.summarize) ? '帮我总结'
                 : ((ta.actions && ta.actions.newSession) ? '开新会话' : '知道了')),
-            cancelText: '稍后',
+            // 2026-11-12 老板：次按钮改成「关闭」，点了收起内容、变回画框（能再点开）
+            cancelText: '关闭',
+            cancelAction: 'fold',
           }).then(function (ok) {
             if (ok) {
               if (ta.actions && ta.actions.summarize) yspSendToComposer('帮我把这段会话的要点总结一下，写成简短的记忆条目。')
