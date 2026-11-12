@@ -94,6 +94,12 @@ window.__ModuleLoader__.load({
         return Promise.resolve(false)
       }
       if (typeof window !== 'undefined') window.__ysPopupShowing = true
+      // 2026-11-12 老板：「弹窗悬浮有两个」——「关闭」收起来的那幅会留在屏上，
+      // 下一轮再弹就变成两幅叠着。同一时间只允许一幅：开新弹窗前，把旧的（收起来的）拆掉。
+      try {
+        const olds = document.querySelectorAll('[data-ys-popup]')
+        for (const el of olds) { try { el.remove() } catch { /* 单个拆不掉不影响别的 */ } }
+      } catch { /* 老浏览器没有 querySelectorAll 就算了 */ }
       const T = POPUP_THEMES[theme]
       const multi = items.length > 1
       const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
@@ -654,7 +660,9 @@ window.__ModuleLoader__.load({
           if (lastPos) {
             target = clampPos(lastPos)
           } else {
-            target = clampPos({ x: window.innerWidth - pad, y: window.innerHeight - pad })
+            // 2026-11-12 老板：「又默认去了右下角」——没拖过位置时，**就地收起来**（缩在原处），
+            // 不要跳到屏幕右下角；拖过就还用你拖到的那个位置。
+            target = clampPos({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
             lastPos = target
             savePos(target)
           }
@@ -681,6 +689,7 @@ window.__ModuleLoader__.load({
         const resume = () => {
           suspended = false
           done = false // 从小画卷点开 = 重新开始，按钮要能再点
+          try { if (typeof window !== 'undefined') window.__ysPopupShowing = true } catch { /* 忽略 */ }
           countEl.style.opacity = '0'
           wrap.style.background = 'rgba(3,10,14,.74)'
           wrap.style.pointerEvents = 'auto'

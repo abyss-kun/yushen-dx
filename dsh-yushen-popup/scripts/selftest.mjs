@@ -102,7 +102,11 @@ const globalDoc = {
   },
   activeElement: null,
   querySelector() { return null },
-  querySelectorAll() { return [] },
+  querySelectorAll(sel) {
+    // 只为测「同一时间只有一幅弹窗」：假装能按属性查到当前活着的弹窗
+    if (String(sel).includes('data-ys-popup')) return created.filter((e) => e && e.attrs && e.attrs['data-ys-popup'] === '1' && !e.removed)
+    return []
+  },
 }
 
 const store = new Map()
@@ -364,6 +368,34 @@ const foldTest = await (async () => {
 })()
 check('「关闭」= 收成画框（不消失、能再点开）', () => {
   if (foldTest !== '收成画框：不拆 / 标志复位 / resolve(false)') throw new Error(String(foldTest))
+})
+
+// ---------- 6c. 同一时间只有一幅（2026-11-12 老板：弹窗悬浮有两个） ----------
+const singleTest = await (async () => {
+  try {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    const alive = () => created.filter((e) => e && e.attrs && e.attrs['data-ys-popup'] === '1' && !e.removed).length
+    fakeWindow.__ysPopupShowing = false
+    fakeWindow.__ysPopupPending = []
+    created.length = 0
+    fakeWindow.__yshenImportantPopup({ title: '第一幅', body: 'x', confirmText: '知道了', cancelText: '关闭', cancelAction: 'fold', autoExpand: true })
+    await sleep(80)
+    const btn = created.find((e) => e && e.getAttribute && e.getAttribute('data-ys-act') === 'fold')
+    globalDoc.__dispatch('click', { target: btn })
+    await sleep(120)
+    if (alive() !== 1) return '收起来之后有 ' + alive() + ' 幅'
+    fakeWindow.__ysPopupShowing = false
+    fakeWindow.__yshenImportantPopup({ title: '第二幅', body: 'y', confirmText: '知道了', autoExpand: true })
+    await sleep(140)
+    const n = alive()
+    if (n !== 1) return '第二幅弹出来后有 ' + n + ' 幅（应该只剩 1）'
+    return '任意时刻只有一幅'
+  } catch (e) {
+    return '抛错：' + String((e && e.message) || e)
+  }
+})()
+check('同一时间只有一幅（收起来的旧的就拆掉）', () => {
+  if (singleTest !== '任意时刻只有一幅') throw new Error(String(singleTest))
 })
 
 check('新会话没有用量时不报警（usageNoTurn）', () => {
