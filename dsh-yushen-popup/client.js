@@ -632,7 +632,10 @@ window.__ModuleLoader__.load({
           try { localStorage.setItem(POS_KEY, JSON.stringify(pos)) } catch { /* 存储被拒就用内存 */ }
         }
         let lastPos = readPos()  // 上次拖到的位置（持久化，重启也记得）
-        let zoom = 1         // 展开态滚轮缩放
+      let zoom = 1         // 展开态滚轮缩放
+      // 2026-11-12 老板：「悬浮的无法放大缩小」——收起成小画卷后也能滚轮缩放（大小记在本地）
+      let foldScale = 0.30
+      try { foldScale = Math.max(0.12, Math.min(0.9, Number(localStorage.getItem('yspopup.foldScale')) || 0.30)) } catch { foldScale = 0.30 }
         // 整体缩放之外，部件各自再缩/放：内框放大（k>0），外饰缩小；两端钳住，别撑破。
         const applyPartScale = () => {
           const k = zoom - 1
@@ -682,12 +685,12 @@ window.__ModuleLoader__.load({
           // 2026-11-12 老板：「关闭之后内容没了应该变成画卷形态」——先收拢（藏内容、露轴心），再缩到角落。
           // 以前只缩放不收拢，缩起来的是"带内容的整幅"，看着还是那张有字的框。
           try { rollUp() } catch { /* 收不拢就直接缩 */ }
-          stage.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(.30)'
+          stage.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + foldScale.toFixed(3) + ')'
           stage.style.cursor = 'pointer'
           stage.style.pointerEvents = 'auto'
           wrap.style.background = 'transparent'
           wrap.style.pointerEvents = 'none'
-          countEl.style.opacity = '1'
+          countEl.style.opacity = '0'
         }
         const resume = () => {
           suspended = false
@@ -727,7 +730,7 @@ window.__ModuleLoader__.load({
           const dx = e.clientX - dragStart.x
           const dy = e.clientY - dragStart.y
           if (Math.abs(dx) + Math.abs(dy) > 6) dragMoved = true
-          stage.style.transform = 'translate(' + (dragBase.x + dx) + 'px,' + (dragBase.y + dy) + 'px) scale(.30)'
+          stage.style.transform = 'translate(' + (dragBase.x + dx) + 'px,' + (dragBase.y + dy) + 'px) scale(' + foldScale.toFixed(3) + ')'
         })
         const endDrag = () => {
           if (!dragging) return
@@ -873,7 +876,21 @@ window.__ModuleLoader__.load({
         })
 
         const onWheel = (e) => {
-          if (!opened || suspended) return
+          // 2026-11-12 老板：「悬浮的无法放大缩小」——收起来的小画卷上滚轮 = 调大小（12%~90%）。
+          if (suspended) {
+            if (!(typeof wrap.contains === 'function' && wrap.contains(e.target))) return
+            try { e.preventDefault() } catch { /* 忽略 */ }
+            const dir0 = e.deltaY > 0 ? -1 : 1
+            foldScale = Math.max(0.12, Math.min(0.9, foldScale + dir0 * 0.04))
+            try { localStorage.setItem('yspopup.foldScale', foldScale.toFixed(3)) } catch { /* 忽略 */ }
+            const m0 = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(stage.style.transform || '')
+            const tx0 = m0 ? m0[1] : 0
+            const ty0 = m0 ? m0[2] : 0
+            stage.style.transition = 'transform .15s ease'
+            stage.style.transform = 'translate(' + tx0 + 'px,' + ty0 + 'px) scale(' + foldScale.toFixed(3) + ')'
+            return
+          }
+          if (!opened) return
           if (!wrap.contains(e.target)) return
           // 只有「鼠标真的落在内容区/框体」上才交给滚动；舞台空白边也算场外（可缩放）
           if (content.contains(e.target)) return

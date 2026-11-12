@@ -398,6 +398,15 @@ check('同一时间只有一幅（收起来的旧的就拆掉）', () => {
   if (singleTest !== '任意时刻只有一幅') throw new Error(String(singleTest))
 })
 
+check('收起成画卷：不显示数字、能滚轮缩放', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
+  if (src.includes("countEl.style.opacity = '1'")) throw new Error('收起时还在显示未读数字')
+  if (!src.includes('let foldScale')) throw new Error('收起态没有缩放变量')
+  const i = src.indexOf('const onWheel = (e) => {')
+  const seg = src.slice(i, i + 900)
+  if (!seg.includes('if (suspended)')) throw new Error('收起态滚轮不响应')
+})
+
 check('保存读的是最新 cfg（不是 500ms 前的闭包）', () => {
   const src = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')
   if (!src.includes('const cfgRef = React.useRef(cfg)')) throw new Error('没有 cfgRef')
