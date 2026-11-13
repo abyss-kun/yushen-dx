@@ -466,6 +466,7 @@ window.__ModuleLoader__.load({
           try { document.removeEventListener('keydown', onEnter, true) } catch { /* 忽略 */ }
           try { document.removeEventListener('pointerdown', repairPointer, true) } catch { /* 忽略 */ }
           try { document.removeEventListener('click', onClickCapture, true) } catch { /* 忽略 */ }
+          try { document.removeEventListener('wheel', onWheel, { capture: true }) } catch { /* 忽略 */ }
           try { window.removeEventListener('wheel', onWheel, { passive: false }) } catch { /* 忽略 */ }
           try { if (typeof window !== 'undefined') window.__ysPopupShowing = false } catch { /* 忽略 */ }
           if (keepFloating) {
@@ -880,6 +881,7 @@ window.__ModuleLoader__.load({
           if (suspended) {
             if (!(typeof wrap.contains === 'function' && wrap.contains(e.target))) return
             try { e.preventDefault() } catch { /* 忽略 */ }
+            try { yspDiag('wheel-fold', { dy: Number(e.deltaY) || 0, tag: String((e.target && e.target.tagName) || '') }) } catch { /* 忽略 */ }
             const dir0 = e.deltaY > 0 ? -1 : 1
             foldScale = Math.max(0.12, Math.min(0.9, foldScale + dir0 * 0.04))
             try { localStorage.setItem('yspopup.foldScale', foldScale.toFixed(3)) } catch { /* 忽略 */ }
@@ -892,8 +894,8 @@ window.__ModuleLoader__.load({
           }
           if (!opened) return
           if (!wrap.contains(e.target)) return
-          // 只有「鼠标真的落在内容区/框体」上才交给滚动；舞台空白边也算场外（可缩放）
-          if (content.contains(e.target)) return
+          // 2026-11-13：正文能滚就交给正文滚；滚不动（内容装得下）就缩放——
+          if (content.contains(e.target) && content.scrollHeight > content.clientHeight + 2) return
           e.preventDefault()
           const dir = e.deltaY > 0 ? -1 : 1
           zoom = Math.max(0.55, Math.min(1.5, zoom + dir * 0.06))
@@ -901,7 +903,9 @@ window.__ModuleLoader__.load({
           // 「缩放时显示」= 收拢的画卷 → 缩放一下就收起来（只动外壳）
           if (_view.zoomView === 'rolled' && zoom !== 1) rollUp()
         }
-        window.addEventListener('wheel', onWheel, { passive: false })
+        // 2026-11-13 老板：「悬浮窗不能放大缩小了」——滚轮换成 document 捕获阶段听：
+        // 页面上别的处理器若在冒泡里 stopPropagation，window 冒泡那条就收不到；捕获阶段先经过我们。
+        try { document.addEventListener('wheel', onWheel, { passive: false, capture: true }) } catch { window.addEventListener('wheel', onWheel, { passive: false }) }
 
         requestAnimationFrame(() => {
           playClick()

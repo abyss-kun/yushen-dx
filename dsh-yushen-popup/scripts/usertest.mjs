@@ -168,8 +168,8 @@ console.error('[step] 4');
 {
   const before = store.get('yspopup.foldScale') || '0.30'
   const stage = created.filter((e) => e && e.style && e.style.transformOrigin === '50% 50%').pop()
-  win.dispatchWin('wheel', { target: stage, deltaY: -100 })
-  win.dispatchWin('wheel', { target: stage, deltaY: -100 })
+  doc.dispatchDoc('wheel', { target: stage, deltaY: -100 })
+  doc.dispatchDoc('wheel', { target: stage, deltaY: -100 })
   const after = store.get('yspopup.foldScale') || '0.30'
   check('④ 收起态滚轮能调大小', Number(after) > Number(before), before + ' → ' + after)
 }
@@ -227,6 +227,16 @@ console.error('[step] 4');
 {
   const memoOn = win.__yspMemoOn
   check('⑩ 小黑板开关把手在（保存后能立刻收/放）', typeof memoOn === 'function')
+}
+
+// 11. 展开态：鼠标在正文上滚轮，内容装得下时也应该缩放
+{
+  await mount({ title: 'I', body: '短正文' })
+  const contentEl = created.find((e) => e && e.style && e.style.overflowY === 'auto' && e.style.fontFamily === 'inherit')
+  const stage = contentEl && contentEl.parentNode
+  doc.dispatchDoc('wheel', { target: contentEl, deltaY: -100 })
+  check('⑪ 展开态在正文上滚轮也能缩放', !!(stage && String(stage.style.transform || '').includes('scale(')), String(stage && stage.style.transform))
+  alive().forEach((w) => w.remove())
 }
 
 // ---------- 输出 ----------
