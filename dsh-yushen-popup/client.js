@@ -1175,9 +1175,9 @@ window.__ModuleLoader__.load({
 
     // ── 弹窗控制台（后台独立页面：左侧分类 + 右侧开关） ──
     const TABS = [
-      ['display', '展示方式'], ['feel', '手感'], ['reminder', '提醒'], ['theme', '主题'], ['font', '字体美化'], ['jobs', '任务'], ['usage', '用法'],
+      ['display', '弹窗'], ['reminder', '提醒'], ['theme', '外观'], ['font', '文字'], ['feel', '手感'], ['jobs', '数据'], ['usage', '用法'],
     ]
-    const LABEL = { display: '展示方式', feel: '手感', theme: '主题', font: '字体美化', usage: '用法' }
+    const LABEL = { display: '弹窗', reminder: '提醒', theme: '外观', font: '文字', feel: '手感', jobs: '数据', usage: '用法' }
 
     function AdminPage() {
       const [tab, setTab] = React.useState('display')
@@ -1307,110 +1307,111 @@ window.__ModuleLoader__.load({
           onChange: function () { set({ [key]: value }) },
         }), label)
       }
+      // 分段线：每一节之间一条细线 + 一行小标题，免得一堆开关挤在一起
       const bar = function (text) { return h('div', { style: S.bar }, text) }
       if (!cfg) return h('div', { style: S.loading }, '读取中…')
 
       let body = null
       if (tab === 'display') {
         body = h('div', null,
-          bar('弹出方式 — 弹出时带不带仪式感'),
-          radio('mode', 'auto', '直接通知（弹出即展开，不搞仪式）'),
-          radio('mode', 'ritual', '卷轴仪式（弹出是收拢画卷，点开才展开）'),
-          bar('要紧的事 — 跳过仪式，直接给你看'),
-          check('urgentDirect', '紧急的事不搞仪式，直接展开'),
-          bar('关掉的时候 — 点「好/知道了」和点弹窗外面各做什么'),
+          bar('怎么弹出来'),
+          radio('mode', 'auto', '直接展开给我看'),
+          radio('mode', 'ritual', '先卷着，点一下才展开'),
+          bar('要紧的事'),
+          check('urgentDirect', '要紧的事跳过卷着那一步，直接展开'),
+          bar('怎么关掉'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: (function () { try { return localStorage.getItem('yspopup.stay') === '1' } catch { return false } })(),
             onChange: function (e) { try { localStorage.setItem('yspopup.stay', e.target.checked ? '1' : '0') } catch { /* 忽略 */ } set({ stayOnClose: e.target.checked }) },
-          }), '确认键保留悬浮窗（关掉后收成小画卷留在屏幕；不开就是直接消失）'),
-          bar('点弹窗外面 — 做什么'),
-          radio('blankAction', 'fold', '收成画卷（留屏）'),
+          }), '点确认键后留个小画卷在屏幕上（不开就是直接消失）'),
+          bar('点弹窗外面做什么'),
+          radio('blankAction', 'fold', '收成小画卷，留在屏幕上'),
           radio('blankAction', 'close', '直接关闭'),
           radio('blankAction', 'none', '什么都不做'),
-          bar('卷起来的画卷 — 滚轮缩小时长什么样、再点开又是什么'),
-          radio('zoomView', 'expanded', '缩放时保持展开（能看到内容）'),
-          radio('zoomView', 'rolled', '缩放时收拢成画卷（只有外壳）'),
+          bar('卷起来之后'),
+          radio('zoomView', 'expanded', '滚轮缩小时还看得见内容'),
+          radio('zoomView', 'rolled', '滚轮缩小时卷成外壳'),
           radio('reopenView', 'expanded', '点开时直接展开'),
-          radio('reopenView', 'rolled', '点开时还是收拢（要再点一下）'),
-          bar('桌面上的小东西 — 常驻备忘、花费标签'),
-          check('memoEnabled', '显示小黑板（常驻右上角的临时备忘）'),
-          check('memoAutoSessions', '小黑板里自动列出最近会话（默认关，黑板保持空白）'),
-          check('inlineCost', '在消息下面的「用量 X tok」旁显示本轮花费'),
+          radio('reopenView', 'rolled', '点开后还是卷着（要再点一下）'),
+          bar('桌面上的小部件'),
+          check('memoEnabled', '右上角的小黑板（随手记两笔）'),
+          check('memoAutoSessions', '小黑板里自动列出最近用过哪些会话（默认关）'),
+          check('inlineCost', '每条消息下面显示这一轮花了多少钱'),
           h('div', { style: { color: '#999', fontSize: '12px' } }, '小黑板可拖动、可折叠；手写事项存在本地，重启不丢。'))
       } else if (tab === 'feel') {
         body = h('div', null,
-          bar('声音 — 点击弹窗时是否出声'),
+          bar('声音'),
           check('sound', '点击水声'),
-          bar('缩小后的画卷 — 收成小画卷后可以拖到哪'),
+          bar('小画卷能不能拖'),
           check('draggable', '可以拖动'),
-          check('rememberPos', '记住拖动后的位置（不跳回默认）'),
-          bar('反馈 — 鼠标移到能点的东西上时的提示'),
-          check('hoverFx', '悬停时有反馈（提亮 / 稍后提示）'))
+          check('rememberPos', '记住拖到的位置'),
+          bar('鼠标移上去的反馈'),
+          check('hoverFx', '移到按钮上会亮一下'))
       } else if (tab === 'reminder') {
         const ta = (cfg && cfg.tokenAlert) || {}
         const setTa = function (patch) { set({ tokenAlert: Object.assign({}, ta, patch) }) }
         const peakNow = (function () { try { return window.__yspIsPeak ? window.__yspIsPeak(Date.now()) : null } catch { return null } })()
         body = h('div', null,
-          bar('会话 token 提醒 — 每轮成本 / 累计花费 / 上下文容量，三条线各自可调'),
+          bar('什么时候提醒你'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: ta.enabled !== false,
             onChange: function (e) { setTa({ enabled: e.target.checked }) },
-          }), '总开关（开着）'),
+          }), '提醒总开关'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: ta.checkOnOpen !== false,
             onChange: function (e) { setTa({ checkOnOpen: e.target.checked }) },
-          }), '每次打开页面检查一次'),
+          }), '打开页面时先看一眼'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: !!ta.repeatOnOpen,
             onChange: function (e) { setTa({ repeatOnOpen: e.target.checked }) },
-          }), '重启后同一会话也再提醒（默认关：每会话每级只提醒一次）'),
+          }), '同一个会话、同一档，重启后再说一次（默认关）'),
           h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.otherSessionAlert !== false,
-            onChange: function (e) { setTa({ otherSessionAlert: e.target.checked }) } }), '其他会话完成一轮时也提醒（不切过去也弹）'),
+            onChange: function (e) { setTa({ otherSessionAlert: e.target.checked }) } }), '别的会话跑完一轮也告诉我'),
           h('div', { style: S.row }, h('span', { style: S.key }, '其他会话'),
             h('input', { type: 'number', min: 60, max: 600, step: 60, style: S.num, value: ta.otherIntervalSec || 300,
               onChange: function (e) { setTa({ otherIntervalSec: Math.max(60, Number(e.target.value) || 300) }) } }),
             h('span', { style: { color: '#999', fontSize: '12px' } }, '秒一次（默认 300 = 5 分钟）')),
 
-          bar('成本线 — 超过就弹（¥，按当前峰谷和缓存估算）'),
+          bar('花了多少钱就提醒'),
           h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.roundEnabled === true,
-            onChange: function (e) { setTa({ roundEnabled: e.target.checked }) } }), '每轮成本线开着'),
+            onChange: function (e) { setTa({ roundEnabled: e.target.checked }) } }), '每轮花超这个数就说一声'),
           h('div', { style: S.row }, h('span', { style: S.key }, '每轮'),
             h('input', { type: 'number', min: 0.01, step: 0.01, style: S.num, value: ta.roundLine || 0.1,
               onChange: function (e) { setTa({ roundLine: Number(e.target.value) || 0.1 }) } }),
             h('span', { style: { color: '#999', fontSize: '12px' } }, '¥/轮 — 参考：上下文 8 万、峰时全价约 ¥0.17/轮')),
           h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.totalEnabled !== false,
-            onChange: function (e) { setTa({ totalEnabled: e.target.checked }) } }), '累计花费线开着'),
+            onChange: function (e) { setTa({ totalEnabled: e.target.checked }) } }), '累计花超这个数就说一声'),
           h('div', { style: S.row }, h('span', { style: S.key }, '累计'),
             h('input', { type: 'number', min: 1, step: 1, style: S.num, value: ta.totalLine || 10,
               onChange: function (e) { setTa({ totalLine: Number(e.target.value) || 10 }) } }),
-            h('span', { style: { color: '#999', fontSize: '12px' } }, '¥，之后每 +'),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '元起，之后每多花'),
             h('input', { type: 'number', min: 1, step: 1, style: S.num, value: ta.totalStep || 10,
               onChange: function (e) { setTa({ totalStep: Number(e.target.value) || 10 }) } }),
-            h('span', { style: { color: '#999', fontSize: '12px' } }, '¥ 再提醒一次（估算）')),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '元再说一次')),
           h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.contextEnabled !== false,
-            onChange: function (e) { setTa({ contextEnabled: e.target.checked }) } }), '上下文容量线开着'),
+            onChange: function (e) { setTa({ contextEnabled: e.target.checked }) } }), '对话太长就说一声'),
           h('div', { style: S.row }, h('span', { style: S.key }, '容量'),
             h('input', { type: 'number', min: 10000, step: 10000, style: S.num, value: ta.contextLimit || 500000,
               onChange: function (e) { setTa({ contextLimit: Number(e.target.value) || 500000 }) } }),
             h('span', { style: { color: '#999', fontSize: '12px' } }, 'token — 上限 100 万，默认 50 万')),
           h('div', { style: { color: '#999', fontSize: '12px', marginTop: '6px' } }, '默认：每轮线**关**（消息下面的小标已经写着本轮花费）；累计线开，¥10 起、每 +¥10 再提醒；容量线开，50 万 tok。三条各管各的，互不影响。'),
 
-          bar('频率与静默'),
+          bar('多久看一次 / 什么时候别烦我'),
           h('div', { style: S.row }, h('span', { style: S.key }, '检查'),
             h('input', { type: 'number', min: 60, max: 3600, step: 60, style: S.num, value: ta.intervalSec || 300,
               onChange: function (e) { setTa({ intervalSec: Math.max(60, Number(e.target.value) || 300) }) } }),
             h('span', { style: { color: '#999', fontSize: '12px' } }, '秒一次（默认 300 = 5 分钟；页面隐藏时暂停）')),
           h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.quietEnabled !== false,
-            onChange: function (e) { setTa({ quietEnabled: e.target.checked }) } }), '启用静默时段（这个时段只记录不弹）'),
+            onChange: function (e) { setTa({ quietEnabled: e.target.checked }) } }), '这段时间别弹（只记着）'),
           h('div', { style: S.row }, h('span', { style: S.key }, '静默'),
             h('input', { type: 'number', min: 0, max: 23, step: 1, style: S.num, value: ta.quietStart != null ? ta.quietStart : 0,
               onChange: function (e) { setTa({ quietStart: Number(e.target.value) || 0 }) } }),
             h('span', null, '—'),
             h('input', { type: 'number', min: 0, max: 24, step: 1, style: S.num, value: ta.quietEnd != null ? ta.quietEnd : 8,
               onChange: function (e) { setTa({ quietEnd: Number(e.target.value) || 8 }) } }),
-            h('span', { style: { color: '#999', fontSize: '12px' } }, '点 — 这个时段只记录不弹')),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '点到')),
           h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.limitEnabled !== false,
-            onChange: function (e) { setTa({ limitEnabled: e.target.checked }) } }), '启用每小时限弹（防刷屏）'),
+            onChange: function (e) { setTa({ limitEnabled: e.target.checked }) } }), '一小时最多弹几次'),
           h('div', { style: S.row }, h('span', { style: S.key }, '限弹'),
             h('input', { type: 'number', min: 1, max: 20, step: 1, style: S.num, value: ta.maxPerHour || 3,
               onChange: function (e) { setTa({ maxPerHour: Number(e.target.value) || 3 }) } }),
@@ -1418,19 +1419,19 @@ window.__ModuleLoader__.load({
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: !!ta.silentMode,
             onChange: function (e) { setTa({ silentMode: e.target.checked }) },
-          }), '只记录不弹（后台看曲线，不打扰）'),
+          }), '只记录，不弹出来打扰'),
           h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.crossSessionAlert !== false,
-            onChange: function (e) { setTa({ crossSessionAlert: e.target.checked }) } }), '切回会话时提醒（其他会话期间涨了也提醒）'),
+            onChange: function (e) { setTa({ crossSessionAlert: e.target.checked }) } }), '切回来时补一句（离开期间涨了也说）'),
 
-          bar('稍后（CD）与强制提醒'),
+          bar('推迟 / 插队'),
           h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.cdEnabled !== false,
-            onChange: function (e) { setTa({ cdEnabled: e.target.checked }) } }), '启用「稍后」CD'),
+            onChange: function (e) { setTa({ cdEnabled: e.target.checked }) } }), '允许「稍后」'),
           h('div', { style: S.row }, h('span', { style: S.key }, '稍后'),
             h('input', { type: 'number', min: 5, max: 120, step: 5, style: S.num, value: ta.cdMinutes || 10,
               onChange: function (e) { setTa({ cdMinutes: Number(e.target.value) || 10 }) } }),
-            h('span', { style: { color: '#999', fontSize: '12px' } }, '分钟 — 点「稍后」等这么久；连续稍后自动翻倍（上限 2 小时）')),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '分钟后再提；连着推迟会翻倍（最多 2 小时）')),
           h('label', { style: S.check }, h('input', { type: 'checkbox', checked: ta.forceEnabled !== false,
-            onChange: function (e) { setTa({ forceEnabled: e.target.checked }) } }), '启用强制提醒（贵到爆时无视稍后）'),
+            onChange: function (e) { setTa({ forceEnabled: e.target.checked }) } }), '贵得离谱时插队提醒（无视推迟）'),
           h('div', { style: S.row }, h('span', { style: S.key }, '强制'),
             h('input', { type: 'number', min: 0.1, step: 0.1, style: S.num, value: ta.forceRoundLine || 0.5,
               onChange: function (e) { setTa({ forceRoundLine: Number(e.target.value) || 0.5 }) } }),
@@ -1439,7 +1440,7 @@ window.__ModuleLoader__.load({
               onChange: function (e) { setTa({ forceContextPct: Number(e.target.value) || 0.8 }) } }),
             h('span', { style: { color: '#999', fontSize: '12px' } }, '×上限 — 无视 CD 强制提醒一次（每小时最多 1 次）')),
 
-          bar('缓存与数据'),
+          bar('估算口径'),
           h('div', { style: S.row }, h('span', { style: S.key }, '缓存'),
             h('select', { value: String(ta.cacheManual ? 'manual' : 'auto'),
               onChange: function (e) {
@@ -1451,32 +1452,32 @@ window.__ModuleLoader__.load({
             h('input', { type: 'number', min: 0, max: 100, step: 5, style: S.num, value: Math.round((ta.cacheAssumption || 0.8) * 100),
               disabled: !ta.cacheManual,
               onChange: function (e) { setTa({ cacheAssumption: (Number(e.target.value) || 80) / 100 }) } }),
-            h('span', { style: { color: '#999', fontSize: '12px' } }, '% 命中（只影响估算，不影响真实账单）')),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '% 命中率（只影响估算）')),
           h('div', { style: S.row }, h('span', { style: S.key }, '冷档'),
             h('input', { type: 'number', min: 1, max: 30, step: 1, style: S.num, value: ta.coldDays || 3,
               onChange: function (e) { setTa({ coldDays: Number(e.target.value) || 3 }) } }),
-            h('span', { style: { color: '#999', fontSize: '12px' } }, '天 — 这么久没打开的会话清掉提醒状态（不删聊天记录）')),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '天没打开就清掉提醒记录（不删聊天）')),
           peakNow !== null ? h('div', { style: { color: '#9fd4ff', fontSize: '12px', marginTop: '4px' } },
             '现在是' + (peakNow ? '峰时（全价）' : '谷时（半价）') + ' · 峰时=工作日 9-12/14-18，其余含周末全天都是谷时') : null,
           h('div', { style: { marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' } },
             h('button', { style: S.btn, onClick: function () { try { window.__yspTokenCheck && window.__yspTokenCheck() ; setMsg('已检查一次') } catch { setMsg('检查失败') } } }, '立即检查一次'),
             h('button', { style: S.btn, onClick: function () { try { localStorage.removeItem('yspopup.sessions'); setMsg('已清空会话提醒状态') } catch { setMsg('清空失败') } } }, '清空提醒状态')),
 
-          bar('确认后做什么（都要点弹窗的确认才执行，不做全自动）'),
+          bar('你点确认之后'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: !!(ta.actions && ta.actions.summarize),
             onChange: function (e) { setTa({ actions: Object.assign({}, ta.actions, { summarize: e.target.checked }) }) },
-          }), '确认后帮我总结'),
+          }), '帮我总结这段'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: !!(ta.actions && ta.actions.newSession),
             onChange: function (e) { setTa({ actions: Object.assign({}, ta.actions, { newSession: e.target.checked }) }) },
-          }), '确认后开新会话'),
+          }), '开一个新会话'),
 
-          bar('哪些事件弹 — 勾上的事件才会弹窗提醒'),
+          bar('哪些事会弹'),
           check('events.incident', '出问题'),
           check('events.ask', '有人找你'),
           check('events.restart', '重启确认'),
-          bar('接收哪些来源的事件（QQ / B站 / 本机 / 以后的新机器）'),
+          bar('哪些地方来的会弹'),
           h('div', { style: { display: 'flex', gap: '14px', flexWrap: 'wrap' } },
             [['qq', 'QQ'], ['bili', 'B站'], ['local', '本机']].map(function (pair) {
               return h('label', { key: pair[0], style: { display: 'flex', gap: '6px', alignItems: 'center', cursor: 'pointer' } },
@@ -1496,13 +1497,13 @@ window.__ModuleLoader__.load({
               checked: !!(cfg.sources && cfg.sources.backup === true),
               onChange: function (e) { set({ sources: Object.assign({}, cfg.sources || {}, { backup: e.target.checked }) }) },
             }),
-            '备份完成提醒（默认关：这是鱼神自己的备份机制，别人不一定有）'),
+            '备份完成也说一声（默认关：这是鱼神自己的机制）'),
           h('div', { style: { color: '#999', fontSize: '12px', marginTop: '4px' } },
             '外部推事件用 POST /yushen-popup/event（{ source, badge, title, body }），推来就弹。'),
           h('div', { style: { color: '#999', fontSize: '12px', marginTop: '6px' } },
             '提醒会写：为什么弹 / 现在峰还是谷 / 上下文多少 / 每轮约多少钱 / 累计约多少 / 建议。数据来源：页面「用量 X tok」（估算，不是账单）。'),
           h('div', { style: { marginTop: '18px' } },
-            bar('真实账本 — DSH 自己的用量文件，和平台账单对齐（不是估算）'),
+            bar('真实账单（不是估算）'),
             realUsage ? h('div', null,
               h('div', { style: { fontSize: '13px', marginBottom: '4px' } },
                 '今日真实：¥' + Number(realUsage.todayUsage || 0).toFixed(2) + '（账本 records 合计 ¥' + Number(realUsage.todayEventsCost || 0).toFixed(2) + '，' + Number(realUsage.todayEventsCount || 0) + ' 轮）'),
@@ -1515,7 +1516,7 @@ window.__ModuleLoader__.load({
                   h('span', { style: { color: '#66748a' } }, e.tokens ? (e.tokens / 10000).toFixed(0) + ' 万 tok' : ''))
               })) : h('div', { style: { color: '#999', fontSize: '12px' } }, '读取中…')),
           h('div', { style: { marginTop: '18px' } },
-            bar('最近会话 — 过去多久里用过几个（只统计弹窗检测过的）'),
+            bar('最近哪些会话在动'),
             h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
               [[30, '30 分钟'], [60, '1 小时'], [180, '3 小时'], [1440, '24 小时']].map(function (pair) {
                 return h('button', {
@@ -1553,15 +1554,15 @@ window.__ModuleLoader__.load({
               '「有增长、未提醒」= 这个会话检测到增长后还没弹过提醒（近似“跑完了还没处理”）。当前会话高亮；数字是估算。')))
       } else if (tab === 'theme') {
         body = h('div', null,
-          bar('主题 — 弹窗用哪种颜色：蓝=平时，红=警醒，默认=两者自动分配'),
-          radio('themeMode', 'blue', '只用蓝（平时）'),
-          radio('themeMode', 'red', '只用红（警醒）'),
-          radio('themeMode', 'auto', '默认（蓝平常 + 红警醒）'),
-          bar('红蓝图 — 决定弹窗颜色范围（全部/只蓝/只红）'),
+          bar('用哪一版颜色'),
+          radio('themeMode', 'blue', '只用蓝色'),
+          radio('themeMode', 'red', '只用红色'),
+          radio('themeMode', 'auto', '自动（平时蓝、要紧红）'),
+          bar('哪些可以弹'),
           radio('themeScope', 'all', '全部弹（默认）'),
           radio('themeScope', 'blue', '只弹蓝'),
           radio('themeScope', 'red', '只弹红'),
-          bar('事件 → 颜色 — 每类事件用哪种颜色的画卷'),
+          bar('哪类事用哪种颜色'),
           [['incident', '出问题'], ['ask', '有人找你'], ['restart', '重启确认']].map(function (pair) {
             return h('div', { key: pair[0], style: { display: 'flex', gap: '10px', alignItems: 'center', margin: '4px 0' } },
               h('span', { style: { minWidth: '90px' } }, pair[1]),
@@ -1574,13 +1575,13 @@ window.__ModuleLoader__.load({
                 h('option', { value: 'blue' }, '蓝'),
                 h('option', { value: 'red' }, '红')))
           }),
-          bar('按钮风格 — 弹窗里按钮长什么样'),
+          bar('按钮长什么样'),
           radio('buttonStyle', 'crystal', '水晶（渐变 + 高光 + 发光）'),
           radio('buttonStyle', 'glass', '玻璃（半透明 + 细边）'),
           radio('buttonStyle', 'gold', '金边（深底 + 金线）'))
       } else if (tab === 'font') {
         body = h('div', null,
-          bar('字体样式 — 弹窗里的字用什么字体、多大'),
+          bar('弹窗里的字'),
           h('div', { style: S.row }, h('span', { style: S.key }, '字体'),
             h('select', { value: cfg.fontFamily || '', onChange: function (e) { set({ fontFamily: e.target.value }) } },
               h('option', { value: '' }, '默认'),
@@ -1592,7 +1593,7 @@ window.__ModuleLoader__.load({
               h('option', { value: '' }, '中'),
               h('option', { value: 'small' }, '小'),
               h('option', { value: 'large' }, '大'))),
-          bar('颜色 — 标题/正文/强调，分别对应弹窗里的三种字'),
+          bar('字的颜色'),
           h('div', { style: S.row }, h('span', { style: S.key }, '标题'),
             h('input', { type: 'color', value: cfg.titleColor || '#f2fbff', onChange: function (e) { set({ titleColor: e.target.value }) } }),
             h('button', { style: S.btn, onClick: function () { set({ titleColor: '' }) } }, '默认')),
@@ -1621,10 +1622,10 @@ window.__ModuleLoader__.load({
               h('option', { value: '600' }, '半粗'),
               h('option', { value: '700' }, '粗'),
               h('option', { value: '900' }, '特粗'))),
-          bar('深浅 — 弹窗整体暗一点还是亮一点'),
+          bar('整体深浅'),
           radio('scheme', 'dark', '深色（默认）'),
           radio('scheme', 'light', '浅色'),
-          bar('会话 — 对话界面里你的消息 / 我的消息（只改字，不动布局）'),
+          bar('聊天界面的字（只改字，不动排版）'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: ((cfg.chatColors || {}).on !== false),
             onChange: function (e) { setChat({ on: e.target.checked }) },
@@ -1684,7 +1685,7 @@ window.__ModuleLoader__.load({
       } else if (tab === 'jobs') {
         const items = (busy && busy.items) || []
         body = h('div', null,
-          bar('现在后台在忙什么（白话，只读）'),
+          bar('现在谁在跑'),
           busy ? h('div', { style: { color: '#999', fontSize: '12px', marginBottom: '8px' } },
             '更新于 ' + String(busy.at || '').slice(11, 19) + (busy.verdict && busy.verdict.text ? ' · ' + busy.verdict.text : '')) : h('div', { style: { color: '#999' } }, '读取中…'),
           items.length ? items.map(function (it, i) {
@@ -1697,7 +1698,7 @@ window.__ModuleLoader__.load({
             '关窗口时如果还有在跑的任务，会弹系统确认框提醒。'))
       } else {
         body = h('div', null,
-          bar('给别的插件用 — 其他插件调这些接口就能弹窗'),
+          bar('让别的插件调弹窗'),
           h('pre', { style: S.pre }, "window.__yshenImportantPopup({\n  theme: 'blue' | 'red',\n  items: [{ badge, title, body }],\n  autoExpand: false,\n  badge: '要紧',\n  title: '标题',\n  body: '正文',\n  confirmText: '知道了',   // 不给 cancelText = 只出一个键（看完关掉）\n  // cancelText: '稍后',   // 真有第二个选择时才给\n})"),
           h('div', { style: { color: '#999', fontSize: '12px', marginTop: '6px' } }, '也可以让后台直接推：POST /yushen-popup/preview'))
       }
@@ -1751,7 +1752,7 @@ window.__ModuleLoader__.load({
       navItem: { padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: 'rgba(230,238,247,.72)' },
       navOn: { background: 'rgba(120,190,255,.14)', color: '#dff1ff' },
       panel: { flex: 1, padding: '18px 24px', overflowY: 'auto' },
-      bar: { marginTop: '14px', marginBottom: '6px', fontSize: '12px', color: 'rgba(230,238,247,.5)', letterSpacing: '.08em' },
+      bar: { marginTop: '22px', paddingTop: '12px', borderTop: '1px solid rgba(140,200,255,.14)', marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: 'rgba(220,240,255,.82)', letterSpacing: '.02em' },
       check: { display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer', margin: '5px 0', fontSize: '13px' },
       row: { display: 'flex', gap: '12px', alignItems: 'center', margin: '6px 0' },
       key: { minWidth: '48px', fontSize: '13px', color: 'rgba(230,238,247,.72)' },
