@@ -242,6 +242,21 @@ function writeConf(next) {
   fs.writeFileSync(CONF, JSON.stringify(next, null, 2))
   return next
 }
+// 2026-11-14 老板：「重启又默认到右下角了」——localStorage 跟着端口走，DSH 每次重启端口变，
+// 位置/大小就全丢。这里落一份服务端 prefs.json，跨重启、跨端口都在。
+const PREFS_FILE = path.join(DIR, 'prefs.json')
+function readPrefs() {
+  try { return JSON.parse(fs.readFileSync(PREFS_FILE, 'utf8')) || {} } catch { return {} }
+}
+function writePrefs(patch) {
+  try {
+    fs.mkdirSync(DIR, { recursive: true })
+    const next = { ...readPrefs(), ...patch }
+    fs.writeFileSync(PREFS_FILE, JSON.stringify(next, null, 2))
+    return next
+  } catch { return readPrefs() }
+}
+
 function sendJson(res, status, obj) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
   res.end(JSON.stringify(obj))
@@ -327,6 +342,19 @@ export function apply(ctx) {
           }
           return sendJson(res, 405, { ok: false, error: '只支持 GET / POST' })
         }
+        // 界面偏好（位置/大小/常驻）：跨重启保存
+        if (url.pathname === '/yushen-popup/prefs') {
+          if (req.method === 'GET') return sendJson(res, 200, { ok: true, prefs: readPrefs() })
+          if (req.method === 'POST') {
+            let body = {}
+            try { body = await readJsonBody(req) } catch { body = {} }
+            const keep = {}
+            for (const k of ['pos', 'foldScale', 'stay']) if (body[k] !== undefined) keep[k] = body[k]
+            return sendJson(res, 200, { ok: true, prefs: writePrefs(keep) })
+          }
+          return sendJson(res, 405, { ok: false, error: '只支持 GET / POST' })
+        }
+
         // 预览：host 下发，页面轮询弹出（不用刷新）
         if (url.pathname === '/yushen-popup/preview') {
           if (req.method === 'POST') {

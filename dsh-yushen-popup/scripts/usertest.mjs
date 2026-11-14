@@ -116,7 +116,7 @@ globalThis.fetch = () => Promise.reject(new Error('no network in test'))
 new vm.Script(fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8')).runInThisContext()
 const popup = win.__yshenImportantPopup
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const wd = setTimeout(() => { console.error('[watchdog] created=' + created.length + ' last=' + created.slice(-4).map((e) => e && e.tagName).join(',') + ' html=' + String(created.slice(-1)[0] && created.slice(-1)[0].textContent).slice(0, 40)); process.exit(2) }, 3000)
+const wd = setTimeout(() => { console.error('[watchdog] created=' + created.length + ' last=' + created.slice(-4).map((e) => e && e.tagName).join(',') + ' html=' + String(created.slice(-1)[0] && created.slice(-1)[0].textContent).slice(0, 40)); process.exit(2) }, 30000)
 const alive = () => created.filter((e) => e && e.attrs && e.attrs['data-ys-popup'] === '1' && !e.removed)
 const btn = (act) => created.filter((e) => e && e.tagName === 'BUTTON' && e.getAttribute('data-ys-act') === act).pop()
 
@@ -239,6 +239,93 @@ console.error('[step] 4');
   alive().forEach((w) => w.remove())
 }
 
+// 12. 后台滑块能改悬浮小画卷大小，且立刻生效
+{
+  await mount({ title: 'J', confirmText: '知道了', cancelText: '关闭', cancelAction: 'fold' })
+  const contentEl = created.find((e) => e && e.style && e.style.overflowY === 'auto' && e.style.fontFamily === 'inherit')
+  const stageEl = contentEl && contentEl.parentNode
+  doc.dispatchDoc('click', { target: btn('fold') })
+  await sleep(150)
+  try { win.__yspSetFoldScale(0.6) } catch { /* 忽略 */ }
+  const t = String(stageEl && stageEl.style.transform || '')
+  check('⑫ 后台可调悬浮小画卷大小（立刻生效）', t.includes('scale(0.600)'), t)
+  alive().forEach((w) => w.remove())
+}
+
+// 13~15. 装饰点进去：左翼（未读）/ 右翼（用量）/ 王冠（任务）
+// 规矩：要么什么都不发生，要么弹出一个"有按钮、能 Esc 关"的窗；不许空白遮罩。
+const byTitle = (t) => created.find((e) => e && e.title === t)
+const stubFetch = (map) => {
+  globalThis.fetch = (url) => {
+    const key = Object.keys(map).find((k) => String(url).includes(k))
+    if (!key) return Promise.reject(new Error('no stub: ' + url))
+    return Promise.resolve({ json: () => Promise.resolve(map[key]) })
+  }
+}
+
+// ⑬ 左翼：历史为空 → 不应该弹任何东西
+{
+  await mount({ title: 'K' })
+  const before = alive().length
+  try { byTitle('未读 / 最近') && byTitle('未读 / 最近').dispatch('click', {}) } catch { /* 忽略 */ }
+  await sleep(150)
+  check('⑬ 左翼（未读）空历史：不弹空窗', alive().length === before, '当前 ' + alive().length + ' 幅')
+  alive().forEach((w) => w.remove())
+}
+
+// ⑭ 右翼：用量 → 弹一个有按钮的窗，Esc 能关
+{
+  await mount({ title: 'L', cancelText: '关闭', cancelAction: 'fold' })
+  stubFetch({ '/yushen-popup/usage': { ok: true, today: { cost: 1.23, tokens: 1000 }, week: { cost: 4, tokens: 2000 }, month: { cost: 9, tokens: 3000 }, balance: 100, sources: [], sessions: [], daily: [] } })
+  try { byTitle('用量明细') && byTitle('用量明细').dispatch('click', {}) } catch { /* 忽略 */ }
+  await sleep(450)
+  const any = alive().length > 0
+  const btns = created.filter((e) => e && e.tagName === 'BUTTON' && !e.removed).length
+  check('⑭ 右翼（用量）：弹出且有按钮', any && btns > 0, '弹窗 ' + alive().length + ' / 按钮 ' + btns)
+  doc.dispatchDoc('keydown', { key: 'Escape' })
+  await sleep(300)
+  check('⑭b 右翼弹出的窗 Esc 能关', alive().length === 0)
+  alive().forEach((w) => w.remove())
+}
+
+// ⑮ 王冠：任务 → 同上
+{
+  await mount({ title: 'M', cancelText: '关闭', cancelAction: 'fold' })
+  stubFetch({ '/yushen-popup/busy': { ok: true, items: [{ kind: '本会话', what: '在跑', busy: true }] } })
+  try { byTitle('后台在忙什么') && byTitle('后台在忙什么').dispatch('click', {}) } catch { /* 忽略 */ }
+  await sleep(450)
+  const any = alive().length > 0
+  const btns = created.filter((e) => e && e.tagName === 'BUTTON' && !e.removed).length
+  check('⑮ 王冠（任务）：弹出且有按钮', any && btns > 0, '弹窗 ' + alive().length + ' / 按钮 ' + btns)
+  doc.dispatchDoc('keydown', { key: 'Escape' })
+  await sleep(300)
+  check('⑮b 王冠弹出的窗 Esc 能关', alive().length === 0)
+  alive().forEach((w) => w.remove())
+}
+
+// ⑯ 子窗口有「返回」：点了回到上一层（直接构造一个子窗口来验）
+{
+  alive().forEach((w) => w.remove())
+  await sleep(400)
+  win.__ysPopupShowing = false
+  try { win.__ysPopupPending = [] } catch { /* 忽略 */ }
+  created.length = 0
+  win.__yshenImportantPopup({ autoExpand: true, closeOnly: true, badge: '子', title: '子窗口', __back: { title: '顶层标题', body: '上层内容', autoExpand: true }, items: [{ badge: '一', title: '一条', body: '内容' }] })
+  await sleep(150)
+  const backBtn = created.find((e) => e && e.tagName === 'BUTTON' && e.getAttribute && e.getAttribute('data-ys-act') === 'back' && !e.removed)
+  check('⑯ 子窗口里有「返回」按钮', !!backBtn)
+  let reopenCalls = 0
+  const origOpen = win.__yshenImportantPopup
+  win.__yshenImportantPopup = function (o) { reopenCalls++; return origOpen.call(win, o) }
+  if (backBtn) doc.dispatchDoc('click', { target: backBtn })
+  await sleep(120)
+  const midAlive = alive().length
+  const midCreated = created.length
+  await sleep(700)
+  const titles = created.filter((e) => e && e.textContent && String(e.textContent).length < 20 && !e.removed).map((e) => String(e.textContent)).slice(0, 8)
+  check('⑯b 点「返回」回到上一层', !!created.find((e) => e && e.textContent === '顶层标题' && !e.removed), '看到的字: ' + titles.join(',') + ' / 120ms时弹窗=' + midAlive + ' 元素=' + midCreated + ' 现在元素=' + created.length)
+  alive().forEach((w) => w.remove())
+}
 // ---------- 输出 ----------
 console.log('=== 用户视角实测（弹窗） ===')
 let fail = 0

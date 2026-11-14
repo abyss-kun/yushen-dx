@@ -58,6 +58,17 @@ window.__ModuleLoader__.load({
     // 同类提醒去重：badge|title → { at, n }（十分钟内只弹一次，其余计次）
     const recentAlerts = new Map()
 
+    // 2026-11-13 老板：「这也是个摆设」——滑块要能立刻改当前悬浮小画卷的大小。
+    // 这个入口在**插件加载时**就存在（不等弹过窗）；真正的应用交给当前那枚弹窗注册的 __yspFoldedApply。
+    function applyFoldScale(v) {
+      const n = Math.max(0.12, Math.min(0.9, Number(v) || 0.3))
+      try { localStorage.setItem('yspopup.foldScale', n.toFixed(3)) } catch { /* 忽略 */ }
+      try { postPrefs({ foldScale: n }) } catch { /* 忽略 */ }
+      try { if (typeof window !== 'undefined' && window.__yspFoldedApply) window.__yspFoldedApply(n) } catch { /* 忽略 */ }
+      return n
+    }
+    try { if (typeof window !== 'undefined') window.__yspSetFoldScale = applyFoldScale } catch { /* 忽略 */ }
+
     function mountImportantPopup(opts = {}) {
       if (typeof document === 'undefined') return Promise.resolve(false)
       // 合并全局队列：同时来多条时，一个弹窗显示「未读 N 条」列表
@@ -311,6 +322,16 @@ window.__ModuleLoader__.load({
           // 2026-11-11 老板：「好和知道了好像是一回事吧」——对，纯通知的两个键都是"关"。
           // 规矩改成：**不给 cancelText 就只出一个键**（知道了 / 好），一个键就是"看完关掉"，不进常驻；
           // 真有第二个选择（比如「稍后」）才出两个键。
+          // 子窗口：第一个键是「返回」（回到上一层）
+          if (opts && opts.__back) {
+            const backBtn = document.createElement('button')
+            backBtn.textContent = '返回'
+            backBtn.setAttribute('data-ys-act', 'back')
+            Object.assign(backBtn.style, btnBase)
+            backBtn.style.filter = 'brightness(.95)'
+            backBtn.addEventListener('click', (e) => { e.stopPropagation(); try { yspDiag('click-back') } catch { /* 忽略 */ } ; playClick(); goBack() })
+            btnRow.appendChild(backBtn)
+          }
           const single = !it.cancelText
           if (!single) {
             // 2026-11-12 老板：「按键应该是稍后改成关闭……关闭之后没有内容了就应该变回画框」
@@ -367,6 +388,7 @@ window.__ModuleLoader__.load({
           })
           // 列表模式的按钮放到框外按钮行（和详情一致）
           const _bs0 = (_font && _font.buttonStyle) || 'crystal'
+          const _accent = (_font && _font.accentColor) || ''
           const listBtn = {
             font: 'inherit', fontSize: FS(2.3), padding: '1cqw 2.6cqw', borderRadius: '1.2cqw', cursor: 'pointer',
             fontWeight: '600', color: T.colors.btnText,
@@ -380,12 +402,12 @@ window.__ModuleLoader__.load({
             listBtn.color = '#0a1620'
           }
           btnRow.innerHTML = ''
-          // 返回：回到主界面（所有子页面都有）
+          // 返回：有上一层就回上一层（子窗口），否则回到主界面
           const backBtn = document.createElement('button')
           backBtn.textContent = '返回'
-          backBtn.setAttribute('data-ys-act', 'close')
+          backBtn.setAttribute('data-ys-act', (opts && opts.__back) ? 'back' : 'close')
           Object.assign(backBtn.style, listBtn)
-          backBtn.addEventListener('click', (e) => { e.stopPropagation(); finish(false) })
+          backBtn.addEventListener('click', (e) => { e.stopPropagation(); if (opts && opts.__back) goBack(); else finish(false) })
           btnRow.appendChild(backBtn)
           // 未读中心额外给「全部已读」
           if (!opts.closeOnly) {
@@ -397,7 +419,20 @@ window.__ModuleLoader__.load({
             btnRow.appendChild(readAll)
           }
         }
-        if (!multi) showDetail(0)
+        // 2026-11-13 老板：装饰点进去没有内容、也没法退——单条提醒若标题正文都空，给个兜底。
+        // 按钮永远有：showDetail 里至少会放一个确认键。
+        if (!multi) {
+          const it0 = items[0] || {}
+          if (!it0.title && !it0.body && !(Array.isArray(it0.items) && it0.items.length)) {
+            items[0] = Object.assign({}, it0, { title: '（没有内容）', body: '这条提醒没有带正文；点下面的按钮关掉即可。' })
+            try { yspDiag('empty-popup') } catch { /* 忽略 */ }
+          }
+          showDetail(0)
+        } else {
+          // 2026-11-13 修：多条（未读/用量/任务）以前什么都没渲染——空白框、没有按钮，
+          // 就是"点进去没有内容也没有退出界面"。多条必须直接列出来。
+          showList()
+        }
 
         // 轴心（收拢态）
         const axis = document.createElement('img')
@@ -511,6 +546,25 @@ window.__ModuleLoader__.load({
             try { if (typeof window !== 'undefined') window.__ysPopupShowing = false } catch { /* 忽略 */ }
           }
         }
+        // 2026-11-13 老板：「子窗口要有一个返回按钮，能返回上一层」。
+        // 子窗口（未读/用量/任务）打开时带 __back=上一层的内容；点「返回」就关掉当前、重开上一层。
+        const goBack = () => {
+          if (done) return
+          const prev = opts && opts.__back
+          try { yspDiag('back', { has: !!prev }) } catch { /* 忽略 */ }
+          // 先挂重开：finish 里 cleanup 会清掉自己的定时器，排在它后面就没了
+          if (prev) {
+            setTimeout(() => {
+              try {
+                if (typeof window !== 'undefined') {
+                  window.__ysPopupShowing = false
+                  if (window.__yshenImportantPopup) window.__yshenImportantPopup(Object.assign({}, prev, { autoExpand: true }))
+                }
+              } catch { /* 忽略 */ }
+            }, 340)
+          }
+          finish(false)
+        }
         // 2026-11-11：按钮"点了没反应"的兜底。不靠按钮自己的监听器——在 document 上用捕获阶段拦一次：
         // 只要这一下点在弹窗里的按钮上，就直接按 data-ys-act 收尾。按钮自己的监听器要是没触发/抛错，这里照样关。
         const onClickCapture = (e) => {
@@ -529,6 +583,7 @@ window.__ModuleLoader__.load({
             yspDiag('capture-click', { act: act, label: String(el.textContent || '').slice(0, 16) })
             if (act === 'ok') { playClick(); finish(true) }
             else if (act === 'fold') { playClick(); toFrame() }
+            else if (act === 'back') { playClick(); goBack() }
             else if (act === 'cancel' || act === 'close') { playClick(); finish(false) }
           } catch { /* 忽略 */ }
         }
@@ -616,6 +671,12 @@ window.__ModuleLoader__.load({
           crownHit.style.pointerEvents = 'none'
         }
         const POS_KEY = 'yspopup.pos'
+    // 2026-11-14：localStorage 跟着端口走（DSH 每次启动端口不同），位置/大小会丢。
+    // 服务端再存一份；读的时候本地优先，本地没有就用服务端。
+    let _serverPrefs = null
+    const loadPrefs = () => { try { fetch('/yushen-popup/prefs').then(function (r) { return r.json() }).then(function (d) { if (d && d.prefs) _serverPrefs = d.prefs }).catch(function () { /* 忽略 */ }) } catch { /* 忽略 */ } }
+    const postPrefs = (patch) => { try { fetch('/yushen-popup/prefs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch) }).catch(function () { /* 忽略 */ }) } catch { /* 忽略 */ } }
+    try { loadPrefs() } catch { /* 忽略 */ }
         let _memPos = null
         const clampPos = (p) => ({
           x: Math.max(40, Math.min((window.innerWidth || 1200) - 40, Number(p.x) || 0)),
@@ -631,12 +692,13 @@ window.__ModuleLoader__.load({
         const savePos = (pos) => {
           _memPos = pos
           try { localStorage.setItem(POS_KEY, JSON.stringify(pos)) } catch { /* 存储被拒就用内存 */ }
+      try { postPrefs({ pos: pos }) } catch { /* 忽略 */ }
         }
         let lastPos = readPos()  // 上次拖到的位置（持久化，重启也记得）
       let zoom = 1         // 展开态滚轮缩放
       // 2026-11-12 老板：「悬浮的无法放大缩小」——收起成小画卷后也能滚轮缩放（大小记在本地）
       let foldScale = 0.30
-      try { foldScale = Math.max(0.12, Math.min(0.9, Number(localStorage.getItem('yspopup.foldScale')) || 0.30)) } catch { foldScale = 0.30 }
+      try { foldScale = Math.max(0.12, Math.min(0.9, Number(localStorage.getItem('yspopup.foldScale')) || (_serverPrefs && _serverPrefs.foldScale) || 0.30)) } catch { foldScale = 0.30 }
         // 整体缩放之外，部件各自再缩/放：内框放大（k>0），外饰缩小；两端钳住，别撑破。
         const applyPartScale = () => {
           const k = zoom - 1
@@ -656,6 +718,8 @@ window.__ModuleLoader__.load({
           applyPartScale()
         }
         const suspend = () => {
+          // 折叠这一刻重读一次大小：后台滑块改完，下次收起来就是新尺寸
+          try { const sv = Number(localStorage.getItem('yspopup.foldScale')) || Number((_serverPrefs && _serverPrefs.foldScale) || 0); if (sv > 0) foldScale = Math.max(0.12, Math.min(0.9, sv)) } catch { /* 忽略 */ }
           if (suspended) return
           suspended = true
           const r = stage.getBoundingClientRect()
@@ -708,6 +772,23 @@ window.__ModuleLoader__.load({
           if (_view.reopenView !== 'rolled') setTimeout(() => { reveal() }, reduced ? 0 : 620)
           setTimeout(() => { stage.style.cursor = 'default' }, 1200)
         }
+        // 2026-11-13 老板：「悬浮窗的放大缩小呢」——后台给一个明确的滑块，不再只靠滚轮。
+        // 2026-11-13 老板：「这也是个摆设」——原来的钩子写在 mount 里，没弹过窗就根本不存在，拖了当然没反应。
+        // 现在：这个弹窗自己注册一个"应用函数"，全局钩子（插件加载时就有）负责把值发给当前那枚悬浮画卷。
+        try {
+          if (typeof window !== 'undefined') {
+            window.__yspFoldedApply = function (v) {
+              foldScale = Math.max(0.12, Math.min(0.9, Number(v) || 0.3))
+              if (!suspended) return foldScale
+              const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(stage.style.transform || '')
+              const tx = m ? m[1] : 0
+              const ty = m ? m[2] : 0
+              stage.style.transition = 'transform .15s ease'
+              stage.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + foldScale.toFixed(3) + ')'
+              return foldScale
+            }
+          }
+        } catch { /* 忽略 */ }
         // 拖动：悬浮态按住画卷可拖，松手不触发点击
         let dragging = false
         let dragMoved = false
@@ -771,7 +852,7 @@ window.__ModuleLoader__.load({
             finish(false)
             setTimeout(function () {
               if (typeof window.__yshenImportantPopup === 'function') {
-                window.__yshenImportantPopup({ autoExpand: true, items: all.map(function (x) { return { badge: x.badge, title: x.title, body: x.body } }) })
+                window.__yshenImportantPopup({ autoExpand: true, __back: opts, items: all.map(function (x) { return { badge: x.badge, title: x.title, body: x.body } }) })
               }
             }, 300)
           } catch { /* 忽略 */ }
@@ -820,7 +901,7 @@ window.__ModuleLoader__.load({
               finish(false)
               setTimeout(function () {
                 if (typeof window.__yshenImportantPopup === 'function') {
-                  window.__yshenImportantPopup({ autoExpand: true, closeOnly: true, badge: '用量明细', title: '今日 ¥' + Number(d.today.cost || 0).toFixed(2), items: rows })
+                  window.__yshenImportantPopup({ autoExpand: true, closeOnly: true, __back: opts, badge: '用量明细', title: '今日 ¥' + Number(d.today.cost || 0).toFixed(2), items: rows })
                 }
               }, 300)
             })
@@ -859,7 +940,7 @@ window.__ModuleLoader__.load({
               finish(false)
               setTimeout(function () {
                 if (typeof window.__yshenImportantPopup === 'function') {
-                  window.__yshenImportantPopup({ autoExpand: true, closeOnly: true, badge: '后台在忙什么', title: (d.verdict && d.verdict.text) || '现在的情况', items: items })
+                  window.__yshenImportantPopup({ autoExpand: true, closeOnly: true, __back: opts, badge: '后台在忙什么', title: (d.verdict && d.verdict.text) || '现在的情况', items: items })
                 }
               }, 300)
             })
@@ -1181,6 +1262,8 @@ window.__ModuleLoader__.load({
 
     function AdminPage() {
       const [tab, setTab] = React.useState('display')
+      // 悬浮小画卷大小：滑块要有自己的状态，否则拖完会被下一次渲染打回去
+      const [foldPct, setFoldPct] = React.useState(function () { try { return Number(localStorage.getItem('yspopup.foldScale')) || 0.3 } catch { return 0.3 } })
       const [cfg, setCfg] = React.useState(null)
       // 2026-11-12 老板：「后台开关关不掉，而且不能即时跟随」——
       // 自动保存是 500ms 防抖，回调里用的是**触发那一刻闭包里的旧 cfg**，所以存回去的是改之前的值。
@@ -1322,7 +1405,7 @@ window.__ModuleLoader__.load({
           bar('关闭后的状态'),
           h('label', { style: S.check }, h('input', {
             type: 'checkbox', checked: (function () { try { return localStorage.getItem('yspopup.stay') === '1' } catch { return false } })(),
-            onChange: function (e) { try { localStorage.setItem('yspopup.stay', e.target.checked ? '1' : '0') } catch { /* 忽略 */ } set({ stayOnClose: e.target.checked }) },
+            onChange: function (e) { try { localStorage.setItem('yspopup.stay', e.target.checked ? '1' : '0') } catch { /* 忽略 */ } try { postPrefs({ stay: !!e.target.checked }) } catch { /* 忽略 */ } set({ stayOnClose: e.target.checked }) },
           }), '点确认后收成小画卷留在屏幕角落，之后可以点开；关闭则直接消失'),
           bar('点击空白区域'),
           radio('blankAction', 'fold', '收成小画卷：留在屏幕上，可以再点开'),
@@ -1330,9 +1413,22 @@ window.__ModuleLoader__.load({
           radio('blankAction', 'none', '不做反应：避免误点空白处把弹窗关掉'),
           bar('卷起与缩放'),
           radio('zoomView', 'expanded', '滚轮缩小时保持展开，内容仍然可见'),
-          radio('zoomView', 'rolled', '滚轮缩小时卷成外壳，只保留轮廓'),
-          radio('reopenView', 'expanded', '点开后直接展开内容'),
+          radio('zoomView', 'rolled', '滚轮缩小时卷成外壳，只保留轮廓'),          radio('reopenView', 'expanded', '点开后直接展开内容'),
           radio('reopenView', 'rolled', '点开后仍是卷起状态，需要再点一下'),
+          bar('悬浮小画卷的大小'),
+          h('div', { style: S.row }, h('span', { style: S.key }, '大小'),
+            h('input', {
+              type: 'range', min: '0.12', max: '0.9', step: '0.02',
+              value: foldPct,
+              style: { width: '160px' },
+              onChange: function (e) {
+                const v = Number(e.target.value) || 0.3
+                setFoldPct(v)
+                try { if (window.__yspSetFoldScale) window.__yspSetFoldScale(v) } catch { /* 忽略 */ }
+                setMsg('悬浮小画卷：' + Math.round(v * 100) + '%')
+              },
+            }),
+            h('span', { style: { color: '#999', fontSize: '12px' } }, '12%~90%；也可以直接在悬浮小画卷上滚动滚轮')),
           bar('常驻小部件'),
           check('memoEnabled', '小黑板：右上角常驻备忘，可手写、可拖动，内容存在本机'),
           check('memoAutoSessions', '小黑板里自动列出最近使用过的会话（默认关闭，保持空白）'),
