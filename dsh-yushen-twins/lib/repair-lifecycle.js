@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-repair-lifecycle
+ * kind: module
+ * summary: Host evidence only: plugin reconciliation/disposal is NOT a host restart/exit.
+ * audience: 维护者 / 宿主
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: activeManifestPath / markTrustedManualExit / startRepairLifecycle（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Host evidence only: plugin reconciliation/disposal is NOT a host restart/exit.
 // No repair is attempted here. External consumers MUST check active.json before

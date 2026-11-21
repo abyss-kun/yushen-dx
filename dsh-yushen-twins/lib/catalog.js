@@ -1,3 +1,13 @@
+/* 标签
+ * id: lib-catalog
+ * kind: module
+ * summary: 档案目录：哪本账、在哪、多少条、最后动过什么时候；一处可查全部，数据仍在各自主位。
+ * audience: 她（查档案）、老板、新角色
+ * owner: 框架；目录只读派生，不改原文
+ * mutable: 可改（别在这里复制正文——那就成两个食堂）
+ * usage: buildCatalog() 扫一遍生成总目（scripts/build-catalog.mjs 在调）
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 档案目录（小鱼保管）
 // 她要“公司的一切记录都有”——不是把数据复制一份（两个食堂），而是她手里有一本总目录：

@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-inverted
+ * kind: module
+ * summary: 倒排索引（2026-11-02）：把 live 原文与冷档切成「行级文档」，建成 token → 行号
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；记忆内容归角色本人
+ * mutable: 可改
+ * usage: homeDir / indexPath / tokenize / buildIndex（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 倒排索引（2026-11-02）：把 live 原文与冷档切成「行级文档」，建成 token → 行号。
 //

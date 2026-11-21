@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-capmap
+ * kind: module
+ * summary: 查能力：她说"我想做 X"，这里给候选（工具/脚本/文档/插件/组合），只查本地表。
+ * tags: 能力表, 检索, 本地, 零模型
+ * created: 2026-11-11 01:10:00
+ * changed: 2026-11-11 01:10:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她（yushen_can / yushen_tools 背后）、新角色、维护者
+ * owner: 框架；表由 `scripts/build-capmap.mjs` 生成（数据来源可扩）
+ * defaults: 表在 ~/.dsh/dayu/capmap.json（生成物，可重建）
+ * off: 不查就没有候选；不影响工具本身
+ * mutable: 可改检索逻辑；**查不到就说没有，不编**
+ * usage: 查一句大白话 → 候选几条（名字+怎么用+去哪看）
+ * why: "我能不能做 X"每次都要人肉翻目录
+ * result: 一个本地检索表 + 查询函数
+ */
 // 查能力：她说"我想做 X"，这里给候选（工具/脚本/文档/插件/组合）。
 //
 // 只查本地那张表（`scripts/build-capmap.mjs` 生成的 capmap.json），不联网、不叫模型。

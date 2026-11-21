@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-conversation-events
+ * kind: module
+ * summary: 原始对话事实档案：按角色/通道/会话隔离存放；存下来不等于懂了，不调模型。
+ * tags: 对话档案, 原始, 隔离, 零模型
+ * created: 2026-11-11 01:15:00
+ * changed: 2026-11-11 01:15:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她、记忆层、复盘；维护者
+ * owner: 框架；**原文归角色本人**，按会话隔离
+ * mutable: 可改格式只许加字段；不许跨角色读
+ * usage: 追加一条对话事件；读按 role/channel/session
+ * why: 记忆挑选会丢细节，原始档案要留着给人对账
+ * result: 按会话隔离的原文档案（不是注入素材）
+ */
 // 原始对话事实档案：按角色/通道/会话隔离。存储不等于理解；不调用模型。
 import fs from 'node:fs'
 import { characterIds } from './characters.js'

@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-authz
+ * kind: module
+ * summary: 半张能力表：只登记插件自己真能做的动作，且真的拦；表在 charter.json 的 authority.l2。
+ * tags: 能力表, 拦截, 宪章, 权限
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:00:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 工具层、维护者
+ * owner: 框架；能做什么由老板定（宪章），不是插件自己扩
+ * defaults: charter.authority.l2 没写 = 全开（兼容老数据）
+ * off: 没有开关；想关某项就从 l2 里去掉
+ * mutable: 可改；**表里没有的动作不许偷偷放行**（宁可拒）
+ * usage: has(role, action) → true/false；调用前判，拦了就说不许
+ * why: 能力表写了不拦等于没写；以前有过"表在、代码不查"
+ * result: 一处判定，和宪章同源；缺表时按全开兼容
+ */
 // 半张能力表：只登记“插件自己真的能做的动作”，且真的拦。
 // 表在 ~/.dsh/dayu/charter.json 的 authority.l2；没写 = 全开（兼容老数据）。
 

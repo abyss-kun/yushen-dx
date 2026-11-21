@@ -1,4 +1,5 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 16:12｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜scripts/build-live-index.mjs:50｜抄录索引的生成时间改走 clock（时区标签跟着系统）｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
 // 实时抄录的总索引：日期 → 通道 → 标题 → 关键字，一眼扫。
 // 2026-11-01 主人：原文在底、标注在中、索引在顶。
 //
@@ -6,6 +7,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { fmtFull, zone } from '../lib/clock.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const BASE = path.join(HOME, 'dayu', 'live')
@@ -45,7 +47,7 @@ fs.writeFileSync(JSONL, rows.map((r) => JSON.stringify(r)).join('\n') + (rows.le
 const md = [
   '# 实时抄录索引',
   '',
-  `> 生成：${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 19).replace('T', ' ')}（Asia/Shanghai）`,
+  `> 生成：${fmtFull()}（${zone()}）`,
   `> 共 ${rows.length} 份。原文在各自文件里；这里只给"哪天、什么标题、讲了几段、关键字"。`,
   '',
   '| 日期 | 通道 | 标题 | 段数 | 关键字 |',

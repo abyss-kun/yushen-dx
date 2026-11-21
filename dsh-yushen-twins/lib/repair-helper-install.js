@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-repair-helper-install
+ * kind: module
+ * summary: Only these fixed scripts run. Paths are passed as environment data, never code.
+ * audience: 维护者 / 宿主
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: createInstaller / helperInfo / installRepairHelper / uninstallRepairHelper（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -73,6 +84,31 @@ async function mkdirSafe(value) {
   }
   try { await fs.mkdir(absolute); } catch (error) { if (error.code !== 'EEXIST') throw error; }
   await safePath(absolute, { directory: true });
+}
+
+// 旧快捷方式只留最近 1 份备份：每升一次版就多一个 <lnk>.bak-<时间戳>，
+// 2026-10-30 到 11-02 实测在桌面堆到 29 个（老板截图报的）。这里只认我们自己的
+// 精确前缀 + 纯数字时间戳，别的一概不碰；删不掉就留着（宁可多一份备份）。
+const SHORTCUT_BACKUPS_KEEP = 1;
+async function pruneShortcutBackups(desktop, desktopShortcut) {
+  const prefix = `${path.basename(desktopShortcut)}.bak-`;
+  let names;
+  try { names = await fs.readdir(desktop); } catch { return 0; }
+  const backups = names
+    .filter((name) => name.length > prefix.length && name.startsWith(prefix) && /^\d+$/.test(name.slice(prefix.length)))
+    .sort((a, b) => Number(a.slice(prefix.length)) - Number(b.slice(prefix.length)));
+  const doomed = backups.slice(0, Math.max(0, backups.length - SHORTCUT_BACKUPS_KEEP));
+  let removed = 0;
+  for (const name of doomed) {
+    const full = path.join(desktop, name);
+    try {
+      await safePath(desktop, { directory: true });
+      await safePath(full);
+      await fs.unlink(full);
+      removed += 1;
+    } catch { /* 删不掉就留着 */ }
+  }
+  return removed;
 }
 
 async function readShortcutTarget(shortcutPath) {
@@ -151,6 +187,7 @@ export function createInstaller({
     let desktopShortcut = null;
     let shortcutUpdated = false;
     let shortcutBackup = null;
+    let shortcutBackupsPruned = 0;
     if (options.desktop === true) {
       const desktop = await safePath(await resolveDesktop(), { directory: true });
       desktopShortcut = path.join(desktop, LINK);
@@ -183,6 +220,8 @@ export function createInstaller({
           await fs.unlink(temporary);
         } catch { /* Preserve any unexpected object rather than deleting it. */ }
       }
+      // 换完之后把更老的 .lnk.bak-* 收掉，只留最近一份可回滚。
+      shortcutBackupsPruned = await pruneShortcutBackups(desktop, desktopShortcut);
     }
     // 旧版本目录归档：只动「64 位十六进制目录名 + 里面确实是我们的 exe」的那些，不删任何东西。
     let archivedOldVersions = [];
@@ -202,7 +241,7 @@ export function createInstaller({
     } catch { /* 归档失败不影响安装本身 */ }
 
     return { installed: true, verified: true, targetPath, installDir, desktopShortcut, shortcutUpdated, shortcutBackup,
-      archivedOldVersions, sha256: info.sha256, signatureStatus: info.signatureStatus };
+      shortcutBackupsPruned, archivedOldVersions, sha256: info.sha256, signatureStatus: info.signatureStatus };
   }
 
   /**
@@ -229,10 +268,10 @@ export function createInstaller({
     if (installed.includes(info.sha256)) {
       // 已是最新：只把快捷方式指向修回来（比如用户手动挪过）。
       const result = await installRepairHelper({ confirm: INSTALL_CONFIRMATION, desktop: true });
-      return { skipped: 'up-to-date', shortcutUpdated: result.shortcutUpdated, sha256: info.sha256 };
+      return { skipped: 'up-to-date', shortcutUpdated: result.shortcutUpdated, sha256: info.sha256, shortcutBackupsPruned: result.shortcutBackupsPruned };
     }
     const result = await installRepairHelper({ confirm: INSTALL_CONFIRMATION, desktop: true });
-    return { upgraded: true, from: installed, to: info.sha256, shortcutUpdated: result.shortcutUpdated, archivedOldVersions: result.archivedOldVersions };
+    return { upgraded: true, from: installed, to: info.sha256, shortcutUpdated: result.shortcutUpdated, archivedOldVersions: result.archivedOldVersions, shortcutBackupsPruned: result.shortcutBackupsPruned };
   }
 
   async function uninstallRepairHelper(options = {}) {

@@ -1,3 +1,13 @@
+/* 标签
+ * id: lib-characters
+ * kind: module
+ * summary: 角色名册：谁住在这套软件里只由 characters.json 决定；发行版不覆盖用户已有角色。
+ * audience: 框架（所有"有哪些角色"的入口）、新角色
+ * owner: 老板（加/删角色由老板定）
+ * mutable: 可改（写入一律"已存在就拒绝"，别改成覆盖）
+ * usage: characterIds()/listCharacters() 取名册；rosterIds() 常驻名单；SOUL_DIR 是卡与记忆的根
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 角色名册
 // 「谁住在这套软件里」只由这份名册决定：每个角色一张卡、一份记忆、一条常驻会话。
@@ -16,9 +26,9 @@ const PERSONA = path.join(SOUL_DIR, 'persona.json')
 
 // 出厂自带的三个角色：新用户没有 characters.json 时也能跑；老用户沿用同一批文件。
 const BUILTINS = [
-  { id: 'dayu', name: '大鱼', alias: '阿鲲', title: '鱼神·总台', cards: { desk: 'cards/dayu.desk.md', social: 'cards/dayu.social.md' }, memory: 'memory/dayu.json' },
-  { id: 'xiaoyu', name: '小鱼', alias: '阿鲤', title: '小鱼·管家', cards: { desk: 'cards/xiaoyu.social.md', social: 'cards/xiaoyu.social.md' }, memory: 'memory/xiaoyu.json' },
-  { id: 'dragon', name: '照微', alias: '龙娘', title: '照微·顾问', cards: { desk: 'cards/dragon.desk.md', social: 'cards/dragon.desk.md' }, memory: 'memory/dragon.json' },
+  { id: 'dayu', name: '大鱼', alias: '阿鲲', title: '鱼神·总台', cards: { desk: 'cards/dayu.md', social: 'cards/dayu.md' }, memory: 'memory/dayu.json' },
+  { id: 'xiaoyu', name: '小鱼', alias: '阿鲤', title: '小鱼·管家', cards: { desk: 'cards/xiaoyu.md', social: 'cards/xiaoyu.md' }, memory: 'memory/xiaoyu.json' },
+  { id: 'dragon', name: '照微', alias: '龙娘', title: '照微·顾问', cards: { desk: 'cards/dragon.md', social: 'cards/dragon.md' }, memory: 'memory/dragon.json' },
 ]
 // 2026-10-30：出厂只点亮一个角色（一般人家只养一条鱼；三个卡反而不好选）。
 // BUILTINS 仍是「认识的角色目录」（形象、默认配置都靠它），SEED 才是「新装默认住进来的」。

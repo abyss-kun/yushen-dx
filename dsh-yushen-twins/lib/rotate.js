@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-rotate
+ * kind: module
+ * summary: 账本轮转：老事件归档加压，大文件改名留档；不清空、不删内容
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: rotateLogs（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 账本轮转：老事件归档加压，大文件改名留档；不清空、不删内容。
 // 规则：events 超过 14 天 → gzip 进 events/archive；动作/工作/崩溃日志超过上限 → 改名留档。

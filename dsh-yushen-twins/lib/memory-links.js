@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-memory-links
+ * kind: module
+ * summary: 关联记忆：把孤立的记忆事件串成一条线（前因 → 谁做了什么 → 结果 → 教训）
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；记忆内容归角色本人
+ * mutable: 可改
+ * usage: appendLink / readChains / getChain / linkEvent（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 改｜2026-11-01 19:22｜大鱼·工作台(子代理)｜授权：主人｜lib/memory-links.js 全文件（同批新增 scripts/memory-chain.mjs，改 scripts/find-any.mjs:43 加「链条」一路、scripts/regression.mjs 第 134 条断言，只加没删）｜关联记忆：链条.jsonl 记线（标题/步骤/教训）、链接.jsonl 记点（事件 id 挂到链 id），chainOf 按词搜链并带出事件原文｜为什么：老板要「别一条条孤零零记『今天被骂了』，记成『因为我没看参考图 → 被指出来 → 我改错方向』，以后问一句就能顺着线翻回去」｜可改：可改；红线只追加两个 jsonl，<role>.json 一个字节不许动
 // 关联记忆：把孤立的记忆事件串成一条线（前因 → 谁做了什么 → 结果 → 教训）。

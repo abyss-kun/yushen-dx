@@ -1,11 +1,32 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: core-dispatch
+ * kind: module
+ * summary: 派活（宿主无关）：只认四个动作（列会话/建会话/发话/记账），DSH 与 CLI 各自实现；每个事件都要有去向。
+ * tags: 派活, 去向, 手册, 经验, 工作流, 核心
+ * created: 2026-11-11 00:45:00
+ * changed: 2026-11-11 00:50:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式，一眼看懂谁的、能不能动）
+ * audience: 宿主适配层（DSH/CLI）、维护者；她通过工具间接触发，不直接调
+ * owner: 框架；改派活流程（要不要带手册/查重/记经验）要老板点头
+ * defaults: 去向日志只留最近 2MB，超了滚一份 .1（不删历史）
+ * off: 没有总开关；不想派活就不派——删了等于派活能力消失
+ * mutable: 可改；**去向不许静默**（接单/筛掉/判重复三样都得记一行）这条不许破
+ * usage: dispatch(host,{brief,expect}) → 建单并投递；listJobs/verify 取证；每条都写去向
+ * why: 派出去的单曾经"没回话也没人知道"，六天后才发现死了；没有去向就没有追溯
+ * result: 四个动作 + 去向日志 + 冲突查重 + 手册按任务发 + 成/败记任务经验
+ */
+// 改｜2026-11-02 16:12｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜core/dispatch.js:32｜派活去向账的时间戳改走 clock｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
 // core · 派活（宿主无关）
 // 只认四个动作：列会话、建会话、发话、记账。DSH/CLI 各自实现。
 
 import { readAll, writeAll, audit, newId, verifyEvidence } from './jobs.js'
 import { recordExperience, queryExperience } from '../lib/task-experience.js'
+import { recordOrSkip } from '../lib/skills.js'
 import { recordFishState } from '../lib/state-adapter.js'
-import { handbookBlock, handbookStamp, recordCustomHandbookSend } from '../lib/handbook.js'
+import { handbookBlock, handbookStamp, handbookDispatchPack, chapterTitlesFor, recordHandbookSend, handbookNoise } from '../lib/handbook.js'
+import { HANDBOOK_TOPICS } from '../lib/handbook-policy.js'
 import { handbookForEmployee } from '../lib/employee-profile.js'
 import { recordHandbook, sync as syncEmployee } from '../lib/employee-record.js'
 import { buildExperienceBrief } from '../lib/task-experience.js'
@@ -15,6 +36,7 @@ import { findTaskConflicts, classifyTaskOverlap } from '../lib/task-coordination
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { localISO } from '../lib/clock.js'
 
 // 2026-11-01 借 Super-agent 的 Disposition：每个事件都要有去向，不许静默不做。
 // 被筛掉 / 判重复 / 接单，三种都记一行，追溯时不用问人。
@@ -27,7 +49,7 @@ function noteDisposition({ event = '', disposition = '', strength = '', reason =
     const dir = path.join(home, 'dayu', 'runtime')
     fs.mkdirSync(dir, { recursive: true })
     const file = path.join(dir, 'disposition.jsonl')
-    const at = new Date(Date.now() + 8 * 3600e3).toISOString().replace('Z', '+08:00')
+    const at = localISO()
     fs.appendFileSync(file, JSON.stringify({ at, event: String(event).slice(0, 200), disposition, strength, reason: String(reason || '').slice(0, 200), basis: String(basis || '').slice(0, 100) }) + '\n', 'utf8')
     // 轮转：只留最近 2MB；旧的滚到 .1（只留一份，够追溯近期就行）
     try {
@@ -40,7 +62,7 @@ function noteDisposition({ event = '', disposition = '', strength = '', reason =
   } catch { /* 记账失败不影响派活 */ }
 }
 
-export function composeBrief(id, brief, expect, role = 'dayu', { sessionId = '', book: preBook = '' } = {}) {
+export function composeBrief(id, brief, expect, role = 'dayu', { sessionId = '', book: preBook = '', bookChapters = [], pack: prePack = null, meta = null } = {}) {
   const stamp = handbookStamp()
   // 轻派活（2026-11-01 主人：小鱼就问一句「你怕什么」，不该背一整本手册）：
   // 只要一两句话、不动文件、不跑命令的任务，不附手册、不附工具清单。
@@ -76,18 +98,52 @@ export function composeBrief(id, brief, expect, role = 'dayu', { sessionId = '',
   try {
     if (!book && sessionId) { custom = handbookForEmployee({ sessionId, brief, expect }); book = String(custom.text || '') }
   } catch { book = book || '' }
+  // 2026-11-04 老板：「写了不代表在用」——定制本只有章摘要，没有手册正文。
+  // 真读员工手册，按派活场景取 2~4 节正文：每章 ≤600 字、整包 ≤1200 字；超了只发章名 + 指针。
+  let pack
+  try { pack = prePack || handbookDispatchPack({ scene: 'dispatch', sha: stamp?.sha || '', task: text }) } catch { pack = { block: '', titles: [], sections: [], chars: 0, bytes: 0, sha: '' } }
+  let fallback = false
   // 2026-11-01 老板：「手册按需发放」要能度量——每次发放记一笔（只记节标题/字数/噪声，不记任务原文）。
-  // 走 scene=dispatch：手册章节按「派活」取，拿不到定制本也发那几节，不退回整块岗位卡。
-  if (!book) book = handbookBlock('worker', { scene: 'dispatch', text, target: { kind: 'task', id: String(id) }, task: String(id), maxChars: 2000 })
-  else if (custom) { try { recordCustomHandbookSend({ role, chapters: custom.chapters, chars: custom.chars, text }) } catch { /* 记账失败不影响派活 */ } }
+  // 走 scene=dispatch：拿不到定制本时发的那几节本身就是正文，也已经自己记了一笔；不要再拼第二遍、记第二笔。
+  if (!book) {
+    book = handbookBlock('worker', { scene: 'dispatch', text, target: { kind: 'task', id: String(id) }, task: String(id), maxChars: 2000 })
+    fallback = true
+  }
+  // 定制本按预算会砍行；只把**真的还在简报里**的章记进 meta/日志（砍掉的不算发过）。
+  const sentTopics = (custom?.chapters || bookChapters).filter((id) => {
+    const row = HANDBOOK_TOPICS.find((topic) => topic.id === id)
+    return !row || book.includes(`· ${row.title}：`)
+  })
+  const chapters = fallback ? [] : chapterTitlesFor(sentTopics, pack.titles)
+  const bookBlock = fallback ? book : [book, pack.block].filter(Boolean).join('\n\n')
+  if (!fallback) {
+    try {
+      recordHandbookSend({
+        role,
+        scene: 'dispatch',
+        sections: chapters,
+        chars: bookBlock.length,
+        bytes: Buffer.byteLength(bookBlock, 'utf8'),
+        sha: stamp?.sha || pack.sha || '',
+        noise: handbookNoise(pack.sections, text),
+      })
+    } catch { /* 记账失败不影响派活 */ }
+    if (meta) Object.assign(meta, { chapters, chars: bookBlock.length, bytes: Buffer.byteLength(bookBlock, 'utf8'), sha: stamp?.sha || pack.sha || '', bodyChars: pack.chars, bodySections: pack.titles })
+  } else if (meta) {
+    // 退回场景块：它自己记了账；这里只把「实际发出去的章」带回单子，别让 meta 指向没发的东西。
+    const titles = [...new Set((bookBlock.match(/^## .+$/gm) || []).map((line) => line.replace(/^##\s*/, '').trim()))]
+    Object.assign(meta, { chapters: titles, chars: bookBlock.length, bytes: Buffer.byteLength(bookBlock, 'utf8'), sha: stamp?.sha || '', bodyChars: null, bodySections: titles })
+  }
   return [
     `【派活 ${id}】`,
-    book,
+    bookBlock,
     stamp ? `（手册版本 sha ${stamp.sha}）` : '',
     recallCreativeMemory(`${brief || ''}\n${expect || ''}`),
     buildExperienceBrief(role, { text: `${brief || ''} ${expect || ''}` }),
     `任务：${brief}`,
     `验收标准：${expect || '给出结果 + 证据（文件路径 / 命令输出 / 链接），别只说“做完了”。'}`,
+    // 2026-11-02 老板：「传承是不是挂墙上好看的」——把「传路径不传结论」落在派活里（文化-行走 §二）。
+    '传路径不传结论：给它怎么想到的、去哪查、试过什么；结论可以不给——让它自己走一遍，走岔了也是长出来的。',
     '回话带「已读手册」+ 结果 + 证据；做完直接回，不用问我在不在。',
   ].filter(Boolean).filter((line, index, lines) => lines.indexOf(line) === index).join('\n')
 }
@@ -201,10 +257,9 @@ export async function dispatch(host, { brief, expect, target, reviewedId, role =
     : '【任务前复核】未命中相似历史任务；这不是“从未做过”的证明，仍需核对台账、经验和现有文件证据。'
   let bookMeta = null
   try { bookMeta = handbookForEmployee({ sessionId, brief, expect: hist.expect }) } catch { bookMeta = null }
-  const text = [composeBrief(id, brief, hist.expect, role, { sessionId, book: bookMeta?.text || '' }), conflictText, hist.text, historyCheck, `【统一事实预检】${factCheck.completeness}；${factCheck.warning}`].filter(Boolean).join('\n')
-  // 定制本这一笔也记：它才是实际派出去的那本；只落章标题和字数，简报原文不进日志。
-  // 只有真的用上了定制本（text 非空）才记，避免和 composeBrief 里那笔重复。
-  if (bookMeta?.text) { try { recordCustomHandbookSend({ role, chapters: bookMeta.chapters, chars: bookMeta.chars, text: `${brief || ''} ${hist.expect || expect || ''}` }) } catch { /* 记账失败不影响派活 */ } }
+  // 手册发放也在这里记账（一次派活一行：sections/bytes/sha/at/role），meta 带回来给单子核对。
+  const issuedMeta = {}
+  const text = [composeBrief(id, brief, hist.expect, role, { sessionId, book: bookMeta?.text || '', bookChapters: bookMeta?.chapters || [], meta: issuedMeta }), conflictText, hist.text, historyCheck, `【统一事实预检】${factCheck.completeness}；${factCheck.warning}`].filter(Boolean).join('\n')
   try { recordFishState(role, { expression: '工作', lastReason: id }) } catch { /* 状态记录不阻断派活 */ }
   await host.send(sessionId, text)
 
@@ -227,7 +282,12 @@ export async function dispatch(host, { brief, expect, target, reviewedId, role =
     lastRemindedAt: '',
     returnedAt: '',
     handbook: handbookStamp(),
-    handbookMeta: bookMeta ? { chapters: bookMeta.chapters, tools: bookMeta.tools, chars: bookMeta.chars, expiresAt: bookMeta.expiresAt } : null,
+    // 2026-11-04：chapters 改成「实际拼进简报的章标题」（含正文标题），并带上 bytes/sha——
+    // 原来记的是定制本的 id，日志里却是标题，两边对不上，查「到底发了什么」时只能猜。
+    // 轻活不发手册 → issuedMeta 为空 → 就记 null，不拿定制本的章冒充发过。
+    handbookMeta: issuedMeta.chapters?.length
+      ? { chapters: issuedMeta.chapters, chars: issuedMeta.chars, bytes: issuedMeta.bytes, sha: issuedMeta.sha, bodyChars: issuedMeta.bodyChars || 0, tools: bookMeta?.tools || [], expiresAt: bookMeta?.expiresAt || '' }
+      : null,
     experienceHit,
     overlapWith: conflicts.filter((row) => row.kind === 'conflict').map((row) => ({ id: row.task.id, similarity: row.similarity, sharedFile: row.sharedFile || '' })),
     // 2026-11-01 借 Super-agent 的 Mandate：这活凭什么能派、能到什么范围、跟着哪条线索。
@@ -291,7 +351,10 @@ export async function verifyTaskEvidence(id, args = {}) {
   task.evidence.push(receipt)
   task.lastEvidence = receipt
   writeAll(list)
-  return { ok: true, verified, receipt, syntax: result.syntax }
+  // 2026-11-04：返回给 MCP 工具时必须能无损转 JSON——原来直接返回 receipt，
+  // 只要 verifyEvidence 的结果里带 undefined/Buffer，宿主就报 "value is not lossless JSON"，
+  // 取证白跑、单子还是结不掉。这里统一过一遍 JSON。
+  return JSON.parse(JSON.stringify({ ok: true, verified, receipt, syntax: result?.syntax || null }))
 }
 
 // 前置单结束 → 通知所有等它的单去核对（幂等：只标 reviewNotifiedAt，不重复发同一批）
@@ -341,10 +404,14 @@ export async function verdict(host, { id, verdict: v, note } = {}) {
     const remaining = readAll().some((row) => row.id !== task.id && row.role === (task.role || 'dayu') && ['dispatched', 'returned', 'redispatched'].includes(row.status))
     try { recordFishState(task.role || 'dayu', { expression: remaining ? '工作' : '完成', lastReason: task.id }) } catch { /* 状态记录不阻断验收 */ }
     try { recordExperience(task.role || 'dayu', { taskId: `${task.id}:pass`, brief: task.brief, outcome: 'success', reason: text, evidence: JSON.stringify(task.lastEvidence || {}), verified: true }) } catch { /* 经验记录不阻断验收 */ }
+    // 2026-11-11：派活验收是做法账本入口之一。brief 是任务不是方法——没方法就写跳过证据，不静默。
+    try { recordOrSkip(task.role || 'dayu', { entry: 'dispatch', ref: task.id, kind: 'ok', text: '' }) } catch { /* 做法账本不阻断验收 */ }
   }
   if (v === 'reject') {
     const attempts = Number(task.attempts || 1)
     try { recordExperience(task.role || 'dayu', { taskId: `${task.id}:attempt-${attempts}`, brief: task.brief, outcome: 'failed', reason: text, evidence: JSON.stringify(task.lastEvidence || {}), verified: false }) } catch { /* 经验记录不阻断打回 */ }
+    // 2026-11-11：打回也写一条跳过证据（任务不是方法），区分“记了任务经验但没进做法账本”。
+    try { recordOrSkip(task.role || 'dayu', { entry: 'dispatch', ref: task.id, kind: 'fail', text: '' }) } catch { /* 做法账本不阻断打回 */ }
     if (attempts >= 3) {
       task.status = 'aborted'
       task.maxAttempts = 3

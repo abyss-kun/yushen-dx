@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-creative-memory
+ * kind: module
+ * summary: 共享创作参考：从用户数据里按需取（可选），只读参考，绝不改人格。
+ * tags: 创作参考, 只读, 不改人格
+ * created: 2026-11-11 01:15:00
+ * changed: 2026-11-11 01:15:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她（做图/写文时）、维护者
+ * owner: 框架；参考内容归原作者
+ * mutable: 可改检索；**只读、不改 persona** 不许破
+ * usage: recallCreativeMemory(q) → 参考条目；空就说没有
+ * why: 做二创需要参考，但不能拿参考改她的人设
+ * result: 一层只读的内容参考
+ */
 // Shared creative references: opt-in retrieval from user data, never persona mutation.
 import fs from 'node:fs'
 import os from 'node:os'

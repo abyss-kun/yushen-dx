@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-thoughts
+ * kind: module
+ * summary: 纠结记录：两难时她自己说的话，原样留一份，供以后复盘
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；记忆内容归角色本人
+ * mutable: 可改
+ * usage: recordThought / listThoughts（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 纠结记录：两难时她自己说的话，原样留一份，供以后复盘。
 // 只记本地文本；不调模型、不联网。

@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-deliver
+ * kind: module
+ * summary: 完成声明：她报"做完了"时必须留下能验的东西；「渲出来了」不等于「做完了」。
+ * tags: 交付, 验收, 证据
+ * created: 2026-11-11 01:15:00
+ * changed: 2026-11-11 01:15:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她、派活方、面板
+ * owner: 框架；**没有证据不许记"完成"**
+ * mutable: 可改字段；不许放宽成"说了就算"
+ * usage: recordDelivery({what,how,evidence}) / deliveriesLine(role)
+ * why: 有一次报完成，结尾其实被截断
+ * result: 一份带证据的交付流水 + 简报一行
+ */
 // 完成声明：她报"做完了"的时候，必须留下能验的东西。
 //
 // 为什么：今天文字版渲出来了，我报"完成"，结尾其实被截断。

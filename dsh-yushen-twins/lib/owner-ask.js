@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-owner-ask
+ * kind: module
+ * summary: 拿不准时问本人：挂起、等可信通道回话；同一个可疑通道不能自问自答
+ * audience: 老板 / 维护者
+ * owner: 老板点头才能改
+ * mutable: 只许改严
+ * usage: raiseOwnerQuestion / expireOwnerQuestions / listOwnerQuestions / answerOwnerQuestion（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 拿不准时问本人：挂起、等可信通道回话；同一个可疑通道不能自问自答。
 //

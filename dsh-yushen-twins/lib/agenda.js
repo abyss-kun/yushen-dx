@@ -1,3 +1,15 @@
+/* 标签
+ * id: lib-agenda
+ * kind: module
+ * summary: 她的议程：没人派的、她自己排的事，能放弃；本地 tick 只推不用模型的那一步。
+ * audience: 她本人、新角色、自由时间/心跳
+ * owner: 她自己（内容与取舍归她）
+ * mutable: 可改（状态机别乱加；放弃是主见，不是失败）
+ * defaults: 本地步只做读文件/读收件箱/核对事实；要生成内容的标 waiting
+ * usage: addAgenda/listAgenda/stepOnce/readAgenda；countsForXp 给经验记账
+ * off: 不写就没有；本地 tick 不调就不推（删 agenda.json = 清空，不建议）
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 她的议程：没人派的、她自己排的事。
 //
@@ -11,6 +23,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { runtimeDir, ensureRuntime } from './runtime.js'
 import { unreadFor } from './inbox.js'
+import { markManualDone } from './manual-done.js'
 
 export const STATES = Object.freeze(['want', 'doing', 'blocked', 'waiting', 'done', 'dropped'])
 // check 不算"本地能推的一步"（2026-10-30 改）：tick 没法核对任何东西，
@@ -87,12 +100,99 @@ export function activeItems(role) {
   return readAgenda(role).items.filter((i) => ['want', 'doing', 'blocked', 'waiting'].includes(i.state))
 }
 
+/**
+ * 她排事时可选的到期时间。只认能落到具体时刻的写法；认不出就留空，绝不猜。
+ * 返回 { at: ISO, ms }，认不出返回 null。
+ */
+export function parseDueAt(text, { now = Date.now() } = {}) {
+  const raw = String(text || '').trim()
+  if (!raw) return null
+  const d = new Date(now)
+  const at = (y, m, day, hh, mm) => {
+    const x = new Date(y, m, day, hh, mm, 0, 0)
+    return { at: x.toISOString(), ms: x.getTime() }
+  }
+  const clockOf = (fallback = 9) => {
+    const t = raw.match(/(上午|下午|晚上|中午|早上)?\s*(\d{1,2}|[零一二三四五六七八九十]{1,3})(?:点|:|：)(\d{1,2})?/)
+    if (!t) return { hh: fallback, mm: 0 }
+    const cn = { 零: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
+    const num = (s) => {
+      if (/^\d+$/.test(s)) return Number(s)
+      if (s === '十') return 10
+      if (s.includes('十')) {
+        const [a, b] = s.split('十')
+        return (a ? cn[a] : 1) * 10 + (b ? cn[b] : 0)
+      }
+      return cn[s] ?? fallback
+    }
+    let hh = num(t[2])
+    const mm = Number(t[3] || 0)
+    if (/下午|晚上/.test(t[1] || '') && hh < 12) hh += 12
+    if (/中午/.test(t[1] || '') && hh < 11) hh = 12
+    return { hh: Math.max(0, Math.min(23, hh)), mm: Math.max(0, Math.min(59, mm)) }
+  }
+  // 显式日期/时间：2026-11-14 / 2026-11-14 09:00 / 2026-11-14T09:00
+  const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?$/)
+  if (m) return at(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4] ?? 9), Number(m[5] ?? 0))
+  // 月日：11月20日 / 11月20号，默认今年；已过则明年
+  const md = raw.match(/(\d{1,2})月(\d{1,2})[日号]/)
+  if (md) {
+    let y = d.getFullYear()
+    const mo = Number(md[1]) - 1
+    const day = Number(md[2])
+    if (new Date(y, mo, day, 23, 59).getTime() < now) y += 1
+    const c = clockOf(9)
+    return at(y, mo, day, c.hh, c.mm)
+  }
+  // 下周三 / 本周五；下午两点 / 14:00
+  const wd = raw.match(/(下周|本周|这周)([一二三四五六日天])/)
+  if (wd) {
+    const map = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 日: 0, 天: 0 }
+    const target = map[wd[2]]
+    const cur = d.getDay()
+    let delta = (target - cur + 7) % 7
+    if (wd[1] === '下周') delta += 7
+    if (delta === 0 && wd[1] === '本周') delta = 7
+    const c = clockOf(9)
+    return at(d.getFullYear(), d.getMonth(), d.getDate() + delta, c.hh, c.mm)
+  }
+  if (/今晚|今天晚上/.test(raw)) return at(d.getFullYear(), d.getMonth(), d.getDate(), 20, 0)
+  if (/明早|明天早上|明天上午/.test(raw)) return at(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0)
+  if (/明天/.test(raw)) { const c = clockOf(9); return at(d.getFullYear(), d.getMonth(), d.getDate() + 1, c.hh, c.mm) }
+  if (/后天/.test(raw)) { const c = clockOf(9); return at(d.getFullYear(), d.getMonth(), d.getDate() + 2, c.hh, c.mm) }
+  if (/三天内|3天内/.test(raw)) return at(d.getFullYear(), d.getMonth(), d.getDate() + 3, 23, 59)
+  return null
+}
+
+/** 已到期的议程项：有 dueAt、时间到了、还在 active；同一个 dueAt 只提醒一次。 */
+export function dueItems(role, { now = Date.now() } = {}) {
+  return activeItems(role)
+    .filter((i) => Number(i.dueAtMs) > 0 && Number(i.dueAtMs) <= now && Number(i.dueNotifiedAtMs || 0) < Number(i.dueAtMs))
+    .sort((a, b) => Number(a.dueAtMs) - Number(b.dueAtMs))
+}
+
+/** 记“这一条到期已经叫过了”，避免每 30 分钟重复叫；她改 dueAt 才会重新到期。 */
+export function markDueNotified(role, id, { now = Date.now(), sessionId = '' } = {}) {
+  const doc = readAgenda(role)
+  const item = doc.items.find((i) => i.id === id)
+  if (!item) return null
+  item.dueNotifiedAt = nowIso(now)
+  item.dueNotifiedAtMs = now
+  // 发给了哪条会话：活会话就是目标；回退时是实际投到的那条。
+  item.notifiedSessionId = String(sessionId || '').slice(0, 80)
+  item.updatedAt = nowIso(now)
+  doc.updatedAt = item.updatedAt
+  writeJson(agendaFile(role), doc)
+  return item
+}
+
 /** 她自己排一件事。手上多了只提醒一句，不拦——要不要堆是她的事（三问第 1 条）。 */
-export function addItem(role, { what = '', why = '', next = '', nextKind = 'ask-model', target = '', prompt = '', by = 'self', mindId = '', origin = 'self', now = Date.now() } = {}) {
+export function addItem(role, { what = '', why = '', next = '', nextKind = 'ask-model', target = '', prompt = '', by = 'self', mindId = '', origin = 'self', dueAt = '', sessionId = '', now = Date.now() } = {}) {
   const text = String(what || '').trim()
   if (!text) throw new Error('这件事是什么？得写一句')
   if (!NEXT_KINDS.includes(nextKind)) throw new Error(`下一步类型不认识：${nextKind}（可用：${NEXT_KINDS.join(' / ')}）`)
   const from = XP_ORIGINS.includes(origin) ? origin : 'self'
+  const due = dueAt ? parseDueAt(dueAt, { now }) : null
   ensureRuntime(role)
   const doc = readAgenda(role)
   const active = doc.items.filter((i) => ['want', 'doing', 'blocked', 'waiting'].includes(i.state))
@@ -111,6 +211,10 @@ export function addItem(role, { what = '', why = '', next = '', nextKind = 'ask-
     // 这件事是从哪条心念接过来的（"我一直在想的事"→"我现在要做的事"）。
     // 有了这条链，"想"和"做"是一件事，不是两套账（2026-10-27）。
     mindId: String(mindId || ''),
+    dueAt: due ? due.at : String(dueAt || '').slice(0, 40),
+    dueAtMs: due ? due.ms : 0,
+    // 哪条分身会话排的：到点优先送回去；会话归档了才交给别的分身。
+    sessionId: String(sessionId || '').slice(0, 80),
     at: nowIso(now),
     updatedAt: nowIso(now),
     tries: 0,
@@ -136,7 +240,7 @@ export function addItem(role, { what = '', why = '', next = '', nextKind = 'ask-
  * 注意：这里**不替她读心念**。心念按「通道 + 受众」隔离，用越权的 scope 去读就是绕过隐私闸。
  * 所以她自己用 yushen_mind brief 看、把原话（what）带过来，这里只把"从哪条来的"记上。
  */
-export function addFromMind(role, { mindId = '', what = '', nextKind = 'ask-model', next = '', now = Date.now() } = {}) {
+export function addFromMind(role, { mindId = '', what = '', nextKind = 'ask-model', next = '', dueAt = '', sessionId = '', now = Date.now() } = {}) {
   const id = String(mindId || '').trim()
   if (!id) return { ok: false, error: '要接哪条心念？给 mindId（先用 yushen_mind brief 看有哪些）' }
   const text = String(what || '').trim()
@@ -148,23 +252,42 @@ export function addFromMind(role, { mindId = '', what = '', nextKind = 'ask-mode
     nextKind,
     by: 'self',
     mindId: id,
+    dueAt,
+    sessionId,
     now,
   })
   return { ok: true, item, mind: { id, text: text.slice(0, 80) } }
 }
 
 /** 改状态/下一步。只允许合法转移，档她自己的数。 */
-export function updateItem(role, id, patch = {}, { now = Date.now() } = {}) {
+export function updateItem(role, id, patch = {}, { now = Date.now(), bySession = '' } = {}) {
   const doc = readAgenda(role)
   const item = doc.items.find((i) => i.id === id)
   if (!item) throw new Error(`没有这件事：${id}`)
   if (patch.state && !STATES.includes(patch.state)) throw new Error(`状态不认识：${patch.state}（可用：${STATES.join(' / ')}）`)
   if (patch.nextKind && !NEXT_KINDS.includes(patch.nextKind)) throw new Error(`下一步类型不认识：${patch.nextKind}`)
   if (patch.origin && !XP_ORIGINS.includes(patch.origin)) throw new Error(`来源不认识：${patch.origin}（可用：${XP_ORIGINS.join(' / ')}）`)
+  const before = String(item.state || '')
   for (const key of ['state', 'next', 'nextKind', 'target', 'note', 'why', 'what']) {
     if (patch[key] !== undefined) item[key] = String(patch[key]).slice(0, key === 'target' ? 400 : 200)
   }
+  if (patch.state === 'done' && before !== 'done') {
+    item.doneAt = nowIso(now)
+    item.doneBy = String(bySession || '').slice(0, 80)
+    try { markManualDone(role, { what: item.what, sessionId: bySession, now }) } catch { /* 记不上最多多炼一次 */ }
+  }
+  if (patch.state && patch.state !== 'done') {
+    item.doneAt = ''
+    item.doneBy = ''
+  }
   if (patch.origin !== undefined) item.origin = String(patch.origin)
+  if (patch.dueAt !== undefined) {
+    const due = String(patch.dueAt || '').trim() ? parseDueAt(patch.dueAt, { now }) : null
+    item.dueAt = due ? due.at : String(patch.dueAt || '').slice(0, 40)
+    item.dueAtMs = due ? due.ms : 0
+    item.dueNotifiedAt = ''
+    item.dueNotifiedAtMs = 0
+  }
   item.updatedAt = nowIso(now)
   doc.updatedAt = item.updatedAt
   writeJson(agendaFile(role), doc)

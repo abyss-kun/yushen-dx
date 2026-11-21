@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-bili-sync
+ * kind: module
+ * summary: 把她的本体（卡 + 同一份记忆）同步进刷B站插件的 personaPrompt；只写人设字段，不碰账号令牌，不覆盖用户自己写的。
+ * tags: B站, 人设同步, 边界
+ * created: 2026-11-11 01:05:00
+ * changed: 2026-11-11 01:05:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她、刷B站 插件、维护者
+ * owner: 框架；卡与记忆归她，配置字段归刷B站
+ * mutable: 可改；**不覆盖用户自己写的人设**这条不许破
+ * usage: syncBiliPersona({role}) → 只在人设为空或上次就是鱼神写的时才写
+ * why: 两个插件各一份人设会漂；但也不能抢用户自己写的
+ * result: 带条件的单向同步 + 变更留痕
+ */
 // 把她在鱼神里的本体（卡 + 同一份记忆）同步进刷B站插件的 personaPrompt。
 // 边界：只写「刷B站」自己的配置里那个给人设用的字段；不碰账号、不碰令牌、不覆盖用户自己写的人设。
 import fs from 'node:fs'

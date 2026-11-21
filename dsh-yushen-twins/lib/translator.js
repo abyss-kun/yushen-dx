@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-translator
+ * kind: module
+ * summary: 翻译器：把「别人说的话」翻成她能读懂的观察
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: readBackends / backendFor / setBackend / probeLocal（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 翻译器：把「别人说的话」翻成她能读懂的观察。
 //
@@ -230,7 +241,7 @@ export async function ensureLocalServer({ waitSeconds = 180 } = {}) {
   const child = spawn(local.engine, [
     '-m', local.model, '-c', '4096', '--host', '127.0.0.1', '--port', String(PORT),
     '-t', String(Math.max(2, Math.min(8, os.cpus().length - 2))), '--no-webui',
-  ], { detached: true, stdio: ['ignore', out, out] })
+  ], { detached: true, stdio: ['ignore', out, out], windowsHide: true })
   child.unref()
   for (let i = 0; i < waitSeconds; i += 1) {
     await new Promise((r) => setTimeout(r, 1000))

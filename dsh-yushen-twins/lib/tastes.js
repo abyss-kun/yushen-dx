@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-tastes
+ * kind: module
+ * summary: 偏好：她喜欢什么、受不了什么。她自己写，插件只存和带
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: listTastes / addTaste / tasteLine（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 偏好：她喜欢什么、受不了什么。她自己写，插件只存和带。
 import fs from 'node:fs'

@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-dsh-rpc
+ * kind: module
+ * summary: 本机 DSH HTTP RPC 客户端：session/create → selectModel → prompt，鉴权用本机密钥离线铸造 cookie。
+ * tags: RPC, 会话, 模型选择, 本机
+ * created: 2026-11-11 01:20:00
+ * changed: 2026-11-11 01:20:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 宿主适配层、派活/唤醒链路、维护者
+ * owner: 框架；**接口形状跟宿主版本走**，升级要核
+ * defaults: base-url 从 ~/.dsh/dayu/base-url 读；令牌离线铸造不落地
+ * off: 不能关——换模型/起会话都靠它；坏了宿主里很多功能一起哑
+ * mutable: 可改；只许加封装，不许把 cookie 落盘
+ * usage: selectModelRpc / listSessionsRpc / promptRpc / dshBaseUrl
+ * why: 宿主 agents.create 不认 agentOptions、sessions 服务选不了模型
+ * result: 一条和桥同源的 RPC 通道
+ */
 // 鱼神双子星 · 本机 DSH HTTP RPC 客户端
 // 用途：宿主的 agents.create 不认 agentOptions、sessions 服务又选不了模型时，
 // 直接走 DSH 自己的 HTTP RPC（session/create → selectModel → prompt），
@@ -87,15 +105,22 @@ export async function createSessionRpc({ cwd, agentPreset } = {}) {
   // 2026-10-30：带上预设名，让新会话直接挂上「鱼神」预设（否则工具和注入都不全）
   const payload = {}
   if (cwd) payload.cwd = cwd
-  // 2026-10-30 实测：字段名 agentPreset 会被拒（不返回 sessionId）；等价字段 preset 可以建会话。
-  if (agentPreset) payload.preset = agentPreset
+  // 2026-11-18：session/create 不认预设字段，创建后再 select。
   const out = await rpc('session/create', payload)
   const id = out?.value?.sessionId
   if (!id) throw new Error('session/create 没给 sessionId')
+  if (agentPreset) {
+    const selected = await selectAgentPresetRpc({ sessionId: id, agentPreset })
+    if (selected && selected.ok === false) throw new Error('选预设失败：' + (selected.error?.message || 'unknown'))
+  }
   return id
 }
 
 /** 给会话选模型。 */
+export async function selectAgentPresetRpc({ sessionId, agentPreset } = {}) {
+  return rpc('agentPresets/select', { agentId: sessionId, agentPreset })
+}
+
 export async function selectModelRpc({ sessionId, provider = 'deepseek-account', model = 'deepseek-flash', reasoningEffort = 'high' } = {}) {
   return rpc('session/selectModel', { sessionId, provider, model, reasoningEffort })
 }
@@ -106,6 +131,25 @@ export async function promptRpc({ sessionId, text, content } = {}) {
     ? content
     : [{ type: 'text', text: String(text || '') }]
   return rpc('session/prompt', { sessionId, requestId: crypto.randomUUID(), mode: 'queue', content: parts })
+}
+
+/** 走官方命令通道（/compact 等）；不能被当成普通 prompt。 */
+export async function executeCommandRpc({ sessionId, line } = {}) {
+  const base = dshBaseUrl()
+  if (!base) throw new Error('还不知道 DSH 的地址')
+  const res = await fetch(`${base}/api/commands/execute`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: cookieFor(base) },
+    body: JSON.stringify({
+      type: 'client-request',
+      rpcId: `ys-cmd-${++rpcSeq}-${Math.random().toString(36).slice(2, 8)}`,
+      method: 'commands/execute',
+      payload: { args: { agentId: sessionId, line: String(line || ''), submittedAttachments: [] } },
+    }),
+  })
+  const text = await res.text()
+  if (!res.ok) throw new Error(`commands/execute HTTP ${res.status}: ${text.slice(0, 160)}`)
+  try { return JSON.parse(text) } catch { return { ok: false, raw: text.slice(0, 300) } }
 }
 
 /** 查会话摘要（用来确认 cwd / 运行状态）。 */
@@ -130,3 +174,5 @@ export async function listSessionsRpc() {
 export async function renameSessionRpc(sessionId, title) {
   return rpc('session/rename', { sessionId, title })
 }
+
+

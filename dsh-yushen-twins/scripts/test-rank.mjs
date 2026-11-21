@@ -1,4 +1,5 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 16:25｜大鱼·子会话（工作台）｜授权：主人（本次任务书：注入体检 §5①）｜scripts/test-rank.mjs:8-24｜临时家里先写一份 charter（大鱼 L2 / 小鱼 L0/L1）再断言起点 L2/L1｜为什么：rank.js 不再自带等级数字、只从宪章读；不先写宪章，这个测试就测不到「真从宪章读」，还会把 L3/L2 旧数锁进断言里｜验证：node scripts/test-rank.mjs 退出 0（{"ok":true,...}）｜可改：可改；断言只许改严
 // 阶位：证据够了自动升；不够说差什么；封顶在 cap。
 import fs from 'node:fs'
 import os from 'node:os'
@@ -7,11 +8,18 @@ import assert from 'node:assert/strict'
 
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'yushen-rank-'))
 process.env.DSH_HOME = HOME
+// 2026-11-02：阶位起点只认宪章（三处统一到 charter.json）。这个临时家里先写一份宪章，
+// 才能验「rank.js 真的从宪章读，而不是自带数字」——所以宪章必须在 import 之前落盘。
+fs.mkdirSync(path.join(HOME, 'dayu'), { recursive: true })
+fs.writeFileSync(path.join(HOME, 'dayu', 'charter.json'), JSON.stringify({
+  version: 6,
+  identity: { dayu: { level: 'L2' }, xiaoyu: { level: 'L0/L1' }, dragon: { level: '待定' } },
+}), 'utf8')
 const rank = await import('../lib/rank.js')
 
 // 1) 现有角色按宪章起点；未知角色从 L0；照微另走五境，不进 L0-L3
-assert.equal(rank.status('xiaoyu').rank, 'L2')
-assert.equal(rank.status('dayu').rank, 'L3')
+assert.equal(rank.status('xiaoyu').rank, 'L1', '宪章写 L0/L1：跨两阶取上限 L1')
+assert.equal(rank.status('dayu').rank, 'L2', '宪章写 L2，rank.js 不许再写 L3')
 assert.equal(rank.status('aria').rank, 'L0')
 assert.equal(rank.status('dragon').system, 'realm')
 assert.equal(rank.status('dragon').label, '五境')

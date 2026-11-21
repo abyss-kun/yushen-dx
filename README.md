@@ -11,7 +11,7 @@
 **1. 装包**（版本号换成你手里那个 tgz，相对路径、绝对路径都行）
 
 ```powershell
-dsh plugin add .\dsh-yushen-twins-0.2.4.tgz
+dsh plugin add .\dsh-yushen-twins-0.2.13.tgz
 ```
 
 有多个 profile 时加 `--profile <名字>`；不写就用默认 profile（常见是 `desktop`）。

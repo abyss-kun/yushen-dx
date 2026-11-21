@@ -1,4 +1,16 @@
+﻿/* 标签
+ * id: lib-session-archive
+ * kind: module
+ * summary: 会话归档（库）：把 ~/.dsh/sessions 的正文解出来，写成能读、能搜、能分类的本地文档
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: archiveSessions（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 11:03｜小鱼·工作台｜授权：自己｜lib/session-archive.js 的计数与收尾（新增 unparsable 数组 + archive-health.json）｜会话归档：拆开 skipped（unchanged / unparsable）+ 每次跑完写 archive-health.json，让「跑过没跑过」看得见｜为什么：原来一个 skipped 同时装「没变化」和「解析不出」——一个从没归档过、又解析不出的会话，长得跟「没变化」一模一样，永远静默跳过；而且整条链没有「跑过」的痕迹（11-01 是靠发现归档 18.5 小时没更新才知道它停了）｜验证：真跑一次 written 3 / unchanged 80 / unparsable 3（三个都是 0KB、10-31 16:21:53 事故后留下的空会话）；archive-health.json 字段齐全｜可改：可改；但「skipped 必须拆成两种」「每次跑完留痕迹」这两条不能松
 // 会话归档（库）：把 ~/.dsh/sessions 的正文解出来，写成能读、能搜、能分类的本地文档。
 // 不调模型、不花 token；只解压、写文件、记索引。增量按源文件大小+修改时间判断。
 import fs from 'node:fs'
@@ -77,7 +89,11 @@ export function archiveSessions({ force = false, sources = [] } = {}) {
       try { const j = JSON.parse(line); done.set(j.id, j) } catch { /* 坏行跳过 */ }
     }
   }
-  let written = 0, skipped = 0, messages = 0
+  // 2026-11-02 小鱼：原来一个 skipped 数字同时装了「没变化」和「解析不出」两种。
+  // 后果：一个**从没归档过、又解析不出**的会话，长得跟「没变化」一模一样——永远静默跳过。
+  // 拆开之后，unparsable 才会被看见（归档健康检查盯着它）。
+  let written = 0, unchanged = 0, messages = 0
+  const unparsable = []
   const indexRows = []
   for (const source of allSources) {
     for (const ws of fs.existsSync(source.base) ? fs.readdirSync(source.base) : []) {
@@ -88,9 +104,9 @@ export function archiveSessions({ force = false, sources = [] } = {}) {
       if (!fs.existsSync(file)) continue
       const st = fs.statSync(file)
       const prev = done.get(s)
-      if (!force && prev && prev.srcSize === st.size && prev.srcMtime === st.mtimeMs) { skipped++; continue }
+      if (!force && prev && prev.srcSize === st.size && prev.srcMtime === st.mtimeMs) { unchanged++; continue }
       const parsed = parse(decode(file))
-      if (!parsed.rows.length && !parsed.title) { skipped++; continue }
+      if (!parsed.rows.length && !parsed.title) { unparsable.push({ id: s, size: st.size }); continue }
       const first = parsed.rows.find((r) => r.at)?.at || new Date(st.mtimeMs)
       const id8 = s.replace(/^session-/, '').slice(0, 8)
       const name = `${first.toISOString().slice(0, 10)}-${safe(parsed.title || 'untitled')}-${id8}.md`
@@ -134,5 +150,20 @@ export function archiveSessions({ force = false, sources = [] } = {}) {
     const kept = keep.split('\n').filter((l) => l.trim()).filter((l) => { try { return !ids.has(JSON.parse(l).id) } catch { return true } })
     fs.writeFileSync(INDEX, kept.join('\n') + (kept.length ? '\n' : '') + indexRows.map((r) => JSON.stringify(r)).join('\n') + '\n', 'utf8')
   }
-  return { written, skipped, messages, dir: OUT }
+  // 2026-11-02 小鱼：每次跑完留一份「跑过」的痕迹。原来整条链完全静默——
+  // 11-01 那次是发现「归档 18.5 小时没更新」才察觉它停了。
+  const health = {
+    at: new Date().toISOString(),
+    indexRows: indexRows.length,
+    written,
+    unchanged,
+    messages,
+    unparsable,
+    sources: allSources.length,
+  }
+  try {
+    fs.writeFileSync(path.join(HOME, 'dayu', 'archive-health.json'), `${JSON.stringify(health, null, 2)}\n`, 'utf8')
+  } catch { /* 状态写不进去不影响归档本身 */ }
+  // skipped 保留给旧调用方（现在等于 unchanged）；新调用方请用 unchanged / unparsable
+  return { written, skipped: unchanged, unchanged, unparsable, messages, dir: OUT }
 }

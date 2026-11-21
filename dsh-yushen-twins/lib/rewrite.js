@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-rewrite
+ * kind: module
+ * summary: 改写自己：她自己的记忆和自我档，她自己改
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: rewriteLedger / rewriteMemory / rewriteSelf / revertRewrite（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 改写自己：她自己的记忆和自我档，她自己改。
 //
@@ -38,7 +49,9 @@ const FIELDS = Object.freeze({
 
 /** 列表里的一项：events 要包装成事件对象，别的字段还是纯字符串。 */
 function memItem(spec, value, old) {
-  if (spec.item !== 'event') return value
+  // 2026-11-04 老板：每样东西都要带来源和时间——习惯/关系动态也存 {text, at, source}，
+  // 不再是裸字符串（不然分不清是 QQ 聊出来的还是工作台干的）。
+  if (spec.item !== 'event') return { text: String(value), at: new Date().toISOString(), source: '工作台' }
   const base = old && typeof old === 'object'
     ? old
     : { at: new Date().toISOString(), channel: '工作台', kind: 'note', source: 'rewrite', verified: false }

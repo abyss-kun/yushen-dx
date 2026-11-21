@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-treasure
+ * kind: module
+ * summary: 分享：从她自己的宝藏里挑一张，给你看
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: loadTreasure / pickTreasure / shareMaterial（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 分享：从她自己的宝藏里挑一张，给你看。
 //

@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-privacy
+ * kind: module
+ * summary: 隐私分级：不是"全部不能说"，是分人、分场合
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: classify / mayShare（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 隐私分级：不是"全部不能说"，是分人、分场合。
 // S3 绝不说；S2 默认不说（要主人点头）；S1 可说可不说（主人自己的日常）；S0 工作/公开。

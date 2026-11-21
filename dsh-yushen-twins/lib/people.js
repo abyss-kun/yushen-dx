@@ -1,3 +1,13 @@
+/* 标签
+ * id: lib-people
+ * kind: module
+ * summary: 人物档案：关于某个人的稳定事实（处境/答应过什么/爱聊什么/别碰什么），每条带来源。
+ * audience: 她（聊到谁时）、外接平台
+ * owner: 她自己（记什么、信不信归她）
+ * mutable: 可改（只记稳定的，不记"他今天说了句什么"）
+ * usage: rememberPerson 记一条；readPerson 读；personLine 给注入一行
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 人物档案：关于"某个人"的稳定事实。
 //

@@ -1,0 +1,7 @@
+[
+    "scripts/test-account-balance.mjs",
+    "scripts/test-backup-service.mjs",
+    "scripts/test-capture.mjs",
+    "scripts/test-redact.mjs",
+    "scripts/test-versioned-backup.mjs"
+]

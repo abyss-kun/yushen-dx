@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-dead-exports
+ * kind: module
+ * summary: 死出口扫描：导出了但没有任何别的文件 import 的函数；允许清单可写理由。
+ * tags: 死出口, 静态检查, 清单
+ * created: 2026-11-11 01:15:00
+ * changed: 2026-11-11 01:15:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 维护者（回归挂它）
+ * owner: 框架；豁免清单要写理由
+ * defaults: 豁免表 scripts/dead-exports.allow.json
+ * off: 不扫就发现不了"造好了没接线"
+ * mutable: 可改；**豁免必须写人话理由**（不写就等于藏死码）
+ * usage: scanDeadExports(files) → {dead[], allowed}
+ * why: 2026-10-30 发现两套造好了从没被调用
+ * result: 一份会被回归盯住的死出口清单
+ */
 // 死出口：一个函数导出了，但没有任何**别的文件把它 import 进去**。
 //
 // 2026-10-30 从一条真事长的：lib/active.js 的 begin/settle、lib/people.js 的

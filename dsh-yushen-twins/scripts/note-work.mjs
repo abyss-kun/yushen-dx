@@ -10,6 +10,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -118,9 +119,31 @@ if (files.length) {
   } catch { /* 没有清单就不拦 */ }
 }
 
-const row = recordWork({ what, files, evidence, tq, by, auth, why, where, mutable })
+// 改｜2026-11-10 19:56｜大鱼·子代理｜授权：老板（本次任务书：让「改成什么样、为什么」能被检索到）｜scripts/note-work.mjs:1-40,120-140｜记账时顺手抓工作区 diff（前 40 行）存进工作账；抓不到存空串、不报错、不挡记账｜为什么：留痕只有「谁/为什么」，「改成什么样」以前只能靠 git show，而未提交的改动取不到（11-10 实测 730 个文件没提交）｜验证：node --check scripts/note-work.mjs；node scripts/note-work.mjs … 后 worklog.jsonl 末行 diff 非空｜可改：只增不改；git 不可用/文件未跟踪时必须返回空串，不许编造 diff
+
+// 抓「改成什么样」：只跑 git diff（工作区，未提交的也能抓），不碰暂存区、不 commit、不 checkout。
+// 抓不到（没 git、文件未被跟踪、超时）就返回空串——宁可没有，不许编。
+const DIFF_LINES = 40
+const DIFF_CHARS = 4000
+function captureDiff(list) {
+  if (!list.length) return ''
+  try {
+    const out = execFileSync('git', ['-C', ROOT, 'diff', '-U1', '--', ...list], {
+      encoding: 'utf8', timeout: 15000, maxBuffer: 8 * 1024 * 1024, windowsHide: true,
+    })
+    const text = String(out || '').replace(/\r/g, '')
+    if (!text.trim()) return ''
+    return text.split('\n').slice(0, DIFF_LINES).join('\n').slice(0, DIFF_CHARS)
+  } catch { return '' }
+}
+
+const diff = captureDiff(files)
+const row = recordWork({ what, files, evidence, tq, by, auth, why, where, mutable, diff })
 console.log(`记下了：${row.at} ${row.what}${tq ? '（三问已答）' : ''}`)
 if (files.length) {
+  console.log(diff
+    ? `diff：已抓 ${diff.split('\n').length} 行存进工作账（未提交的改动也能抓）`
+    : 'diff：没抓到（没 git / 文件还没被跟踪 / 这次没改到文件）——工作账里存的是空串，不编')
   console.log('')
   console.log('把这一行贴到改动处上方（或文件头）：')
   console.log('// ' + traceLine(row))

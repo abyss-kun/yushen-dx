@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-takeover
+ * kind: module
+ * summary: 接管前的底片：动别人的文件之前先拍一张，走的时候（卸载/交还）按它还原
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: isProtected / snapshot / markApplied / restoreDeleted（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 接管前的底片：动别人的文件之前先拍一张，走的时候（卸载/交还）按它还原。
 //

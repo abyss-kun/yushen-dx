@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-cheap-reply
+ * kind: module
+ * summary: 便宜的那条路：她不在时只"传话"不"扮她"；要不要认真回由她定（本地/云端/沉默三选）。
+ * tags: 便宜回话, 传话, 代理, 不扮她
+ * created: 2026-11-11 01:10:00
+ * changed: 2026-11-11 01:10:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式；2026-10-29 "话可以替传，人不能替"）
+ * audience: 桥（/decide 兜底）、她、维护者
+ * owner: 框架；**不许生成"她会说的话"**——这条是老板定的
+ * defaults: 后端 remote/本地不在 → 交云端；点名/老板才传话
+ * off: 不用便宜脑子就把后端设 remote（她自己定）
+ * mutable: 可改；**"人不能替"这条不许破**
+ * usage: decideCheap(role,msg) → {mode: silent/local/cloud, reply, why}；留痕 decisions
+ * why: 以前沉默靠掷骰子、沉默之后什么都不留
+ * result: 三选一 + 传话模板（第三人称，不冒充她）+ 记录
+ */
 // 便宜的那条路：本地先看，要不要认真回，由她自己定。
 //
 // 老板 2026-10-26 定的规矩：

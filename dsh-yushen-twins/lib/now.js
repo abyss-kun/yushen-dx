@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-now
+ * kind: module
+ * summary: 「现在在发生什么」的快照：正在跑 / 刚做完 / 没做 / 出错 / 重复
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: titleOf / buildNowSnapshot（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 「现在在发生什么」的快照：正在跑 / 刚做完 / 没做 / 出错 / 重复。
 // 只做归类和裁剪，不读盘、不发请求；数据由入口传进来，便于离线测。

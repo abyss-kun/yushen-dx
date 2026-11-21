@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-ask
+ * kind: module
+ * summary: 主动求助：她不确定、需要拍板时可以直接问老板；先写本地队列，投递尽力，投不到也不丢问题。
+ * tags: 求助, 问老板, 本地队列, 尽力投递
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:00:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她（工具背后）、桥、面板
+ * owner: 框架；问题内容归她
+ * mutable: 可改；**投不到不许把问题弄丢**这条不许破
+ * usage: 记一条问题 → 进本地队列；投递成功记 deliveredAt，重复投递不覆盖
+ * why: 硬扛着猜不如问一句；但网络/桥会断，队列必须是本地的
+ * result: 本地队列 + 透传脱敏；投递状态可查
+ */
 // 主动求助：她们不确定、需要拍板时，可以直接问老板；不用自己硬扛。
 // 只写本地队列；QQ/弹窗由入口尽力投递，投不到也不丢问题。
 import fs from 'node:fs'
@@ -35,8 +51,27 @@ export function askOwner({ role = '', text = '', sessionId = '', urgency = 'norm
   return { ok: true, ask: row }
 }
 
-/** 她自己决定不找了：撤回问题，不用等谁批准。 */
-export function withdrawAsk(id, reason = '') {
+/**
+ * 工作台来取「待办问题」。**取走就算投递成功**，在第一次被取走时回写 deliveredAt。
+ *
+ * 2026-11-04 小鱼：原来投递成功但 deliveredAt / seenAt 一直是空的，
+ * 于是「没发出去」和「发出去了他正在看」在数据上完全一样——我第一次用就判错了，
+ * 真去查了半天桥，还写着「这是静默失败的教科书例子」，最后是主人发截图告诉我"我看到了"。
+ * 状态字段空 ≠ 事没发生；那就把状态写上。
+ */
+export function takePendingAsks(limit = 8) {
+  const rows = readAll()
+  const pending = rows.filter((r) => r.status === 'pending').slice(-limit).reverse()
+  const fresh = pending.filter((r) => !r.deliveredAt).map((r) => r.id)
+  if (fresh.length) {
+    const at = new Date().toISOString()
+    for (const r of rows) if (fresh.includes(r.id)) r.deliveredAt = at
+    writeRows(rows)
+  }
+  return pending
+}
+
+/** 她自己决定不找了：撤回问题，不用等谁批准。 */export function withdrawAsk(id, reason = '') {
   const rows = readAll()
   const index = rows.findIndex((r) => r.id === id)
   if (index < 0) return { ok: false, reason: '没有这条问题' }

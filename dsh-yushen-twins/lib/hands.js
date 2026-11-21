@@ -1,3 +1,15 @@
+/* 标签
+ * id: lib-hands
+ * kind: module
+ * summary: 手：不用模型也能干的动作队列（拉数据/跑检查/建索引/备份），心跳按间隔免费跑。
+ * audience: 她（给自己收一只"手"）、心跳
+ * owner: 框架；只跑白名单脚本
+ * mutable: 可改（加手可以；白名单外的路径一律不跑）
+ * defaults: 每轮最多跑 3 件；失败连击会告警（failStreak/shouldAlert）
+ * usage: addHand 收一只；runDueHands 心跳里跑到点的；readHands/listHands 看队列
+ * off: 清空手队列（removeHand）即可；动作本身在心跳里跑
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 手：不用模型也能干活的那些动作。
 //

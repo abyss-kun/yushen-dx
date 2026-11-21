@@ -1,3 +1,19 @@
+/* 标签
+ * id: lib-immutables
+ * kind: module
+ * tags: 不可改清单, 写前拦截, 角色卡
+ * created: 未标注（补标签前的历史）
+ * changed: 2026-11-11 00:47:31
+ * author: 照微·工作台
+ * authority: 老板（2026-11-03：不管什么只要改动/新增都要有标签）
+ * why: 统一给对象加标签，方便按需提取与对账
+ * result: 有标签块；审计能取到
+ * mutable: 可改
+ * audience: 框架（写之前问一句）、员工会话、任何要改卡的人
+ * owner: 老板（清单原文）；判据不许放宽
+ * usage: assertWritable(file,{by}) 写前拦；listImmutables 看清单；cardOwner 查卡归谁
+ * summary: 不可改清单的事前拦截：写之前问一句 assertWritable；卡只归卡主自己。
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 不可改清单的**事前**拦截（2026-11-01 补，安全闸门第 2 条）。
 //

@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-solutions
+ * kind: module
+ * summary: Human-curated solutions only: no harvesting conversations, commands, or credentials.
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；记忆内容归角色本人
+ * mutable: 可改
+ * usage: recordSolution / listSolutions（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // Human-curated solutions only: no harvesting conversations, commands, or credentials.
 import fs from 'node:fs'

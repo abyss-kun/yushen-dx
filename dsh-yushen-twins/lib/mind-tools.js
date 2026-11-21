@@ -1,4 +1,16 @@
+﻿/* 标签
+ * id: lib-mind-tools
+ * kind: module
+ * summary: 2026-10-30 照微：疑问/兴趣也能结掉，不然它永远挂在「没想完」，简报每天报假账
+ * audience: 她 / 新角色
+ * owner: 框架；心念内容归角色本人
+ * mutable: 可改
+ * usage: mindCaller / executeMind / registerMindTools / mindToolDefs（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 23:10｜大鱼·子会话（工作台）｜授权：主人（本次任务书：经历层要覆盖所有工具）｜lib/mind-tools.js:29-40｜registerMindTools 多收一个可选的 instrument 回调，注册前把每个 def 交出去包一层｜为什么：心念工具不走 index.js 的 registerTool（直接 tools.register），经历层差这一个入口；不补的话「她干过的活」缺一块，而且看不出来｜验证：node --check lib/mind-tools.js；node scripts/import-check.mjs 205 个模块全过；node scripts/regression.mjs 221 通过 0 失败｜可改：可改（instrument 必须可选，缺省行为不许变）
 // Caller-bound workbench tools. No new model round, no inferred interests, no caller-supplied role/scope.
 import { roleForSession } from './memory.js'
 import { mindRoles, recordObservedMind, queryMind, buildMindBrief, answerQuestion } from './mind-store.js'
@@ -26,9 +38,13 @@ export function executeMind(args, exec) {
   return recordObservedMind(role, { kind: args.kind, text: args.text, detail: args.detail || '', scope,
     source: { quote: args.text, speaker: role, messageId: String(exec?.callId || '') }, epistemic: 'inferred' })
 }
-export function registerMindTools(tools, output) {
+export function registerMindTools(tools, output, instrument = null) {
   // 2026-10-30：工具定义提出来存一份，好让 yushen_tools 的目录能收录它（之前她查不到）
-  for (const def of mindToolDefs(output)) tools?.register(def)
+  for (const def of mindToolDefs(output)) {
+    // 2026-11-02 主人：经历层要覆盖「所有工具」。心念工具不走 registerTool，这里补一钩。
+    try { if (typeof instrument === 'function') instrument(def) } catch { /* 记不下来不影响注册 */ }
+    tools?.register(def)
+  }
 }
 
 /** 心念工具的定义（给注册和目录共用的唯一来源）。 */

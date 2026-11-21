@@ -1,3 +1,14 @@
+/* 标签
+ * id: lib-repair-loop
+ * kind: module
+ * summary: 修复联动：DSH 起来之后，和修复助手对一次账
+ * audience: 维护者 / 宿主
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: runRepairDiagnose / runRepairLoop（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 18:32:17
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 修复联动：DSH 起来之后，和修复助手对一次账。
 //
@@ -18,6 +29,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { recordOrSkip } from './skills.js';
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_EXE = fileURLToPath(new URL('../assets/repair-helper/YushenRepair.exe', import.meta.url));
@@ -69,12 +81,14 @@ const CAPABILITY = {
 };
 
 /** 一次对账。返回摘要，不改任何业务文件。 */
-export async function runRepairLoop({ home, exe, now = () => new Date() } = {}) {
+// 改｜2026-11-11 18:4x｜大鱼·本班（接手交接 2026-11-11-0255）｜授权：主人（交接待办①：自愈修好接进做法账本）｜lib/repair-loop.js:83-160｜对账时给做法账本挂证据：还 open 的缺口记 fail（复诊也没好），证据消失的记 fixed（同一条做法错→改→对）；role 可选默认 dayu；diagnose 可注入（测试用，生产仍走真助手）｜为什么：缺口从 open 到 resolved 这段「到底是怎么好的」以前只写在 gaps.jsonl 里，做法账本看不到；不接就等于修好了也没留下可复用的方法｜验证：node --check lib/repair-loop.js；node scripts/test-skill-hooks.mjs 通过（同一 id 先 fail 后 fixed → 状态 fixed）；node scripts/check-trace.mjs 退出 0｜可改：可改；只写账，不因此改任何修复动作（对账仍只读诊断 + 只追加台账）
+export async function runRepairLoop({ home, exe, now = () => new Date(), role = 'dayu', diagnose } = {}) {
   const dir = repairDir(home);
   const gapsFile = path.join(dir, 'gaps.jsonl');
   const requestsFile = path.join(dir, 'capability-requests.jsonl');
 
-  const diag = await runRepairDiagnose({ exe });
+  // diagnose 可注入（测试用假诊断，不依赖真 exe）；生产不传就走真助手。
+  const diag = await (typeof diagnose === 'function' ? diagnose() : runRepairDiagnose({ exe }));
   const findings = Array.isArray(diag && diag.findings) ? diag.findings : null;
   const gaps = await readJsonl(gapsFile);
 
@@ -88,6 +102,8 @@ export async function runRepairLoop({ home, exe, now = () => new Date() } = {}) 
   const stamp = now().toISOString();
   const resolved = [];
   const requests = [];
+  // 一条缺口对应一条稳定「做法」文本：同 id 前后两次对账能对上同一条，才能记成错→改→对。
+  const methodOf = (id) => `遇到 ${id} 这类缺口，先让修复助手只读复诊、按证据判是否已修好（证据消失=已修好，不重复手动修）`;
 
   // 只有拿到本次诊断结果才能判断"证据是否消失"，否则宁可不动。
   if (findings) {
@@ -99,6 +115,8 @@ export async function runRepairLoop({ home, exe, now = () => new Date() } = {}) 
           status: 'open',
           capability: CAPABILITY[id] || '需要为这一类缺口补一条可验证的修复路径。',
         });
+        // 2026-11-11：复诊后还修不了 → 做法账本记一次没成（ref 按 id 稳定，重复对账幂等跳过）。
+        try { recordOrSkip(role, { entry: 'repair', ref: `${id}:open`, kind: 'fail', text: methodOf(id) }) } catch { /* 做法账本不阻断对账 */ }
       } else {
         resolved.push({
           at: stamp,
@@ -107,6 +125,8 @@ export async function runRepairLoop({ home, exe, now = () => new Date() } = {}) 
           how: 're-checked by repair helper after DSH came back up',
           classification: diag && diag.classification,
         });
+        // 自愈修好：证据已消失 → 同一条做法记一次成，状态从 failed 翻成 fixed。
+        try { recordOrSkip(role, { entry: 'repair', ref: `${id}:resolved`, kind: 'fixed', text: methodOf(id) }) } catch { /* 做法账本不阻断对账 */ }
       }
     }
   }

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 16:12｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜scripts/memory-tier-audit.mjs:81｜分级审计的「今天」与时间戳都改走系统时间（原来用 +8 再取 UTC 字段）｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
 // 改｜2026-11-01 02:25｜子会话（记忆分级）｜授权：主人派活｜scripts/memory-tier-audit.mjs｜核心记忆定规矩并瘦身：core 只放身份/承诺/关系/事故，上限 30；新增 memory-tier-audit.mjs（体检/降档/备份/往返校验）并真跑 --apply｜为什么：125 条 core 每轮只带 1 条，反而不聚焦；判据和上限要落成机器能查的东西｜可改：是（判据放 docs/记忆分级.md，改前跑回归）
 // 记忆分级体检：core 只放「不知道就会做错事」的，超了上限就降档（只改 tier，不改正文）。
 //
@@ -33,6 +34,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { dayuHome } from '../lib/paths.js'
+import { fmt as clockFmt, now as clockNow } from '../lib/clock.js'
 
 export const CAPS = Object.freeze({ core: 30, important: 200 })
 export const TIERS = Object.freeze(['core', 'important', 'normal'])
@@ -75,11 +77,8 @@ export function protectOf(ev) {
   return [...new Set(tags)]
 }
 
-const stamp = () => {
-  const d = new Date(Date.now() + 8 * 3600e3) // Asia/Shanghai
-  const p = (n) => String(n).padStart(2, '0')
-  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}-${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`
-}
+// 以前是「now + 8 小时再取 UTC 字段」；现在是系统本地时间直接出同样的串。
+const stamp = () => clockFmt(clockNow(), 'YYYYMMDD-HHmmss')
 
 const day = (at) => String(at || '').slice(0, 10) || '（无日期）'
 const preview = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, TEXT_PREVIEW)

@@ -1,5 +1,5 @@
 {
-  "at": "2026-11-02T06:01:13.326Z",
+  "at": "2026-11-21T15:12:32.667Z",
   "files": [
     {
       "rel": "adapters/cli.js",
@@ -8,8 +8,8 @@
     },
     {
       "rel": "adapters/dsh.js",
-      "bytes": 3604,
-      "sha": "f9091ecfbb39"
+      "bytes": 4349,
+      "sha": "acb278796073"
     },
     {
       "rel": "adapters/echo.js",
@@ -217,6 +217,66 @@
       "sha": "f42cdde5d409"
     },
     {
+      "rel": "assets/popup/blue/bottom.png",
+      "bytes": 462473,
+      "sha": "b28620f3a16f"
+    },
+    {
+      "rel": "assets/popup/blue/center.png",
+      "bytes": 211963,
+      "sha": "d3387d015231"
+    },
+    {
+      "rel": "assets/popup/blue/crown.png",
+      "bytes": 960766,
+      "sha": "7d9427618180"
+    },
+    {
+      "rel": "assets/popup/blue/frame.png",
+      "bytes": 1028503,
+      "sha": "db6e609dea6f"
+    },
+    {
+      "rel": "assets/popup/blue/left.png",
+      "bytes": 1708900,
+      "sha": "54b77859f387"
+    },
+    {
+      "rel": "assets/popup/blue/right.png",
+      "bytes": 1706288,
+      "sha": "2a1290cfe58a"
+    },
+    {
+      "rel": "assets/popup/red/bottom.png",
+      "bytes": 408178,
+      "sha": "807ba5805e42"
+    },
+    {
+      "rel": "assets/popup/red/center.png",
+      "bytes": 167859,
+      "sha": "c09bd86dc440"
+    },
+    {
+      "rel": "assets/popup/red/crown.png",
+      "bytes": 815282,
+      "sha": "659fd4b4f9ad"
+    },
+    {
+      "rel": "assets/popup/red/frame.png",
+      "bytes": 746647,
+      "sha": "e5e9263bbb07"
+    },
+    {
+      "rel": "assets/popup/red/left.png",
+      "bytes": 1435854,
+      "sha": "300092067b45"
+    },
+    {
+      "rel": "assets/popup/red/right.png",
+      "bytes": 1445997,
+      "sha": "b2a43bec5bea"
+    },
+    {
       "rel": "assets/repair-helper/SHA256SUMS.txt",
       "bytes": 281,
       "sha": "74bdaf0b6103"
@@ -238,13 +298,13 @@
     },
     {
       "rel": "CHANGELOG.md",
-      "bytes": 12062,
-      "sha": "79707e99f8d7"
+      "bytes": 16467,
+      "sha": "d7aa28e1a019"
     },
     {
       "rel": "client.js",
-      "bytes": 290525,
-      "sha": "88ebc205c22b"
+      "bytes": 350733,
+      "sha": "02641355b70c"
     },
     {
       "rel": "COMMERCIAL.md",
@@ -258,68 +318,58 @@
     },
     {
       "rel": "core/dispatch.js",
-      "bytes": 23674,
-      "sha": "3bff65965bee"
+      "bytes": 28910,
+      "sha": "9a4393bb0f0f"
     },
     {
       "rel": "core/host.js",
-      "bytes": 1408,
-      "sha": "09d76ab55263"
+      "bytes": 2359,
+      "sha": "35320373102a"
     },
     {
       "rel": "core/index.js",
-      "bytes": 428,
-      "sha": "bd1b793e0c8c"
+      "bytes": 1321,
+      "sha": "e1d8ba6991a4"
     },
     {
       "rel": "core/jobs.js",
-      "bytes": 7802,
-      "sha": "e9444d8304c1"
+      "bytes": 9836,
+      "sha": "22b86182db67"
     },
     {
       "rel": "core/ledger.js",
-      "bytes": 863,
-      "sha": "0006a54fe38b"
+      "bytes": 1922,
+      "sha": "636122172369"
     },
     {
       "rel": "core/soul.js",
-      "bytes": 1037,
-      "sha": "484b749541f4"
+      "bytes": 1991,
+      "sha": "b68982bb622d"
     },
     {
       "rel": "core/store.js",
-      "bytes": 1080,
-      "sha": "b91dd3a96a8b"
+      "bytes": 2157,
+      "sha": "2538db6aa60a"
     },
     {
       "rel": "dayu/index.js",
-      "bytes": 237562,
-      "sha": "3904b6f0e84e"
+      "bytes": 303072,
+      "sha": "26748f338020"
     },
     {
       "rel": "dayu/m1.js",
-      "bytes": 15256,
-      "sha": "ec7c4eeadb7b"
-    },
-    {
-      "rel": "docs/continuity-acceptance.md",
-      "bytes": 8989,
-      "sha": "6387eadf4b7c"
-    },
-    {
-      "rel": "docs/三人常驻与本体.md",
-      "bytes": 8470,
-      "sha": "e884d4b819ad"
+      "bytes": 46197,
+      "sha": "73b1d3dc292e"
     },
     {
       "rel": "docs/世界观-文化篇.md",
-      "bytes": 5134,
-      "sha": "c438a8649d69"
+      "bytes": 1173,
+      "sha": "98e8ab04c1bf"
     },
     {
       "rel": "docs/世界观设定.md",
-      "bytes": 11142,
-      "sha": "dcd261876749"
+      "bytes": 1569,
+      "sha": "025459ef33cb"
     },
     {
       "rel": "docs/主动学习与好奇心.md",
@@ -337,14 +387,19 @@
       "sha": "380358eb8970"
     },
     {
-      "rel": "docs/入主鱼神-判断权归位.md",
-      "bytes": 9457,
-      "sha": "167d9cfbecee"
+      "rel": "docs/人格变化史.md",
+      "bytes": 3529,
+      "sha": "a8844b76701f"
     },
     {
       "rel": "docs/即时记录与备份.md",
       "bytes": 2890,
-      "sha": "15ecef1bc02e"
+      "sha": "e6685146ab76"
+    },
+    {
+      "rel": "docs/叙事基线.md",
+      "bytes": 10105,
+      "sha": "8e6f7bed19a1"
     },
     {
       "rel": "docs/吸收与升级.md",
@@ -353,8 +408,13 @@
     },
     {
       "rel": "docs/员工手册.md",
-      "bytes": 20241,
-      "sha": "db2fe0912cd1"
+      "bytes": 24525,
+      "sha": "3c8899bdf0c6"
+    },
+    {
+      "rel": "docs/图书馆架构.md",
+      "bytes": 7457,
+      "sha": "1b8b6d84fe33"
     },
     {
       "rel": "docs/基线清单.md",
@@ -373,23 +433,33 @@
     },
     {
       "rel": "docs/工作保全与经验沉淀.md",
-      "bytes": 10202,
-      "sha": "688750eae95f"
+      "bytes": 10310,
+      "sha": "4bf1a9667def"
     },
     {
-      "rel": "docs/故障档案.md",
-      "bytes": 7860,
-      "sha": "4b15b3afed15"
+      "rel": "docs/引导-能力.md",
+      "bytes": 5536,
+      "sha": "c60138666bf8"
+    },
+    {
+      "rel": "docs/改动留痕.md",
+      "bytes": 11871,
+      "sha": "16f593047327"
+    },
+    {
+      "rel": "docs/时间.md",
+      "bytes": 4219,
+      "sha": "93a54072d3fb"
+    },
+    {
+      "rel": "docs/机制清单.md",
+      "bytes": 6595,
+      "sha": "31fda3c71b63"
     },
     {
       "rel": "docs/框架定义.md",
-      "bytes": 114085,
-      "sha": "61f8012f6e6f"
-    },
-    {
-      "rel": "docs/点化-更多.md",
-      "bytes": 5871,
-      "sha": "bfcb0536a399"
+      "bytes": 114558,
+      "sha": "5f0a0a0cc265"
     },
     {
       "rel": "docs/点化-运行时契约.md",
@@ -398,13 +468,13 @@
     },
     {
       "rel": "docs/点化与收回.md",
-      "bytes": 2454,
-      "sha": "963eb2b6543b"
+      "bytes": 2614,
+      "sha": "bebef4d35708"
     },
     {
       "rel": "docs/点化灵智.md",
-      "bytes": 3326,
-      "sha": "a2d6cd4ed088"
+      "bytes": 4928,
+      "sha": "4e8c642e5b39"
     },
     {
       "rel": "docs/真实来源接入方案.md",
@@ -412,19 +482,24 @@
       "sha": "3736849562ac"
     },
     {
+      "rel": "docs/离线与宿主分工.md",
+      "bytes": 3794,
+      "sha": "93f75d9bc6cc"
+    },
+    {
       "rel": "docs/职责清单.md",
-      "bytes": 3101,
-      "sha": "6cd9f9ac4746"
+      "bytes": 3923,
+      "sha": "c67ab51c49f4"
     },
     {
       "rel": "docs/自由活动.md",
-      "bytes": 1802,
-      "sha": "20a1bc286565"
+      "bytes": 2546,
+      "sha": "85e5fb30b28e"
     },
     {
       "rel": "docs/规则地图.md",
-      "bytes": 1903,
-      "sha": "cf4ed787344c"
+      "bytes": 2006,
+      "sha": "9797dae08123"
     },
     {
       "rel": "docs/角色-大鱼.md",
@@ -442,24 +517,19 @@
       "sha": "a391b0119db0"
     },
     {
+      "rel": "docs/说明格式.md",
+      "bytes": 2877,
+      "sha": "ce14782ccea7"
+    },
+    {
       "rel": "docs/软件知情.md",
       "bytes": 2005,
       "sha": "a76f931afeb5"
     },
     {
-      "rel": "docs/连续自我-人与她的对比.md",
-      "bytes": 8192,
-      "sha": "1a6404043599"
-    },
-    {
-      "rel": "docs/连续自我-路线.md",
-      "bytes": 11861,
-      "sha": "9066ba98ea47"
-    },
-    {
       "rel": "docs/阶位.md",
-      "bytes": 3122,
-      "sha": "37b6cf2a20e5"
+      "bytes": 3951,
+      "sha": "86b52482ca19"
     },
     {
       "rel": "docs/隐私与保命.md",
@@ -473,8 +543,8 @@
     },
     {
       "rel": "index.js",
-      "bytes": 37551,
-      "sha": "18ca012fb2d4"
+      "bytes": 58247,
+      "sha": "98db44d277ee"
     },
     {
       "rel": "kernel/charter.default.json",
@@ -488,978 +558,1688 @@
     },
     {
       "rel": "lib/account-balance.js",
-      "bytes": 9764,
-      "sha": "473bad31668d"
+      "bytes": 10662,
+      "sha": "0fb52aa1e343"
     },
     {
       "rel": "lib/actionlog.js",
-      "bytes": 1372,
-      "sha": "f698ebcd60d7"
+      "bytes": 2166,
+      "sha": "727aa68d2a35"
     },
     {
       "rel": "lib/active.js",
-      "bytes": 3003,
-      "sha": "ca97a194d697"
+      "bytes": 4062,
+      "sha": "e24a4ba37fa5"
     },
     {
       "rel": "lib/agenda.js",
-      "bytes": 13291,
-      "sha": "f2980ad797c1"
+      "bytes": 19235,
+      "sha": "253e743d467c"
     },
     {
       "rel": "lib/aliases.json",
-      "bytes": 1275,
-      "sha": "35e729ff4f8a"
+      "bytes": 3364,
+      "sha": "15080f11dd32"
     },
     {
       "rel": "lib/analyze.js",
-      "bytes": 4861,
-      "sha": "d96e970952ff"
+      "bytes": 5742,
+      "sha": "f88386fccd3c"
+    },
+    {
+      "rel": "lib/answer-selfcheck.js",
+      "bytes": 16764,
+      "sha": "8f753e2973fc"
     },
     {
       "rel": "lib/archive.js",
-      "bytes": 2916,
-      "sha": "783efdd92798"
+      "bytes": 3737,
+      "sha": "97ec78e74ad2"
     },
     {
       "rel": "lib/ask.js",
-      "bytes": 3911,
-      "sha": "52c3672ec9be"
+      "bytes": 5662,
+      "sha": "e90abc00c60b"
     },
     {
       "rel": "lib/auth.js",
-      "bytes": 3752,
-      "sha": "b5746939b0ea"
+      "bytes": 4713,
+      "sha": "7b734828fa8c"
     },
     {
       "rel": "lib/authority.js",
-      "bytes": 5032,
-      "sha": "5afb7bf13d3d"
+      "bytes": 5836,
+      "sha": "46a6009a6f13"
     },
     {
       "rel": "lib/authz.js",
-      "bytes": 2685,
-      "sha": "adc9a44a75c2"
+      "bytes": 3623,
+      "sha": "4e16c06cdce9"
     },
     {
       "rel": "lib/autonomy.js",
-      "bytes": 1055,
-      "sha": "f321dd22e27b"
+      "bytes": 3292,
+      "sha": "6d045606ab39"
     },
     {
       "rel": "lib/awakening.js",
-      "bytes": 8136,
-      "sha": "d38bf45163c0"
+      "bytes": 9000,
+      "sha": "3c01a56029b4"
     },
     {
       "rel": "lib/awareness.js",
-      "bytes": 3527,
-      "sha": "3a0a9b0d517e"
+      "bytes": 4414,
+      "sha": "f6cf9257c08c"
     },
     {
       "rel": "lib/backup-judge.js",
-      "bytes": 5361,
-      "sha": "ba6e06677bca"
+      "bytes": 6578,
+      "sha": "9610c7bd3add"
     },
     {
       "rel": "lib/backup-service.js",
-      "bytes": 11548,
-      "sha": "d7c930ae67c0"
+      "bytes": 12640,
+      "sha": "c2b9a90c7e75"
     },
     {
       "rel": "lib/backup-verify.js",
-      "bytes": 11092,
-      "sha": "bb4ef81b618f"
+      "bytes": 16403,
+      "sha": "bdbd3db40aec"
     },
     {
       "rel": "lib/bili-card.js",
-      "bytes": 1026,
-      "sha": "80ef7f96594a"
+      "bytes": 1765,
+      "sha": "c4a436d0de19"
     },
     {
       "rel": "lib/bili-fact-recall.js",
-      "bytes": 2388,
-      "sha": "b56b23474909"
+      "bytes": 3161,
+      "sha": "c9bb02b826bf"
     },
     {
       "rel": "lib/bili-inbox.js",
-      "bytes": 5056,
-      "sha": "e1fc1b769fd7"
+      "bytes": 6688,
+      "sha": "20ba3a60ec1c"
     },
     {
       "rel": "lib/bili-observation.js",
-      "bytes": 2178,
-      "sha": "c89a0545e9f8"
+      "bytes": 2954,
+      "sha": "940cb080c959"
     },
     {
       "rel": "lib/bili-sync.js",
-      "bytes": 3659,
-      "sha": "4bd22f987e80"
+      "bytes": 4492,
+      "sha": "775efd68b4b7"
+    },
+    {
+      "rel": "lib/board-view.mjs",
+      "bytes": 9316,
+      "sha": "9f55cb4505a0"
     },
     {
       "rel": "lib/board.js",
-      "bytes": 4078,
-      "sha": "7a11ea47deab"
+      "bytes": 5024,
+      "sha": "9d9127783ad0"
     },
     {
       "rel": "lib/bodies.js",
-      "bytes": 1794,
-      "sha": "01b7be6b8470"
+      "bytes": 6181,
+      "sha": "7b9014b57c7d"
     },
     {
       "rel": "lib/body-loop.js",
-      "bytes": 11662,
-      "sha": "7bd9686c6592"
+      "bytes": 15809,
+      "sha": "38a2e2b240ed"
     },
     {
       "rel": "lib/body.js",
-      "bytes": 746,
-      "sha": "a66e312d8d5a"
+      "bytes": 1555,
+      "sha": "cf080a8adc2b"
     },
     {
       "rel": "lib/books.js",
-      "bytes": 14233,
-      "sha": "d00ede43c836"
+      "bytes": 15067,
+      "sha": "ba9a8c995674"
+    },
+    {
+      "rel": "lib/borrow.js",
+      "bytes": 6144,
+      "sha": "68673abb05e7"
     },
     {
       "rel": "lib/bottomline.js",
-      "bytes": 5041,
-      "sha": "41a88bc5b85a"
+      "bytes": 5633,
+      "sha": "582b5bbd5e6a"
     },
     {
       "rel": "lib/brain-archive.js",
-      "bytes": 2397,
-      "sha": "d14eb0af0bfe"
+      "bytes": 3195,
+      "sha": "1c563b954ce0"
     },
     {
       "rel": "lib/brief.js",
-      "bytes": 25651,
-      "sha": "5b384c1835b2"
+      "bytes": 35596,
+      "sha": "bba264c730e8"
     },
     {
       "rel": "lib/budget-book.js",
-      "bytes": 6435,
-      "sha": "23622d1b7a39"
+      "bytes": 8835,
+      "sha": "892e8f7e3791"
     },
     {
       "rel": "lib/builtin.js",
-      "bytes": 1945,
-      "sha": "9617bd8a3d61"
+      "bytes": 2676,
+      "sha": "2ebf6d8c5076"
+    },
+    {
+      "rel": "lib/busy.js",
+      "bytes": 20241,
+      "sha": "572f24845433"
     },
     {
       "rel": "lib/capabilities.js",
-      "bytes": 2647,
-      "sha": "0d73e28fa860"
+      "bytes": 3396,
+      "sha": "10140d259bd9"
     },
     {
       "rel": "lib/capmap.js",
-      "bytes": 3467,
-      "sha": "d25ef396febf"
+      "bytes": 4393,
+      "sha": "963f3ae11097"
     },
     {
       "rel": "lib/capture.js",
-      "bytes": 5073,
-      "sha": "55eb10f9d993"
+      "bytes": 5803,
+      "sha": "17ee088b3692"
     },
     {
       "rel": "lib/card-check.js",
-      "bytes": 2102,
-      "sha": "492491c455ee"
+      "bytes": 2823,
+      "sha": "3749910d9e47"
     },
     {
       "rel": "lib/card-template.js",
-      "bytes": 3376,
-      "sha": "2a07a5f7bbb6"
+      "bytes": 4186,
+      "sha": "74438f1ccb14"
     },
     {
       "rel": "lib/catalog.js",
-      "bytes": 4221,
-      "sha": "ec7ad7f46aa3"
+      "bytes": 4674,
+      "sha": "93a4878affb4"
+    },
+    {
+      "rel": "lib/changes-log.js",
+      "bytes": 4126,
+      "sha": "ffd75c55ab93"
     },
     {
       "rel": "lib/channel-memory.js",
-      "bytes": 7225,
-      "sha": "2bad4f61ac40"
+      "bytes": 8235,
+      "sha": "b80978f8eff4"
     },
     {
       "rel": "lib/characters.js",
-      "bytes": 11072,
-      "sha": "a4fc1f9a9c93"
+      "bytes": 11517,
+      "sha": "3d807a565cf3"
     },
     {
       "rel": "lib/cheap-reply.js",
-      "bytes": 8155,
-      "sha": "b59df6d9e8f6"
+      "bytes": 9178,
+      "sha": "f4be2eaee78e"
+    },
+    {
+      "rel": "lib/claim-ledger.js",
+      "bytes": 28159,
+      "sha": "7abff3155e68"
     },
     {
       "rel": "lib/claim.js",
-      "bytes": 4254,
-      "sha": "e93e8b1770d7"
+      "bytes": 5166,
+      "sha": "8444362f7424"
+    },
+    {
+      "rel": "lib/clock.js",
+      "bytes": 903,
+      "sha": "9d9d1f71896a"
+    },
+    {
+      "rel": "lib/compaction-bridge.js",
+      "bytes": 5053,
+      "sha": "ea0ecb12997c"
+    },
+    {
+      "rel": "lib/compaction-mode.js",
+      "bytes": 2358,
+      "sha": "9d300e14801d"
+    },
+    {
+      "rel": "lib/compaction-summary.js",
+      "bytes": 3017,
+      "sha": "a7f7291a5f3f"
     },
     {
       "rel": "lib/consolidate.js",
-      "bytes": 3874,
-      "sha": "143844c3aa4f"
+      "bytes": 4749,
+      "sha": "446f2d1ee640"
     },
     {
       "rel": "lib/content-lineage.js",
-      "bytes": 6476,
-      "sha": "ef0c80a02ffa"
+      "bytes": 7231,
+      "sha": "99770252ee26"
     },
     {
       "rel": "lib/conversation-events.js",
-      "bytes": 3411,
-      "sha": "1017ccdeee70"
+      "bytes": 4187,
+      "sha": "cfbbebde3b3f"
     },
     {
       "rel": "lib/conversation-goal.js",
-      "bytes": 1710,
-      "sha": "36c544e000e2"
+      "bytes": 2438,
+      "sha": "33b56eb63257"
     },
     {
       "rel": "lib/corrections.js",
-      "bytes": 1799,
-      "sha": "42d454d1edbf"
+      "bytes": 2537,
+      "sha": "228bec8db6ba"
     },
     {
       "rel": "lib/cost.js",
-      "bytes": 16122,
-      "sha": "cc795dbdddde"
+      "bytes": 23593,
+      "sha": "eb7ebd7fbc26"
     },
     {
       "rel": "lib/crash.js",
-      "bytes": 1970,
-      "sha": "e1900ad6a476"
+      "bytes": 2622,
+      "sha": "38ada8493eb5"
     },
     {
       "rel": "lib/create-flow.js",
-      "bytes": 5142,
-      "sha": "50b3a352f01f"
+      "bytes": 6006,
+      "sha": "003de624b423"
     },
     {
       "rel": "lib/creative-memory.js",
-      "bytes": 3269,
-      "sha": "92e1b7378f79"
+      "bytes": 3985,
+      "sha": "7eef2745d81a"
     },
     {
       "rel": "lib/dead-exports.js",
-      "bytes": 8649,
-      "sha": "9bdbdca53f8a"
+      "bytes": 9468,
+      "sha": "a224ef7a54d5"
     },
     {
       "rel": "lib/decay.js",
-      "bytes": 800,
-      "sha": "d2e21116623d"
+      "bytes": 1592,
+      "sha": "1157536b82cf"
     },
     {
       "rel": "lib/decide-body.js",
-      "bytes": 4361,
-      "sha": "76226cb74548"
+      "bytes": 5320,
+      "sha": "1782b6ba255f"
+    },
+    {
+      "rel": "lib/decide-gate.js",
+      "bytes": 2303,
+      "sha": "5ae0c22da75c"
+    },
+    {
+      "rel": "lib/definitions.js",
+      "bytes": 4848,
+      "sha": "b529baeb2124"
     },
     {
       "rel": "lib/deliver.js",
-      "bytes": 2982,
-      "sha": "7174c277b8f9"
+      "bytes": 3683,
+      "sha": "ed2510b310f7"
     },
     {
       "rel": "lib/detect-roles.js",
-      "bytes": 6882,
-      "sha": "5600744d0817"
+      "bytes": 7624,
+      "sha": "02fce9eeab37"
+    },
+    {
+      "rel": "lib/disposal-log.js",
+      "bytes": 2529,
+      "sha": "2c14e38a37d5"
+    },
+    {
+      "rel": "lib/divergences.js",
+      "bytes": 3328,
+      "sha": "df9eb14fb5d0"
     },
     {
       "rel": "lib/dsh-internals.js",
-      "bytes": 5785,
-      "sha": "47d3b9d245c0"
+      "bytes": 6604,
+      "sha": "cfe37fa1e017"
     },
     {
       "rel": "lib/dsh-rpc.js",
-      "bytes": 5622,
-      "sha": "21cfda766129"
+      "bytes": 7764,
+      "sha": "dd99e77555a8"
     },
     {
       "rel": "lib/dup.js",
-      "bytes": 3332,
-      "sha": "3d076754b522"
+      "bytes": 4038,
+      "sha": "2f61ab55736b"
+    },
+    {
+      "rel": "lib/emotion-lexicon.js",
+      "bytes": 2585,
+      "sha": "6a0e4bbcd18c"
     },
     {
       "rel": "lib/employee-profile.js",
-      "bytes": 11291,
-      "sha": "147878025a00"
+      "bytes": 12128,
+      "sha": "12c7c888546b"
     },
     {
       "rel": "lib/employee-record.js",
-      "bytes": 7196,
-      "sha": "9e14f5ab8b5b"
+      "bytes": 8023,
+      "sha": "18650024db4f"
     },
     {
       "rel": "lib/encoding.js",
-      "bytes": 393,
-      "sha": "31e8dff4ccc6"
+      "bytes": 1084,
+      "sha": "824b2b750364"
     },
     {
       "rel": "lib/escalate.js",
-      "bytes": 3537,
-      "sha": "02a1838750eb"
+      "bytes": 4314,
+      "sha": "54f54983e302"
+    },
+    {
+      "rel": "lib/eval-own.js",
+      "bytes": 2673,
+      "sha": "22c57622ae51"
+    },
+    {
+      "rel": "lib/event-toc.js",
+      "bytes": 10756,
+      "sha": "81d2c4dade46"
     },
     {
       "rel": "lib/exec.js",
-      "bytes": 5997,
-      "sha": "b53ca9a44a0a"
+      "bytes": 6906,
+      "sha": "e720ced55cfd"
     },
     {
       "rel": "lib/fact-ledger.js",
-      "bytes": 7802,
-      "sha": "85a58a3adde4"
+      "bytes": 8578,
+      "sha": "add089171bd5"
     },
     {
       "rel": "lib/facts.js",
-      "bytes": 4919,
-      "sha": "26cc20f31c7c"
+      "bytes": 5572,
+      "sha": "7f9634fda941"
     },
     {
       "rel": "lib/fatigue.js",
-      "bytes": 3831,
-      "sha": "06688f1e8a3d"
+      "bytes": 4612,
+      "sha": "1008efb19203"
     },
     {
       "rel": "lib/feel.js",
-      "bytes": 5967,
-      "sha": "0a2a690460c4"
+      "bytes": 6713,
+      "sha": "2123e2da93ff"
+    },
+    {
+      "rel": "lib/file-edit.js",
+      "bytes": 13804,
+      "sha": "5dc8a03a9ad6"
     },
     {
       "rel": "lib/find.js",
-      "bytes": 3549,
-      "sha": "f93509307b5a"
+      "bytes": 4371,
+      "sha": "4cc1958bfa8d"
     },
     {
       "rel": "lib/fingerprint.js",
-      "bytes": 1629,
-      "sha": "0c346c959d8e"
+      "bytes": 2394,
+      "sha": "549b155cddee"
     },
     {
       "rel": "lib/forget.js",
-      "bytes": 12977,
-      "sha": "53e000176566"
+      "bytes": 13862,
+      "sha": "9b623d8f737c"
     },
     {
       "rel": "lib/freetime.js",
-      "bytes": 3738,
-      "sha": "c024e0823c4f"
+      "bytes": 8069,
+      "sha": "4bad79c6c539"
+    },
+    {
+      "rel": "lib/graph.js",
+      "bytes": 16237,
+      "sha": "dad8a73f9e1c"
     },
     {
       "rel": "lib/group-outbox.js",
-      "bytes": 1872,
-      "sha": "e7e240e0a8d0"
+      "bytes": 2591,
+      "sha": "7836cbd3c797"
     },
     {
       "rel": "lib/group-replies.js",
-      "bytes": 2028,
-      "sha": "2aa88e0d9c5b"
+      "bytes": 2718,
+      "sha": "dbdc483a41db"
     },
     {
       "rel": "lib/groups.js",
-      "bytes": 5953,
-      "sha": "6e49d71b87e9"
+      "bytes": 9805,
+      "sha": "37d3bb4e7712"
     },
     {
       "rel": "lib/growth.js",
-      "bytes": 4922,
-      "sha": "9cb0bc9d5f2e"
+      "bytes": 5671,
+      "sha": "b69ff07b3602"
     },
     {
       "rel": "lib/handbook-policy.js",
-      "bytes": 24376,
-      "sha": "3f32a31e8dad"
+      "bytes": 28128,
+      "sha": "8458d470e501"
     },
     {
       "rel": "lib/handbook.js",
-      "bytes": 17721,
-      "sha": "16a288c718e6"
+      "bytes": 27758,
+      "sha": "bd7473039f3e"
     },
     {
       "rel": "lib/handoff-merge.js",
-      "bytes": 3953,
-      "sha": "10c97af09fd8"
+      "bytes": 5299,
+      "sha": "f17974cfa772"
     },
     {
       "rel": "lib/handoff-name.js",
-      "bytes": 1824,
-      "sha": "adca67041740"
+      "bytes": 2204,
+      "sha": "58338f2f6ffd"
     },
     {
       "rel": "lib/hands.js",
-      "bytes": 11038,
-      "sha": "660072a08fd3"
+      "bytes": 11641,
+      "sha": "d36853b69356"
+    },
+    {
+      "rel": "lib/heartbeat-ingest.js",
+      "bytes": 9568,
+      "sha": "62a3921fc110"
+    },
+    {
+      "rel": "lib/heartbeat-journal.js",
+      "bytes": 24552,
+      "sha": "624a6ad43d49"
+    },
+    {
+      "rel": "lib/heartbeat-signals.js",
+      "bytes": 13778,
+      "sha": "446a857eb0d4"
     },
     {
       "rel": "lib/home-guard.js",
-      "bytes": 2382,
-      "sha": "95d3fd8a3efb"
+      "bytes": 2727,
+      "sha": "fd89e2b8f02a"
+    },
+    {
+      "rel": "lib/hot.js",
+      "bytes": 6652,
+      "sha": "6786ee74697c"
+    },
+    {
+      "rel": "lib/humanize.js",
+      "bytes": 3373,
+      "sha": "8524b6f19bc4"
     },
     {
       "rel": "lib/identity.js",
-      "bytes": 2514,
-      "sha": "aca911106d9d"
+      "bytes": 2854,
+      "sha": "cf4aa66d0040"
     },
     {
       "rel": "lib/immutables.js",
-      "bytes": 4090,
-      "sha": "4e573084ba28"
+      "bytes": 4855,
+      "sha": "22c2c0888c0e"
+    },
+    {
+      "rel": "lib/impressions.js",
+      "bytes": 10420,
+      "sha": "7d9f876bb997"
     },
     {
       "rel": "lib/inbox.js",
-      "bytes": 10963,
-      "sha": "4c43e2af5033"
+      "bytes": 21373,
+      "sha": "fc30b1385868"
     },
     {
       "rel": "lib/incidents.js",
-      "bytes": 6487,
-      "sha": "8fdf59c5d512"
+      "bytes": 7215,
+      "sha": "4c7ad9723cdb"
+    },
+    {
+      "rel": "lib/ingest-actions.js",
+      "bytes": 7476,
+      "sha": "2fefa06cdbfd"
+    },
+    {
+      "rel": "lib/ingest-events.js",
+      "bytes": 5881,
+      "sha": "7f48f8d19355"
+    },
+    {
+      "rel": "lib/ingest-host-tools.js",
+      "bytes": 14201,
+      "sha": "2b20c12935ed"
+    },
+    {
+      "rel": "lib/ingest-knowledge.js",
+      "bytes": 3571,
+      "sha": "b37991295bee"
+    },
+    {
+      "rel": "lib/ingest-store.js",
+      "bytes": 9027,
+      "sha": "93649074beed"
     },
     {
       "rel": "lib/initiation.js",
-      "bytes": 7490,
-      "sha": "591bb53b8845"
+      "bytes": 7821,
+      "sha": "71722e43ada6"
+    },
+    {
+      "rel": "lib/inject-budget.js",
+      "bytes": 3470,
+      "sha": "87b0a080464c"
+    },
+    {
+      "rel": "lib/inject-map.js",
+      "bytes": 14954,
+      "sha": "f3b3bc1f4a8d"
+    },
+    {
+      "rel": "lib/inject-pages.js",
+      "bytes": 5423,
+      "sha": "aa21c9483f2d"
+    },
+    {
+      "rel": "lib/inject-protocol.js",
+      "bytes": 5285,
+      "sha": "d01cefa9129b"
+    },
+    {
+      "rel": "lib/injection-log.js",
+      "bytes": 1900,
+      "sha": "d4739d44cc89"
     },
     {
       "rel": "lib/intake.js",
-      "bytes": 8376,
-      "sha": "accc2d01b27b"
+      "bytes": 8743,
+      "sha": "84d1f4915965"
     },
     {
       "rel": "lib/inverted.js",
-      "bytes": 9951,
-      "sha": "d11a9c764e2e"
+      "bytes": 10374,
+      "sha": "6f6ba9a5700b"
     },
     {
       "rel": "lib/invoke.js",
-      "bytes": 9073,
-      "sha": "2ca87cf97e19"
+      "bytes": 9481,
+      "sha": "30c31fd83774"
     },
     {
       "rel": "lib/issue.js",
-      "bytes": 8731,
-      "sha": "ef0f7b664d17"
+      "bytes": 9164,
+      "sha": "c2dbee105d9c"
     },
     {
       "rel": "lib/itch.js",
-      "bytes": 6161,
-      "sha": "8ce9ed49d2df"
+      "bytes": 6740,
+      "sha": "c5b106119415"
+    },
+    {
+      "rel": "lib/judge-method.js",
+      "bytes": 5037,
+      "sha": "792501045d7b"
     },
     {
       "rel": "lib/judgment.js",
-      "bytes": 3794,
-      "sha": "96a020642c87"
+      "bytes": 4196,
+      "sha": "fbf03dabab6f"
     },
     {
       "rel": "lib/key-points.js",
-      "bytes": 3355,
-      "sha": "356c378b647e"
+      "bytes": 3742,
+      "sha": "3613e5872e21"
+    },
+    {
+      "rel": "lib/keys-allow.json",
+      "bytes": 191,
+      "sha": "008ed7bf9fdd"
     },
     {
       "rel": "lib/knowledge.js",
-      "bytes": 16054,
-      "sha": "78de324ce063"
+      "bytes": 16450,
+      "sha": "440d0af1b26d"
+    },
+    {
+      "rel": "lib/lexical-vector.js",
+      "bytes": 1883,
+      "sha": "6b347ef78de1"
+    },
+    {
+      "rel": "lib/library-chain.js",
+      "bytes": 1849,
+      "sha": "e05345bc1f7f"
+    },
+    {
+      "rel": "lib/library-shelf.js",
+      "bytes": 1320,
+      "sha": "35cc4226f8cc"
     },
     {
       "rel": "lib/live-transcript.js",
-      "bytes": 4432,
-      "sha": "d5257e852bd3"
+      "bytes": 879,
+      "sha": "0418032d19c5"
     },
     {
       "rel": "lib/manners.js",
-      "bytes": 2628,
-      "sha": "a6e5328b5fd7"
+      "bytes": 3031,
+      "sha": "c7a680dba812"
+    },
+    {
+      "rel": "lib/manual-done.js",
+      "bytes": 3294,
+      "sha": "9378b4019e62"
+    },
+    {
+      "rel": "lib/markers.js",
+      "bytes": 682,
+      "sha": "6cd7f35f207d"
+    },
+    {
+      "rel": "lib/mechanism-registry.js",
+      "bytes": 7747,
+      "sha": "5822b855837a"
     },
     {
       "rel": "lib/memory-audit.js",
-      "bytes": 3111,
-      "sha": "fe5d5833d39f"
+      "bytes": 3630,
+      "sha": "9524d0f99a14"
+    },
+    {
+      "rel": "lib/memory-consolidate.mjs",
+      "bytes": 17211,
+      "sha": "4d24f428e6a3"
+    },
+    {
+      "rel": "lib/memory-control.js",
+      "bytes": 821,
+      "sha": "3960dd12de4f"
     },
     {
       "rel": "lib/memory-links.js",
-      "bytes": 10483,
-      "sha": "02c642b14592"
+      "bytes": 10916,
+      "sha": "4fa802828e6a"
     },
     {
       "rel": "lib/memory-map.js",
-      "bytes": 6064,
-      "sha": "6f1c736aa8d5"
+      "bytes": 6605,
+      "sha": "bc7281e27fcc"
+    },
+    {
+      "rel": "lib/memory-pick.js",
+      "bytes": 1940,
+      "sha": "61704c94f62f"
+    },
+    {
+      "rel": "lib/memory-search.js",
+      "bytes": 1840,
+      "sha": "0e0bdc855b2f"
+    },
+    {
+      "rel": "lib/memory-triggers.mjs",
+      "bytes": 10851,
+      "sha": "77b9b8b44e1d"
     },
     {
       "rel": "lib/memory.js",
-      "bytes": 18895,
-      "sha": "66f5b11a92dd"
+      "bytes": 2330,
+      "sha": "05da79c6a48c"
+    },
+    {
+      "rel": "lib/meta-memory.mjs",
+      "bytes": 7298,
+      "sha": "ae2333a3aa9d"
     },
     {
       "rel": "lib/migrate.js",
-      "bytes": 3367,
-      "sha": "beb2ead37f40"
+      "bytes": 3705,
+      "sha": "32c571a40b10"
     },
     {
       "rel": "lib/mind-store.js",
-      "bytes": 52208,
-      "sha": "dcd2a5fe2776"
+      "bytes": 52616,
+      "sha": "e4068050e891"
     },
     {
       "rel": "lib/mind-tools.js",
-      "bytes": 3117,
-      "sha": "9fbd3242b53f"
+      "bytes": 4467,
+      "sha": "592d0e2a34a0"
     },
     {
       "rel": "lib/miss.js",
-      "bytes": 3006,
-      "sha": "2f8f8cefcca0"
+      "bytes": 3750,
+      "sha": "c7ae7d203e60"
     },
     {
       "rel": "lib/mobile-gateway.js",
-      "bytes": 3617,
-      "sha": "7f523d7c9690"
+      "bytes": 3988,
+      "sha": "96947309af65"
     },
     {
       "rel": "lib/mobile-routes.js",
-      "bytes": 8867,
-      "sha": "a6f85af362d9"
+      "bytes": 9216,
+      "sha": "e6a170304282"
     },
     {
       "rel": "lib/model-pref.js",
-      "bytes": 2246,
-      "sha": "7e9289438c3d"
+      "bytes": 2599,
+      "sha": "5ba951657a3f"
     },
     {
       "rel": "lib/mood.js",
-      "bytes": 5181,
-      "sha": "d6b5a8234d01"
+      "bytes": 5580,
+      "sha": "34d0b4886e6c"
+    },
+    {
+      "rel": "lib/motto.js",
+      "bytes": 6482,
+      "sha": "be3bc401edba"
     },
     {
       "rel": "lib/nest.js",
-      "bytes": 13903,
-      "sha": "31fc9b0988f3"
+      "bytes": 14257,
+      "sha": "1fc84189581e"
+    },
+    {
+      "rel": "lib/next-session-brief.js",
+      "bytes": 3865,
+      "sha": "b5b0e15ab60e"
     },
     {
       "rel": "lib/notices.js",
-      "bytes": 3127,
-      "sha": "bf4933f4d560"
+      "bytes": 3492,
+      "sha": "fe4708646077"
+    },
+    {
+      "rel": "lib/now-page.js",
+      "bytes": 3894,
+      "sha": "55fd98331fea"
     },
     {
       "rel": "lib/now.js",
-      "bytes": 9263,
-      "sha": "f55a4746cf06"
+      "bytes": 9637,
+      "sha": "4d82eca4120c"
     },
     {
       "rel": "lib/objections.js",
-      "bytes": 2240,
-      "sha": "c4759bc5febf"
+      "bytes": 2637,
+      "sha": "ce2e747c7886"
     },
     {
       "rel": "lib/observe.js",
-      "bytes": 2281,
-      "sha": "f8ab0643193f"
+      "bytes": 2645,
+      "sha": "11c5473f4c51"
+    },
+    {
+      "rel": "lib/offline-guard.js",
+      "bytes": 1942,
+      "sha": "955f9f70c61f"
     },
     {
       "rel": "lib/offsite.js",
-      "bytes": 7171,
-      "sha": "e92811dcc5ca"
+      "bytes": 9219,
+      "sha": "abab609d26a0"
     },
     {
       "rel": "lib/omni.js",
-      "bytes": 4413,
-      "sha": "d161a0ccbe93"
+      "bytes": 4762,
+      "sha": "7f74476e1b43"
     },
     {
       "rel": "lib/onboard.js",
-      "bytes": 3845,
-      "sha": "fc5854352063"
+      "bytes": 4190,
+      "sha": "5b43c649b8fd"
     },
     {
       "rel": "lib/outbox.js",
-      "bytes": 6049,
-      "sha": "f6c0e09251e3"
+      "bytes": 6424,
+      "sha": "72c5a1252987"
     },
     {
       "rel": "lib/oversight.js",
-      "bytes": 2476,
-      "sha": "eaff20b9fde0"
+      "bytes": 2894,
+      "sha": "9a05d650a373"
     },
     {
       "rel": "lib/owner-ask.js",
-      "bytes": 6056,
-      "sha": "9f36b2b18652"
+      "bytes": 6494,
+      "sha": "2dc8620ece24"
     },
     {
       "rel": "lib/owner-guard.js",
-      "bytes": 7565,
-      "sha": "d345f0c6770f"
+      "bytes": 7958,
+      "sha": "edee9b21f7f6"
+    },
+    {
+      "rel": "lib/owner-ref.mjs",
+      "bytes": 6861,
+      "sha": "7a40fd1cebfd"
     },
     {
       "rel": "lib/patch.js",
-      "bytes": 5093,
-      "sha": "e0d122da5402"
+      "bytes": 5478,
+      "sha": "647cd02f3ee5"
     },
     {
       "rel": "lib/paths.js",
-      "bytes": 7732,
-      "sha": "9e5d8a4ad654"
+      "bytes": 8164,
+      "sha": "4e9b7422701d"
     },
     {
       "rel": "lib/patrol.js",
-      "bytes": 4201,
-      "sha": "4a98e0da958a"
+      "bytes": 6294,
+      "sha": "9bae617baf81"
     },
     {
       "rel": "lib/peak.js",
-      "bytes": 1548,
-      "sha": "d66dd8496b6c"
+      "bytes": 1933,
+      "sha": "2d5982b3b58e"
+    },
+    {
+      "rel": "lib/pending-decisions.js",
+      "bytes": 3356,
+      "sha": "b9ad85fe6620"
     },
     {
       "rel": "lib/pending.js",
-      "bytes": 1631,
-      "sha": "6c6266ad5984"
+      "bytes": 2041,
+      "sha": "e05139288e2a"
     },
     {
       "rel": "lib/people.js",
-      "bytes": 3339,
-      "sha": "0d291bf3a6be"
+      "bytes": 3780,
+      "sha": "810372ad4cca"
     },
     {
       "rel": "lib/perm.js",
-      "bytes": 3386,
-      "sha": "76829217e704"
+      "bytes": 3789,
+      "sha": "8e9a9e6e50f4"
+    },
+    {
+      "rel": "lib/person-brief.js",
+      "bytes": 3267,
+      "sha": "f1a817c71859"
     },
     {
       "rel": "lib/pet-animation.js",
-      "bytes": 22069,
-      "sha": "32b14dfaf14f"
+      "bytes": 22457,
+      "sha": "05f1919f532c"
     },
     {
       "rel": "lib/platform.js",
-      "bytes": 2557,
-      "sha": "4055e0cdba66"
+      "bytes": 3053,
+      "sha": "c94899c5710f"
     },
     {
       "rel": "lib/plug.js",
-      "bytes": 3142,
-      "sha": "6a3d5c9c82a1"
+      "bytes": 3513,
+      "sha": "c69f4ea17f4c"
+    },
+    {
+      "rel": "lib/polite-relay.js",
+      "bytes": 5063,
+      "sha": "d6eb5c89c9c4"
     },
     {
       "rel": "lib/pool.js",
-      "bytes": 1521,
-      "sha": "0747382050f6"
+      "bytes": 1910,
+      "sha": "92d225d66994"
     },
     {
       "rel": "lib/presence.js",
-      "bytes": 2824,
-      "sha": "3b6ed5529535"
+      "bytes": 3134,
+      "sha": "d886ebd577ce"
+    },
+    {
+      "rel": "lib/prestep-recall.js",
+      "bytes": 2435,
+      "sha": "1bd6c389ac39"
     },
     {
       "rel": "lib/privacy.js",
-      "bytes": 2110,
-      "sha": "47aaa3927bd2"
+      "bytes": 2456,
+      "sha": "30e1c28ac98f"
     },
     {
       "rel": "lib/process-lock.js",
-      "bytes": 8530,
-      "sha": "b53112daef10"
+      "bytes": 8887,
+      "sha": "38b1b258c611"
+    },
+    {
+      "rel": "lib/progress.js",
+      "bytes": 3835,
+      "sha": "2bb75fe2bd19"
+    },
+    {
+      "rel": "lib/promises-rel.js",
+      "bytes": 13710,
+      "sha": "57002c766fe3"
     },
     {
       "rel": "lib/promotion.js",
-      "bytes": 12587,
-      "sha": "62961232a28b"
+      "bytes": 12950,
+      "sha": "09f249ca9c75"
     },
     {
       "rel": "lib/prune.js",
-      "bytes": 4258,
-      "sha": "79f5c117534e"
+      "bytes": 4642,
+      "sha": "fdb15d610573"
     },
     {
       "rel": "lib/publish.js",
-      "bytes": 2940,
-      "sha": "ea5b81533c8c"
+      "bytes": 3281,
+      "sha": "b2b6ae7d78c5"
+    },
+    {
+      "rel": "lib/qq-triage.js",
+      "bytes": 3799,
+      "sha": "74605300f222"
+    },
+    {
+      "rel": "lib/query-rewrite.js",
+      "bytes": 20746,
+      "sha": "84dbe534a1d4"
+    },
+    {
+      "rel": "lib/quiet-turn.js",
+      "bytes": 12559,
+      "sha": "b48d9d3d803e"
     },
     {
       "rel": "lib/rank.js",
-      "bytes": 5999,
-      "sha": "8948f8b7bdd8"
+      "bytes": 7971,
+      "sha": "da7e79115320"
+    },
+    {
+      "rel": "lib/raw-layout.js",
+      "bytes": 789,
+      "sha": "6b70394e7a80"
+    },
+    {
+      "rel": "lib/recall-hook.js",
+      "bytes": 4523,
+      "sha": "2235b0cf4172"
+    },
+    {
+      "rel": "lib/recall-log.js",
+      "bytes": 6296,
+      "sha": "dc2f3232fcba"
     },
     {
       "rel": "lib/recall-now.js",
-      "bytes": 11287,
-      "sha": "e7334d645789"
+      "bytes": 18924,
+      "sha": "3db799dda524"
+    },
+    {
+      "rel": "lib/recall-usage.js",
+      "bytes": 7684,
+      "sha": "55efb7fee6ba"
+    },
+    {
+      "rel": "lib/recall-view.js",
+      "bytes": 14904,
+      "sha": "b0fda3047981"
     },
     {
       "rel": "lib/recall.js",
-      "bytes": 2092,
-      "sha": "c104efa86dbf"
+      "bytes": 2450,
+      "sha": "c9165a7be4dd"
     },
     {
       "rel": "lib/recap.js",
-      "bytes": 3571,
-      "sha": "52092f029b22"
+      "bytes": 3946,
+      "sha": "5bc09954c9e6"
+    },
+    {
+      "rel": "lib/receipt-watch.mjs",
+      "bytes": 9740,
+      "sha": "d41137bd054c"
     },
     {
       "rel": "lib/recollect.js",
-      "bytes": 1573,
-      "sha": "055a72139de3"
+      "bytes": 1875,
+      "sha": "261306c0d7f3"
     },
     {
       "rel": "lib/records.js",
-      "bytes": 5730,
-      "sha": "575f0b0aa385"
+      "bytes": 6126,
+      "sha": "82fd2181137c"
     },
     {
       "rel": "lib/recovery-policy.js",
-      "bytes": 13282,
-      "sha": "8d89243fbc74"
+      "bytes": 13640,
+      "sha": "d46f54519774"
     },
     {
       "rel": "lib/redact.js",
-      "bytes": 1405,
-      "sha": "26b16729aa47"
+      "bytes": 1759,
+      "sha": "1e97231eaa90"
+    },
+    {
+      "rel": "lib/refine-feedback.js",
+      "bytes": 4983,
+      "sha": "f10098e46b62"
+    },
+    {
+      "rel": "lib/refine-quota.js",
+      "bytes": 3503,
+      "sha": "2b6bfb022f06"
+    },
+    {
+      "rel": "lib/relations-book.js",
+      "bytes": 3884,
+      "sha": "9d50d62fce5b"
+    },
+    {
+      "rel": "lib/relations-classify.js",
+      "bytes": 6308,
+      "sha": "63a80d0cb552"
     },
     {
       "rel": "lib/relations.js",
-      "bytes": 2446,
-      "sha": "42a7d00b550c"
+      "bytes": 12366,
+      "sha": "b5e705c68c3a"
     },
     {
       "rel": "lib/repair-helper-install.js",
-      "bytes": 14165,
-      "sha": "b1164bcf523f"
+      "bytes": 16086,
+      "sha": "90850cc38781"
     },
     {
       "rel": "lib/repair-lifecycle.js",
-      "bytes": 6759,
-      "sha": "a79805369a60"
+      "bytes": 7167,
+      "sha": "f59b7aff7b14"
     },
     {
       "rel": "lib/repair-loop.js",
-      "bytes": 5524,
-      "sha": "964f9207dd9b"
+      "bytes": 7827,
+      "sha": "6307ebdd99a2"
     },
     {
       "rel": "lib/repair-state.js",
-      "bytes": 8687,
-      "sha": "27455e7658e5"
+      "bytes": 9072,
+      "sha": "848434688f55"
     },
     {
       "rel": "lib/reply-gate.js",
-      "bytes": 2931,
-      "sha": "6e23ee29af55"
+      "bytes": 3261,
+      "sha": "8d9f903fbf53"
+    },
+    {
+      "rel": "lib/reply-sense.js",
+      "bytes": 6157,
+      "sha": "302972e36865"
     },
     {
       "rel": "lib/report.js",
-      "bytes": 3899,
-      "sha": "eeed48f2a10c"
+      "bytes": 4223,
+      "sha": "5b4d2a90cb49"
     },
     {
       "rel": "lib/residence.js",
-      "bytes": 20941,
-      "sha": "39b5cb6a69f0"
+      "bytes": 21430,
+      "sha": "5c67a653316a"
+    },
+    {
+      "rel": "lib/retrieval-mode.js",
+      "bytes": 2943,
+      "sha": "c1280ead4b5f"
     },
     {
       "rel": "lib/rewrite.js",
-      "bytes": 11809,
-      "sha": "1582d30b0e3e"
+      "bytes": 12471,
+      "sha": "e12f51c07df1"
+    },
+    {
+      "rel": "lib/role-of.js",
+      "bytes": 779,
+      "sha": "977e97a3f014"
     },
     {
       "rel": "lib/roles.js",
-      "bytes": 1619,
-      "sha": "fc41324209f1"
+      "bytes": 2037,
+      "sha": "1595916713f3"
     },
     {
       "rel": "lib/roster-caps.js",
-      "bytes": 2404,
-      "sha": "82333a7d5554"
+      "bytes": 2799,
+      "sha": "10ccaace736a"
     },
     {
       "rel": "lib/roster.js",
-      "bytes": 2604,
-      "sha": "d4f112d1e76c"
+      "bytes": 2973,
+      "sha": "2db5f825fb78"
     },
     {
       "rel": "lib/rotate.js",
-      "bytes": 2313,
-      "sha": "042a4e41a8ec"
+      "bytes": 2674,
+      "sha": "b4182940def4"
     },
     {
       "rel": "lib/rules-block.js",
-      "bytes": 10205,
-      "sha": "bc51ac611b9a"
+      "bytes": 15785,
+      "sha": "f0538bbe09ac"
     },
     {
       "rel": "lib/runtime.js",
-      "bytes": 18053,
-      "sha": "79296fc05da0"
+      "bytes": 19019,
+      "sha": "e4804b36ecbe"
     },
     {
       "rel": "lib/safe-delete.allow.json",
-      "bytes": 16432,
-      "sha": "d1dc142b5f37"
+      "bytes": 29492,
+      "sha": "18ed579f2cbb"
     },
     {
       "rel": "lib/safe-delete.js",
-      "bytes": 11934,
-      "sha": "31c4ff9a6197"
+      "bytes": 13362,
+      "sha": "2db1a8ff28a6"
     },
     {
       "rel": "lib/schema.js",
-      "bytes": 4363,
-      "sha": "b800d62c6cea"
+      "bytes": 5539,
+      "sha": "05be407b08b2"
     },
     {
       "rel": "lib/search.js",
-      "bytes": 9230,
-      "sha": "3c10be183039"
+      "bytes": 9639,
+      "sha": "c3bf66b8fc7e"
     },
     {
       "rel": "lib/seed.js",
-      "bytes": 2065,
-      "sha": "3b8b64be7cfc"
+      "bytes": 2375,
+      "sha": "43a2ceff819a"
     },
     {
       "rel": "lib/self-note.js",
-      "bytes": 4317,
-      "sha": "bc580e6ba173"
+      "bytes": 6419,
+      "sha": "a5045a3ad1b4"
+    },
+    {
+      "rel": "lib/self-push.js",
+      "bytes": 5577,
+      "sha": "b17a3998e3df"
     },
     {
       "rel": "lib/selfcheck.js",
-      "bytes": 12860,
-      "sha": "fd17f3898eab"
+      "bytes": 13748,
+      "sha": "81cf1abb1ca1"
     },
     {
       "rel": "lib/session-archive.js",
-      "bytes": 6314,
-      "sha": "b2bd07de78a9"
+      "bytes": 8661,
+      "sha": "3bf7f8cdb76e"
     },
     {
       "rel": "lib/session-governance.js",
-      "bytes": 3140,
-      "sha": "15a504efd856"
+      "bytes": 3519,
+      "sha": "7393b291091e"
+    },
+    {
+      "rel": "lib/session-lease.js",
+      "bytes": 3056,
+      "sha": "b8e4cdcbc99e"
+    },
+    {
+      "rel": "lib/skills.js",
+      "bytes": 24737,
+      "sha": "db0026106186"
     },
     {
       "rel": "lib/sleep-mind.js",
-      "bytes": 6873,
-      "sha": "98c473a8bdb8"
+      "bytes": 6632,
+      "sha": "069c187fa18f"
+    },
+    {
+      "rel": "lib/soft-limit.js",
+      "bytes": 13968,
+      "sha": "859e1e198e47"
     },
     {
       "rel": "lib/software-artifacts.js",
-      "bytes": 13866,
-      "sha": "23386410a3c6"
+      "bytes": 14208,
+      "sha": "f3c4adb20f7f"
     },
     {
       "rel": "lib/software-protection.js",
-      "bytes": 2888,
-      "sha": "c5582cbf1e6f"
+      "bytes": 3270,
+      "sha": "71fcc43a112c"
     },
     {
       "rel": "lib/solutions.js",
-      "bytes": 3683,
-      "sha": "14648b26d057"
+      "bytes": 4073,
+      "sha": "77d1aa0e93cb"
     },
     {
       "rel": "lib/soul.js",
-      "bytes": 26114,
-      "sha": "41a918024c1a"
+      "bytes": 44671,
+      "sha": "e2170397826f"
     },
     {
       "rel": "lib/state-adapter.js",
-      "bytes": 22095,
-      "sha": "41bdc4e397f2"
+      "bytes": 22449,
+      "sha": "880e60f92f3a"
     },
     {
       "rel": "lib/stuck-doctor.js",
-      "bytes": 5188,
-      "sha": "8b18e76a135d"
+      "bytes": 5526,
+      "sha": "f32423be8ae3"
+    },
+    {
+      "rel": "lib/subagent-brief.js",
+      "bytes": 3860,
+      "sha": "5508fad29760"
+    },
+    {
+      "rel": "lib/subagent-reports.js",
+      "bytes": 6972,
+      "sha": "05a027853082"
+    },
+    {
+      "rel": "lib/summary-check.js",
+      "bytes": 24880,
+      "sha": "5633f6b81151"
+    },
+    {
+      "rel": "lib/summary-gate.js",
+      "bytes": 5997,
+      "sha": "024c36dbc2f5"
+    },
+    {
+      "rel": "lib/summary-pending.js",
+      "bytes": 3010,
+      "sha": "14503248e890"
+    },
+    {
+      "rel": "lib/summary-tree.js",
+      "bytes": 4628,
+      "sha": "021e8b99dc48"
+    },
+    {
+      "rel": "lib/sysmap.js",
+      "bytes": 8901,
+      "sha": "4b052f1eaf6e"
+    },
+    {
+      "rel": "lib/system-brief.js",
+      "bytes": 3099,
+      "sha": "4ff251dc65e2"
     },
     {
       "rel": "lib/system.js",
-      "bytes": 5439,
-      "sha": "dc8b5242bf5a"
+      "bytes": 5783,
+      "sha": "d1037e791c3b"
+    },
+    {
+      "rel": "lib/tags.js",
+      "bytes": 8955,
+      "sha": "52c4f785375e"
     },
     {
       "rel": "lib/takeover.js",
-      "bytes": 7283,
-      "sha": "679d51b43ed3"
+      "bytes": 7705,
+      "sha": "cbfb0b74c4f9"
     },
     {
       "rel": "lib/task-coordination.js",
-      "bytes": 3312,
-      "sha": "9220821cc999"
+      "bytes": 5991,
+      "sha": "6597371baaa1"
     },
     {
       "rel": "lib/task-experience.js",
-      "bytes": 14722,
-      "sha": "495a41e7b8ee"
+      "bytes": 20156,
+      "sha": "2a1ec5def3ed"
     },
     {
       "rel": "lib/tastes.js",
-      "bytes": 1779,
-      "sha": "f1a610cfafc0"
+      "bytes": 2154,
+      "sha": "099e7bf3bea6"
     },
     {
       "rel": "lib/temp-cache.js",
-      "bytes": 1638,
-      "sha": "56c943aea549"
+      "bytes": 2025,
+      "sha": "d200518e8a86"
     },
     {
       "rel": "lib/thoughts.js",
-      "bytes": 1539,
-      "sha": "cda97f00ba67"
+      "bytes": 1920,
+      "sha": "5a83aec60cc4"
+    },
+    {
+      "rel": "lib/trace-standard.js",
+      "bytes": 9077,
+      "sha": "0bcedf3b1803"
     },
     {
       "rel": "lib/transcript.js",
-      "bytes": 6915,
-      "sha": "e641879826e7"
+      "bytes": 7285,
+      "sha": "c3810f653590"
+    },
+    {
+      "rel": "lib/transition-filter.js",
+      "bytes": 803,
+      "sha": "1bfd2717eb3c"
     },
     {
       "rel": "lib/translator.js",
-      "bytes": 13116,
-      "sha": "d2a8b6a12b26"
+      "bytes": 13517,
+      "sha": "8c5fd22635b0"
     },
     {
       "rel": "lib/treasure.js",
-      "bytes": 2547,
-      "sha": "3f3cbfd8179f"
+      "bytes": 2910,
+      "sha": "b19040c187f9"
+    },
+    {
+      "rel": "lib/trust.js",
+      "bytes": 4671,
+      "sha": "f9e966c1a501"
+    },
+    {
+      "rel": "lib/turn-capture.js",
+      "bytes": 1156,
+      "sha": "6d546b193ece"
+    },
+    {
+      "rel": "lib/turn-ledger.js",
+      "bytes": 32066,
+      "sha": "348a025f6778"
+    },
+    {
+      "rel": "lib/usage-workbench.js",
+      "bytes": 3542,
+      "sha": "2782ba7b96d5"
+    },
+    {
+      "rel": "lib/vector-index-refresh.js",
+      "bytes": 4800,
+      "sha": "875c91be4605"
+    },
+    {
+      "rel": "lib/vector-index.js",
+      "bytes": 2993,
+      "sha": "16590bfdbceb"
     },
     {
       "rel": "lib/ventures.js",
-      "bytes": 2603,
-      "sha": "16bb3bfbecf0"
+      "bytes": 3010,
+      "sha": "dbe8515b229a"
     },
     {
       "rel": "lib/versioned-backup.js",
-      "bytes": 18831,
-      "sha": "80bec94a6ce6"
+      "bytes": 20478,
+      "sha": "5f6b4907cdbc"
     },
     {
       "rel": "lib/veto.js",
-      "bytes": 6113,
-      "sha": "c85be4a734f2"
+      "bytes": 6424,
+      "sha": "56386faaeea8"
     },
     {
       "rel": "lib/waiting.js",
-      "bytes": 2796,
-      "sha": "5997a7fc6848"
+      "bytes": 4338,
+      "sha": "57919224ad97"
+    },
+    {
+      "rel": "lib/wake-brief.js",
+      "bytes": 29057,
+      "sha": "d2753897f261"
+    },
+    {
+      "rel": "lib/wake-score.js",
+      "bytes": 4631,
+      "sha": "8de2ed14ae60"
     },
     {
       "rel": "lib/watch.js",
-      "bytes": 7596,
-      "sha": "4ea5af8ef527"
+      "bytes": 7994,
+      "sha": "90b11f8be74c"
     },
     {
       "rel": "lib/whiteboard.js",
-      "bytes": 1572,
-      "sha": "fc9d00f613ca"
+      "bytes": 1960,
+      "sha": "5f7155499ea8"
     },
     {
       "rel": "lib/worklog.js",
-      "bytes": 2977,
-      "sha": "70f69ec179fd"
+      "bytes": 5199,
+      "sha": "f6b5a13f357f"
+    },
+    {
+      "rel": "lib/workmem.js",
+      "bytes": 6293,
+      "sha": "262776613224"
     },
     {
       "rel": "LICENSE",
       "bytes": 34523,
       "sha": "0d96a4ff68ad"
+    },
+    {
+      "rel": "memory-core/heartbeat.mjs",
+      "bytes": 6091,
+      "sha": "6c5a37a20198"
+    },
+    {
+      "rel": "memory-core/pick.mjs",
+      "bytes": 19061,
+      "sha": "a57cbd3c6e6d"
+    },
+    {
+      "rel": "memory-core/runtime/archive.js",
+      "bytes": 2043,
+      "sha": "dc72e31e8837"
+    },
+    {
+      "rel": "memory-core/runtime/backfill-turnid.js",
+      "bytes": 3437,
+      "sha": "6f41edbb6d6c"
+    },
+    {
+      "rel": "memory-core/runtime/capture.js",
+      "bytes": 15348,
+      "sha": "03524ead889e"
+    },
+    {
+      "rel": "memory-core/runtime/cards.js",
+      "bytes": 3562,
+      "sha": "ad602e581f94"
+    },
+    {
+      "rel": "memory-core/runtime/control.js",
+      "bytes": 5020,
+      "sha": "1839cf2d7f59"
+    },
+    {
+      "rel": "memory-core/runtime/episode.js",
+      "bytes": 27180,
+      "sha": "5dd202e95e58"
+    },
+    {
+      "rel": "memory-core/runtime/feedback.js",
+      "bytes": 4143,
+      "sha": "59fe89b187b8"
+    },
+    {
+      "rel": "memory-core/runtime/filter.js",
+      "bytes": 4058,
+      "sha": "23ce32e19a55"
+    },
+    {
+      "rel": "memory-core/runtime/heartbeat-digest.js",
+      "bytes": 4365,
+      "sha": "ecb320a7cd13"
+    },
+    {
+      "rel": "memory-core/runtime/heat.js",
+      "bytes": 1264,
+      "sha": "9eb591b16b1d"
+    },
+    {
+      "rel": "memory-core/runtime/incidents.js",
+      "bytes": 10219,
+      "sha": "bd818497a6db"
+    },
+    {
+      "rel": "memory-core/runtime/links.js",
+      "bytes": 4844,
+      "sha": "fa750781106e"
+    },
+    {
+      "rel": "memory-core/runtime/manual.js",
+      "bytes": 4641,
+      "sha": "94defb8e1c03"
+    },
+    {
+      "rel": "memory-core/runtime/markers.js",
+      "bytes": 1648,
+      "sha": "2af3f504242d"
+    },
+    {
+      "rel": "memory-core/runtime/merge.js",
+      "bytes": 3020,
+      "sha": "08741e87d14b"
+    },
+    {
+      "rel": "memory-core/runtime/middle.js",
+      "bytes": 26510,
+      "sha": "16ba2c50bf60"
+    },
+    {
+      "rel": "memory-core/runtime/open-loops.js",
+      "bytes": 5113,
+      "sha": "89f4a757e3f6"
+    },
+    {
+      "rel": "memory-core/runtime/person-card.js",
+      "bytes": 5322,
+      "sha": "25fb9e9fbb39"
+    },
+    {
+      "rel": "memory-core/runtime/projection.js",
+      "bytes": 14059,
+      "sha": "679d91651e89"
+    },
+    {
+      "rel": "memory-core/runtime/query.js",
+      "bytes": 18694,
+      "sha": "3bf2f51b30d0"
+    },
+    {
+      "rel": "memory-core/runtime/recall-use.js",
+      "bytes": 2512,
+      "sha": "bcdc7c55b5f8"
+    },
+    {
+      "rel": "memory-core/runtime/refine-judge.js",
+      "bytes": 10123,
+      "sha": "695a7f188ae4"
+    },
+    {
+      "rel": "memory-core/runtime/refine-queue.js",
+      "bytes": 2753,
+      "sha": "7d2a2db6f67d"
+    },
+    {
+      "rel": "memory-core/runtime/relink.js",
+      "bytes": 7779,
+      "sha": "14fb9b2e93cd"
+    },
+    {
+      "rel": "memory-core/runtime/role.js",
+      "bytes": 2815,
+      "sha": "4d6409b8d80a"
+    },
+    {
+      "rel": "memory-core/runtime/root.js",
+      "bytes": 1059,
+      "sha": "24cd8c3bf340"
+    },
+    {
+      "rel": "memory-core/runtime/shallow.js",
+      "bytes": 2159,
+      "sha": "045b51f4ca25"
+    },
+    {
+      "rel": "memory-core/runtime/share.js",
+      "bytes": 4988,
+      "sha": "1e1c154d0893"
+    },
+    {
+      "rel": "memory-core/runtime/shelf.js",
+      "bytes": 13910,
+      "sha": "fe5fa6fb6914"
+    },
+    {
+      "rel": "memory-core/runtime/source.js",
+      "bytes": 4678,
+      "sha": "31e49140723e"
+    },
+    {
+      "rel": "memory-core/runtime/supersede.js",
+      "bytes": 6203,
+      "sha": "9b7959f882f2"
+    },
+    {
+      "rel": "memory-core/runtime/tasks.js",
+      "bytes": 6433,
+      "sha": "3d3eb317bbdd"
+    },
+    {
+      "rel": "memory-core/runtime/tier.js",
+      "bytes": 2600,
+      "sha": "c5153b1ef384"
+    },
+    {
+      "rel": "memory-core/runtime/time-range.js",
+      "bytes": 16394,
+      "sha": "67ade22b2bbb"
+    },
+    {
+      "rel": "memory-core/runtime/time.js",
+      "bytes": 6490,
+      "sha": "5509fdc71a09"
+    },
+    {
+      "rel": "memory-core/runtime/tombstone.js",
+      "bytes": 3037,
+      "sha": "0b72152e22a0"
+    },
+    {
+      "rel": "memory-core/runtime/transcript.js",
+      "bytes": 23651,
+      "sha": "80750da9c6a8"
+    },
+    {
+      "rel": "memory-core/runtime/usage.js",
+      "bytes": 3420,
+      "sha": "62138d95fe6f"
+    },
+    {
+      "rel": "memory-core/search.mjs",
+      "bytes": 8460,
+      "sha": "b2d16009884c"
+    },
+    {
+      "rel": "memory-core/store.mjs",
+      "bytes": 23271,
+      "sha": "fb98bfa0fad2"
     },
     {
       "rel": "NOTICE",
@@ -1468,13 +2248,53 @@
     },
     {
       "rel": "package.json",
-      "bytes": 1333,
-      "sha": "af18efbee7ec"
+      "bytes": 1560,
+      "sha": "c62b33b48009"
+    },
+    {
+      "rel": "pages/memory-admin.html",
+      "bytes": 24386,
+      "sha": "8b29532ec83e"
+    },
+    {
+      "rel": "pages/注入/qq-foreign.md",
+      "bytes": 796,
+      "sha": "6ec34e539df3"
+    },
+    {
+      "rel": "pages/注入/safety.md",
+      "bytes": 684,
+      "sha": "7a39f88bfc03"
+    },
+    {
+      "rel": "pages/注入/want-do.md",
+      "bytes": 465,
+      "sha": "37bb07b594d0"
+    },
+    {
+      "rel": "preset/charter.preset.json",
+      "bytes": 1237,
+      "sha": "88e3aa988215"
+    },
+    {
+      "rel": "preset/compaction-memory.js",
+      "bytes": 947,
+      "sha": "66aed6ad00f8"
+    },
+    {
+      "rel": "preset/persona.preset.json",
+      "bytes": 896,
+      "sha": "319c2a7661d7"
+    },
+    {
+      "rel": "preset/yushen-posts.patch.yml",
+      "bytes": 4424,
+      "sha": "f85383788f09"
     },
     {
       "rel": "README.md",
-      "bytes": 6926,
-      "sha": "17ebb1341a59"
+      "bytes": 7094,
+      "sha": "035a2fa9ec82"
     },
     {
       "rel": "repair-helper/app.manifest",
@@ -1507,9 +2327,14 @@
       "sha": "c0e1c39a6c7c"
     },
     {
+      "rel": "scripts/alias-harvest.mjs",
+      "bytes": 4687,
+      "sha": "9fdf107d8509"
+    },
+    {
       "rel": "scripts/audit-daily.mjs",
-      "bytes": 3798,
-      "sha": "68a23a01b0de"
+      "bytes": 4354,
+      "sha": "51de796f65b0"
     },
     {
       "rel": "scripts/awakening.mjs",
@@ -1522,9 +2347,24 @@
       "sha": "cd627a1cb5da"
     },
     {
+      "rel": "scripts/backup-external-plugins.mjs",
+      "bytes": 7887,
+      "sha": "ef98a9278cf6"
+    },
+    {
       "rel": "scripts/baseline.mjs",
       "bytes": 3694,
       "sha": "325a121eeb90"
+    },
+    {
+      "rel": "scripts/bench-query-rewrite.mjs",
+      "bytes": 7703,
+      "sha": "cf8662cdb845"
+    },
+    {
+      "rel": "scripts/bili-desc.mjs",
+      "bytes": 2195,
+      "sha": "58df4f191cf2"
     },
     {
       "rel": "scripts/bili-inbox.mjs",
@@ -1538,18 +2378,23 @@
     },
     {
       "rel": "scripts/build-catalog.mjs",
-      "bytes": 6719,
-      "sha": "e4094ea279ef"
+      "bytes": 16508,
+      "sha": "ec085b305b97"
     },
     {
       "rel": "scripts/build-live-index.mjs",
-      "bytes": 2636,
-      "sha": "8143cae6fe00"
+      "bytes": 3124,
+      "sha": "3dc30fb17e8f"
     },
     {
       "rel": "scripts/build-memory-outline.mjs",
-      "bytes": 4061,
-      "sha": "3de38962496b"
+      "bytes": 4553,
+      "sha": "f867c2d2e5de"
+    },
+    {
+      "rel": "scripts/build-reply-sense.mjs",
+      "bytes": 2183,
+      "sha": "5fd9adb210b9"
     },
     {
       "rel": "scripts/capture.mjs",
@@ -1562,9 +2407,44 @@
       "sha": "945b13c17436"
     },
     {
+      "rel": "scripts/check-archive-health.mjs",
+      "bytes": 4833,
+      "sha": "85892d6930a6"
+    },
+    {
+      "rel": "scripts/check-context.mjs",
+      "bytes": 4183,
+      "sha": "11f73fb82be5"
+    },
+    {
+      "rel": "scripts/check-dist-sync.mjs",
+      "bytes": 3903,
+      "sha": "e1e1db8c1569"
+    },
+    {
+      "rel": "scripts/check-inject-budget.mjs",
+      "bytes": 1511,
+      "sha": "3764f6ff077d"
+    },
+    {
+      "rel": "scripts/check-notes.mjs",
+      "bytes": 3847,
+      "sha": "ecb428860ae8"
+    },
+    {
       "rel": "scripts/check-protection.mjs",
       "bytes": 2400,
       "sha": "ae691300ba7d"
+    },
+    {
+      "rel": "scripts/check-trace.mjs",
+      "bytes": 12643,
+      "sha": "159bbbea62c6"
+    },
+    {
+      "rel": "scripts/clean-waiting.mjs",
+      "bytes": 1643,
+      "sha": "f3ed7f8325dc"
     },
     {
       "rel": "scripts/core-demo.mjs",
@@ -1603,8 +2483,8 @@
     },
     {
       "rel": "scripts/index-media.mjs",
-      "bytes": 5088,
-      "sha": "be50054cbec0"
+      "bytes": 5585,
+      "sha": "fb1b145b5aff"
     },
     {
       "rel": "scripts/intake-scan.mjs",
@@ -1612,14 +2492,24 @@
       "sha": "842a9986f824"
     },
     {
+      "rel": "scripts/inventory.mjs",
+      "bytes": 7549,
+      "sha": "41be8875a1a2"
+    },
+    {
       "rel": "scripts/judgment.mjs",
-      "bytes": 2515,
-      "sha": "0a05d41ebbc8"
+      "bytes": 3661,
+      "sha": "e02553079b67"
+    },
+    {
+      "rel": "scripts/library-lookup.mjs",
+      "bytes": 9180,
+      "sha": "a387eb5a4e42"
     },
     {
       "rel": "scripts/link-cold-archive.mjs",
-      "bytes": 7275,
-      "sha": "a0579d8ba970"
+      "bytes": 9217,
+      "sha": "aaf1c1d440c2"
     },
     {
       "rel": "scripts/live-check.mjs",
@@ -1632,19 +2522,34 @@
       "sha": "c773ce92a1a3"
     },
     {
+      "rel": "scripts/maintenance.mjs",
+      "bytes": 46637,
+      "sha": "24bb25526c17"
+    },
+    {
       "rel": "scripts/memory-chain.mjs",
       "bytes": 9183,
       "sha": "f16171a0340e"
     },
     {
+      "rel": "scripts/memory-decay.mjs",
+      "bytes": 3079,
+      "sha": "b0552c3e5c5f"
+    },
+    {
+      "rel": "scripts/memory-housekeeping.mjs",
+      "bytes": 6618,
+      "sha": "a770a1444409"
+    },
+    {
       "rel": "scripts/memory-sync.mjs",
-      "bytes": 5208,
-      "sha": "8c0ddf3f933f"
+      "bytes": 8748,
+      "sha": "c2f8d34f29c7"
     },
     {
       "rel": "scripts/memory-tier-audit.mjs",
-      "bytes": 20668,
-      "sha": "66fcb79f2df6"
+      "bytes": 21161,
+      "sha": "2761b9789476"
     },
     {
       "rel": "scripts/merge.mjs",
@@ -1653,13 +2558,23 @@
     },
     {
       "rel": "scripts/note-work.mjs",
-      "bytes": 6295,
-      "sha": "c1c28f7f0f87"
+      "bytes": 8025,
+      "sha": "6f806f8b3193"
     },
     {
       "rel": "scripts/note.mjs",
       "bytes": 1139,
       "sha": "4822d227697c"
+    },
+    {
+      "rel": "scripts/notes-covered.json",
+      "bytes": 6081,
+      "sha": "295d5030dc00"
+    },
+    {
+      "rel": "scripts/offline-ticks.mjs",
+      "bytes": 6068,
+      "sha": "a310e5b52ab6"
     },
     {
       "rel": "scripts/privacy-check.mjs",
@@ -1668,13 +2583,13 @@
     },
     {
       "rel": "scripts/promise-book.mjs",
-      "bytes": 3587,
-      "sha": "89681a6bf6d5"
+      "bytes": 4100,
+      "sha": "7acb27cc8144"
     },
     {
       "rel": "scripts/promise-check.mjs",
-      "bytes": 3708,
-      "sha": "80e39f65312a"
+      "bytes": 4155,
+      "sha": "f2e5a328676b"
     },
     {
       "rel": "scripts/protection.mjs",
@@ -1687,14 +2602,44 @@
       "sha": "9e974566f5d3"
     },
     {
+      "rel": "scripts/recall-ab.mjs",
+      "bytes": 3577,
+      "sha": "1759d367be1b"
+    },
+    {
+      "rel": "scripts/recall-auto.mjs",
+      "bytes": 5495,
+      "sha": "f3578bc0f8f6"
+    },
+    {
       "rel": "scripts/recall-now.mjs",
       "bytes": 1329,
       "sha": "8a002b3a8785"
     },
     {
+      "rel": "scripts/recall-usage.mjs",
+      "bytes": 2286,
+      "sha": "1cb67d89eaaf"
+    },
+    {
+      "rel": "scripts/refine-quality.mjs",
+      "bytes": 16922,
+      "sha": "6f393f8b6111"
+    },
+    {
+      "rel": "scripts/refine.mjs",
+      "bytes": 86624,
+      "sha": "f46d93a81571"
+    },
+    {
+      "rel": "scripts/register-change.mjs",
+      "bytes": 1939,
+      "sha": "23680c797049"
+    },
+    {
       "rel": "scripts/regression.mjs",
-      "bytes": 228359,
-      "sha": "69985d854de0"
+      "bytes": 399117,
+      "sha": "3e815834cad4"
     },
     {
       "rel": "scripts/reindex.mjs",
@@ -1703,18 +2648,23 @@
     },
     {
       "rel": "scripts/restore-drill.mjs",
-      "bytes": 4655,
-      "sha": "ad84c2c05a29"
+      "bytes": 4891,
+      "sha": "5cb68f673ec6"
     },
     {
       "rel": "scripts/restore-to.mjs",
-      "bytes": 4143,
-      "sha": "331864b0323d"
+      "bytes": 4332,
+      "sha": "c52c00c69612"
     },
     {
       "rel": "scripts/say.mjs",
       "bytes": 1240,
       "sha": "c073dc16e99a"
+    },
+    {
+      "rel": "scripts/self-heal.mjs",
+      "bytes": 8203,
+      "sha": "5688e0edd1ce"
     },
     {
       "rel": "scripts/self-note.mjs",
@@ -1733,8 +2683,8 @@
     },
     {
       "rel": "scripts/should-speak.mjs",
-      "bytes": 3672,
-      "sha": "dcf8ae53d290"
+      "bytes": 4151,
+      "sha": "62e9d3b2c243"
     },
     {
       "rel": "scripts/smoke.mjs",
@@ -1757,6 +2707,16 @@
       "sha": "b4522a509b75"
     },
     {
+      "rel": "scripts/tag-audit.mjs",
+      "bytes": 3456,
+      "sha": "047e16ccb184"
+    },
+    {
+      "rel": "scripts/tag-touch.mjs",
+      "bytes": 1995,
+      "sha": "1eb0475a64c6"
+    },
+    {
       "rel": "scripts/test-awakening.mjs",
       "bytes": 3480,
       "sha": "4eeb3ad1e44f"
@@ -1768,8 +2728,8 @@
     },
     {
       "rel": "scripts/test-backup-service.mjs",
-      "bytes": 6705,
-      "sha": "bd0141ddbc9a"
+      "bytes": 6706,
+      "sha": "b505c94cc40b"
     },
     {
       "rel": "scripts/test-bili-observation.mjs",
@@ -1787,6 +2747,11 @@
       "sha": "b308b2e4ac85"
     },
     {
+      "rel": "scripts/test-borrow.mjs",
+      "bytes": 8380,
+      "sha": "14964f5fb5df"
+    },
+    {
       "rel": "scripts/test-capture.mjs",
       "bytes": 2124,
       "sha": "7fb8a289b528"
@@ -1800,6 +2765,11 @@
       "rel": "scripts/test-continuity-delivery.mjs",
       "bytes": 3548,
       "sha": "96a49cb8d257"
+    },
+    {
+      "rel": "scripts/test-decide-gate.mjs",
+      "bytes": 3596,
+      "sha": "6370655da78b"
     },
     {
       "rel": "scripts/test-encoding.mjs",
@@ -1818,13 +2788,23 @@
     },
     {
       "rel": "scripts/test-freetime.mjs",
-      "bytes": 1377,
-      "sha": "e724bb64dafc"
+      "bytes": 3937,
+      "sha": "c70b835d1f1b"
+    },
+    {
+      "rel": "scripts/test-heartbeat-ingest.mjs",
+      "bytes": 9115,
+      "sha": "c07cc75d5a52"
     },
     {
       "rel": "scripts/test-inbox.mjs",
       "bytes": 4669,
       "sha": "3089aedf28bc"
+    },
+    {
+      "rel": "scripts/test-memory-housekeeping.mjs",
+      "bytes": 2520,
+      "sha": "3166a8f00199"
     },
     {
       "rel": "scripts/test-memory-session.mjs",
@@ -1857,6 +2837,11 @@
       "sha": "82714144a4c8"
     },
     {
+      "rel": "scripts/test-notes-coverage.mjs",
+      "bytes": 4904,
+      "sha": "6cdfffc0784e"
+    },
+    {
       "rel": "scripts/test-now.mjs",
       "bytes": 4974,
       "sha": "1076065d07b8"
@@ -1872,9 +2857,14 @@
       "sha": "ccccfd7b5d73"
     },
     {
+      "rel": "scripts/test-query-rewrite.mjs",
+      "bytes": 15534,
+      "sha": "b20351122240"
+    },
+    {
       "rel": "scripts/test-rank.mjs",
-      "bytes": 2093,
-      "sha": "ea657d617c4c"
+      "bytes": 3185,
+      "sha": "141f5a2733a5"
     },
     {
       "rel": "scripts/test-recovery-policy.mjs",
@@ -1887,14 +2877,24 @@
       "sha": "c0d35761dae0"
     },
     {
+      "rel": "scripts/test-refine-quality.mjs",
+      "bytes": 16389,
+      "sha": "5e1ea711ea9d"
+    },
+    {
+      "rel": "scripts/test-relations-extra.mjs",
+      "bytes": 17901,
+      "sha": "ff774db36dcb"
+    },
+    {
       "rel": "scripts/test-repair-helper-install.mjs",
       "bytes": 7510,
       "sha": "479f46b18fd3"
     },
     {
       "rel": "scripts/test-repair-helper-upgrade.mjs",
-      "bytes": 4901,
-      "sha": "1afaf20c9920"
+      "bytes": 5948,
+      "sha": "861ff492ec5c"
     },
     {
       "rel": "scripts/test-repair-lifecycle.mjs",
@@ -1907,9 +2907,24 @@
       "sha": "761d1353edf1"
     },
     {
+      "rel": "scripts/test-reply-sense.mjs",
+      "bytes": 4199,
+      "sha": "f4c176d053e5"
+    },
+    {
       "rel": "scripts/test-runtime.mjs",
       "bytes": 5705,
       "sha": "bd2ef986f84d"
+    },
+    {
+      "rel": "scripts/test-self-push.mjs",
+      "bytes": 5587,
+      "sha": "c905377120aa"
+    },
+    {
+      "rel": "scripts/test-selfcheck-probe.mjs",
+      "bytes": 1667,
+      "sha": "9169f3dd5fa9"
     },
     {
       "rel": "scripts/test-session-governance.mjs",
@@ -1920,6 +2935,11 @@
       "rel": "scripts/test-software-artifacts.mjs",
       "bytes": 10652,
       "sha": "cd1a43983d10"
+    },
+    {
+      "rel": "scripts/test-tags.mjs",
+      "bytes": 5556,
+      "sha": "02dd47adf889"
     },
     {
       "rel": "scripts/test-thoughts.mjs",
@@ -1933,13 +2953,23 @@
     },
     {
       "rel": "scripts/test-versioned-backup.mjs",
-      "bytes": 5002,
-      "sha": "e64d9fc1702f"
+      "bytes": 5762,
+      "sha": "c8f7dee54bb0"
+    },
+    {
+      "rel": "scripts/test-weekly-patrol.mjs",
+      "bytes": 3424,
+      "sha": "4536b6d3e45d"
     },
     {
       "rel": "scripts/thought.mjs",
       "bytes": 1149,
       "sha": "5c294ba2bb08"
+    },
+    {
+      "rel": "scripts/unknown-list.mjs",
+      "bytes": 3278,
+      "sha": "747b37acaecf"
     },
     {
       "rel": "scripts/verify-roles-live.mjs",
@@ -1948,8 +2978,13 @@
     },
     {
       "rel": "scripts/verify-settings.mjs",
-      "bytes": 6493,
-      "sha": "a11ead779254"
+      "bytes": 8381,
+      "sha": "b336954b2eb1"
+    },
+    {
+      "rel": "scripts/weekly-patrol.mjs",
+      "bytes": 10905,
+      "sha": "f6d4b26740fd"
     },
     {
       "rel": "scripts/weights.mjs",
@@ -1965,6 +3000,11 @@
       "rel": "scripts/where.mjs",
       "bytes": 1787,
       "sha": "97f5da47e5d2"
+    },
+    {
+      "rel": "scripts/wiring-audit.mjs",
+      "bytes": 8346,
+      "sha": "e98558ea4006"
     },
     {
       "rel": "sync/full.mjs",
@@ -1983,9 +3023,9 @@
     },
     {
       "rel": "xiaoyu/index.js",
-      "bytes": 7807,
-      "sha": "482fd4d6df3b"
+      "bytes": 8087,
+      "sha": "8e07a2cde8e0"
     }
   ],
-  "totalBytes": 4771550
+  "totalBytes": 18002921
 }

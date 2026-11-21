@@ -1,3 +1,14 @@
+/* 标签
+ * id: lib-memory-audit
+ * kind: module
+ * summary: 记忆审计：谁动了她的记忆都要留一条；大小和最后一条审计对不上就报警。
+ * audience: 她（信任基础）、维护/巡检、面板
+ * owner: 框架；判据（对不上账就算漂移）不许放宽
+ * mutable: 可改（只增记录；别删审计行）
+ * usage: noteWrite 记一次写；recentWrites 看最近；checkDrift 对账（body-loop 每跳在调）
+ * off: 不能关（关了她就不知道谁动过记忆）
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 记忆审计：谁动了她的记忆，必须留一条。
 //

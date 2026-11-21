@@ -1,4 +1,7 @@
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
+// 改｜2026-11-18 01:40｜大鱼·子代理（独立记忆后台页）｜授权：老板（任务书：只做独立记忆后台页，不改 client.js/角色卡）｜index.js:65-72,316-567,691-719,776-784｜新增：GET /api/yushen/memory/overview（只读六块：卡片/事件段/中层/信箱/心跳/压缩/召回/维护，失败项标 unknown）+ GET /yushen-memory 整页（pages/memory-admin.html，无构建、不内嵌令牌）｜为什么：记忆系统状态原来只在侧栏卡片和零散脚本里看，需要一个打开就能看全貌的独立页｜验证：node --check index.js；node scripts/test-memory-admin.mjs 10/10；假 ctx 真 HTTP 探针（页面 200、带令牌 API 200、未授权 401、POST 404、六块 known=true）；真数据只读跑 307ms，关键状态文件 mtime 未变｜可改：可改
+// 改｜2026-11-03 16:52｜大鱼·子会话（文件编辑）｜授权：老板｜index.js:491-512｜新增 /api/yushen/file-edit（能力）、/api/yushen/file-text GET/POST（读/存）、/api/yushen/file-open POST（本机编辑器）｜为什么：右侧预览/diff 只读，保存要有后端接口｜验证：node --check index.js；node scripts/test-file-edit.mjs 12/0（HTTP 契约）｜可改：可改
+// 改｜2026-11-02 23:20｜大鱼·子会话（工作台；父会话 session-bef06908 委派）｜授权：老板（本次任务书：桌宠右键看后台任务）｜index.js:17-20,461-470｜新增：GET /api/yushen/busy 把 busySnapshot() 递给桌宠面板（只读）｜为什么：面板要真实数据，不能在浏览器里另算一份｜验证：node --check index.js 通过；headless Edge 真页面里面板拿到 ok:true 的全量数据（scripts/busy-ui-probe.mjs）；`~/.dsh/dayu/boot.json` 记着插件在 2026-11-02T15:21:53 重载过，DSH 本身没重启｜可改：可改
 // Runtime asset refresh marker: three-role nest assets remain sourced from the linked package.
 // 单入口挂两个子入口：框架 §2.4 的退路。
 // 子路径名 dsh-yushen-twins/dayu 在 DSH 0.1.x 装载器里不认，
@@ -15,6 +18,8 @@ import { createMobileRoutes } from './lib/mobile-routes.js'
 import { transcriptDigest } from './lib/transcript.js'
 import { isAllowed, unauthorized } from './lib/auth.js'
 import { roleList, snapshot, adopt, adoptFile, adoptUrl, adoptGuest, guestFile, removeGuest, rename, restore, move, resolveAvatar, mimeOf } from './lib/nest.js'
+// 桌宠右键那个「现在在忙什么」（只读；数据来自会话事件 / 桥的 lock / 宿主的 schedule.json / 当天账本）
+import { busySnapshot, busyText } from './lib/busy.js'
 // 经验条只认「自己想、自己排、自己做完」的议程条目（老板 2026-10-30 定），这里给它数。
 import { readAgenda, countsForXp } from './lib/agenda.js'
 
@@ -54,10 +59,29 @@ import { helperInfo, installRepairHelper } from './lib/repair-helper-install.js'
 import { matterPreflight, readMatterHistory, listMatters } from './lib/fact-ledger.js'
 let repairLifecycle = null
 import { safePath } from './core/jobs.js'
+// 文件编辑（2026-11-03）：右侧预览/第 N 轮改动都只读，插件面板里补一条能改的路。
+import { readTextResponse, saveTextResponse, openEditorResponse, fileEditCapabilities } from './lib/file-edit.js'
 import { withCreativeMemory } from './lib/creative-memory.js'
+// 2026-11-18：独立记忆后台页（/yushen-memory）的只读数据源。
+// 只读：卡片目录、事件段、中层、信箱、心跳、压缩模式、召回日志、维护状态；这个页面不提供任何写操作。
+import { cardStats } from './memory-core/runtime/cards.js'
+import { readEpisodes } from './memory-core/runtime/episode.js'
+import { dataRoot } from './memory-core/runtime/root.js'
+import { statusOf as memoryStorageStatus } from './memory-core/runtime/control.js'
+import { readHeartbeats, summaryOf, wakeClassOf } from './lib/heartbeat-journal.js'
+import { unreadFor, roleReads } from './lib/inbox.js'
+import { reminderStats } from './lib/turn-ledger.js'
+import { describeMode } from './lib/compaction-mode.js'
+import { describeMode as describeRetrieval, setMode as setRetrievalMode } from './lib/retrieval-mode.js'
+import { recallStats, readRecallLog } from './lib/recall-log.js'
 
 export const name = 'dsh-yushen-twins'
-export const inject = ['webServer', 'sessions']
+// 2026-11-04：安卓上的 DSH 没有网页服务器服务，注入 webServer 会让整个插件装不上
+// （真机实测：0.2.6 装到手机被系统撤销安装）。手机包里把 MOBILE_BUILD 翻成 true，
+// 只注入 sessions，HTTP 路由整段跳过；电脑包保持原样。
+// 改｜2026-11-04 23:02｜大鱼·工作台｜授权：老板｜index.js:66-72,scripts/pack-mobile.mjs:58-68｜修：手机版插件装不上（webServer 必选注入）；手机包改为只注入 sessions 并跳过 HTTP 路由；pack-mobile 自动翻 MOBILE_BUILD｜为什么：安卓 DSH 没有 webServer 服务，必选注入会让插件被撤销安装｜验证：真机 0.2.6-mobile 安装成功、41 个工具、运行中；记忆导入 2411 条；4 张卡逐字节一致｜可改：可改
+const MOBILE_BUILD = false // 打包手机版时由 scripts/pack-mobile.mjs 改成 true
+export const inject = MOBILE_BUILD ? ['sessions'] : ['sessions', 'webServer']
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const SWITCHES = path.join(HOME, 'dayu', 'switches.json')
@@ -238,7 +262,7 @@ function restartHost({ dry = false } = {}) {
     `$log = '${q(log)}'`,
     `$marker = '${q(marker)}'`,
     `$exe = '${q(exe)}'`,
-    "Add-Content -Path $log -Value ((Get-Date).ToString('o') + ' 开始重启')",
+    "Add-Content -Path $log -Value ((Get-Date).ToString('o') + ' restart start')",
     'Start-Sleep -Seconds 2',
     "Get-Process 'DeepSeek Harness' -ErrorAction SilentlyContinue | Stop-Process -Force",
     'Start-Sleep -Seconds 2',
@@ -246,9 +270,9 @@ function restartHost({ dry = false } = {}) {
     'Start-Process -FilePath $exe',
     '$ok = $false',
     'for ($i = 0; $i -lt 90; $i++) { Start-Sleep -Seconds 1; if ((Test-Path $marker) -and ((Get-Item $marker).LastWriteTime -gt $started)) { $ok = $true; break } }',
-    "if ($ok) { Add-Content -Path $log -Value ((Get-Date).ToString('o') + ' 起来了（boot.json 已更新）') } else { Add-Content -Path $log -Value ((Get-Date).ToString('o') + ' 90 秒没起来，停止重试，请运行鱼神修复助手') }",
+    "if ($ok) { Add-Content -Path $log -Value ((Get-Date).ToString('o') + ' restarted ok') } else { Add-Content -Path $log -Value ((Get-Date).ToString('o') + ' 90 秒没起来，停止重试，请运行鱼神修复助手') }",
   ].join('\n')
-  fs.writeFileSync(script, ps, 'utf8')
+  fs.writeFileSync(script, '\uFEFF' + ps, 'utf8')
   try {
     fs.writeFileSync(path.join(dir, 'restart-attempt.json'), JSON.stringify({ at: new Date().toISOString(), exe, script, pid: process.pid, dry }, null, 2), 'utf8')
   } catch { /* 记不下也继续 */ }
@@ -290,6 +314,280 @@ function readJsonBody(req, limit = 12 * 1024 * 1024) {
   })
 }
 
+// ─────────────────────────────────────────────────────────────
+// 记忆后台的只读总览（2026-11-18）
+//   · 给独立页 /yushen-memory 用，不是侧栏卡片；
+//   · **只读**：不建目录、不写游标、不改任何数据（信箱未读也传 day，免得顺手初始化已读位）；
+//   · **不编数**：读得出来就报真数；读不出来的那一项标 unknown 并写明原因，不用 0 冒充；
+//   · 六块：概览（卡片/事件段/中层）/ 信箱 / 心跳 / 压缩 / 召回 / 维护。
+// ─────────────────────────────────────────────────────────────
+const MEMORY_ROLES = Object.freeze(['dayu', 'xiaoyu', 'dragon'])
+
+function oneLineValue(value, max = 160) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
+}
+
+function localDay(ms) {
+  const d = new Date(ms)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/** 读一份 JSON；坏文件/没文件都返回 fallback，不抛。 */
+function readJsonQuiet(file, fallback) {
+  try {
+    let text = fs.readFileSync(file, 'utf8')
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
+    return JSON.parse(text)
+  } catch { return fallback }
+}
+
+/** 数一个目录（递归）里的 jsonl 行：坏行跳过，不计数、不抛。 */
+function countJsonlDir(dir) {
+  let files = 0
+  let rows = 0
+  let queued = 0
+  const walk = (current) => {
+    let entries = []
+    try { entries = fs.readdirSync(current, { withFileTypes: true }) } catch { return }
+    for (const entry of entries) {
+      const full = path.join(current, entry.name)
+      if (entry.isDirectory()) { walk(full); continue }
+      if (!full.endsWith('.jsonl')) continue
+      files += 1
+      let lines = []
+      try { lines = fs.readFileSync(full, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/) } catch { continue }
+      for (const line of lines) {
+        if (!line.trim()) continue
+        let row = null
+        try { row = JSON.parse(line) } catch { continue }
+        rows += 1
+        if (row && row.state === 'queued') queued += 1
+      }
+    }
+  }
+  walk(dir)
+  return { files, rows, queued }
+}
+
+/**
+ * 记忆系统只读总览。任何一块失败都只在结果里标 known:false（带原因），不抛给调用方。
+ * @returns {{ok:true, at:string, day:string, roles:string[], root:string, unknown:object[], cards:object, episodes:object, middle:object, inbox:object, heartbeat:object, compaction:object, recall:object, maintenance:object}}
+ */
+export function memoryOverview({ now = Date.now() } = {}) {
+  const ts = Number(now) || Date.now()
+  const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+  const data = dataRoot(home)
+  const out = {
+    ok: true,
+    at: new Date(ts).toISOString(),
+    day: localDay(ts),
+    roles: [...MEMORY_ROLES],
+    root: data,
+    unknown: [],
+  }
+
+  const block = (name, fn) => {
+    const parts = []
+    try {
+      const value = fn(parts)
+      out[name] = { known: true, ...(value && typeof value === 'object' ? value : {}), unknown: parts }
+    } catch (error) {
+      const reason = oneLineValue(error?.message || error, 300)
+      out.unknown.push({ block: name, reason })
+      out[name] = { known: false, reason, unknown: parts }
+    }
+  }
+  const part = (parts, item, fn, fallback = null) => {
+    try { return fn() } catch (error) {
+      parts.push({ item, reason: oneLineValue(error?.message || error, 300) })
+      return fallback
+    }
+  }
+
+  // 概览①：卡片（按类型/游）、事件段（按角色去重）、中层行数
+  block('cards', () => {
+    const stats = cardStats()
+    return { total: Number(stats?.total) || 0, byKind: stats?.byKind || {}, byTier: stats?.byTier || {} }
+  })
+
+  block('episodes', () => {
+    const byRole = {}
+    let count = 0
+    let versions = 0
+    for (const role of MEMORY_ROLES) {
+      const rows = readEpisodes(role)
+      const ids = new Set(rows.map((row) => String(row?.id || '')).filter(Boolean))
+      byRole[role] = { count: ids.size, versions: rows.length }
+      count += ids.size
+      versions += rows.length
+    }
+    return { count, versions, byRole }
+  })
+
+  block('middle', (parts) => {
+    const main = countJsonlDir(path.join(data, 'library', '中层'))
+    const legacy = part(parts, '手抄本（旧目录）', () => countJsonlDir(path.join(data, 'library', '手抄本')), { files: 0, rows: 0 })
+    return { rows: main.rows, files: main.files, queued: main.queued, legacyRows: legacy.rows, legacyFiles: legacy.files }
+  })
+
+  // 概览②：信箱（QQ 收件箱逐条镜像）——未读按角色算，断档来自镜像游标
+  block('inbox', (parts) => {
+    const inboxRoot = path.join(home, 'dayu', 'inbox')
+    const cursor = readJsonQuiet(path.join(inboxRoot, '.cursor.json'), null)
+    const gaps = Array.isArray(cursor?.gaps) ? cursor.gaps.filter((gap) => gap && typeof gap === 'object') : []
+    const roles = {}
+    let unread = 0
+    let counted = 0
+    for (const role of MEMORY_ROLES) {
+      // 已读位只读；没有已读位 ≠ 全部未读，如实说「还没启用」。
+      const cursorOfRole = part(parts, `${role} 已读位`, () => roleReads(role)?.channels?.qq || null, null)
+      if (!cursorOfRole) {
+        roles[role] = { hasCursor: false, unread: null, note: '还没有已读位（没看过，不算未读）' }
+        continue
+      }
+      // 传 day：unreadFor 有 day 时不会去初始化已读位（只读，不写 .reads.json）。
+      const got = part(parts, `${role} 未读`, () => unreadFor(role, { day: localDay(ts), limit: 1 }), null)
+      if (!got) { roles[role] = { hasCursor: true, unread: null, note: '未读算不出来' }; continue }
+      roles[role] = {
+        hasCursor: true,
+        unread: Number(got.unread) || 0,
+        total: Number(got.total) || 0,
+        via: oneLineValue(got.via, 20),
+        degraded: Boolean(got.degraded),
+      }
+      unread += Number(got.unread) || 0
+      counted += 1
+    }
+    return {
+      unread: counted ? unread : null,
+      gaps: { count: gaps.length, last: gaps.length ? oneLineValue(gaps[gaps.length - 1]?.at, 40) : '' },
+      cursorUpdatedAt: oneLineValue(cursor?.updatedAt, 40),
+      roles,
+    }
+  })
+
+  // 概览③：心跳（今天的逐跳留痕，按角色汇总；落点口径来自 heartbeat-journal 自己）
+  block('heartbeat', (parts) => {
+    const rows = readHeartbeats({ role: '', now: ts, days: 1 })
+    const roles = {}
+    // 按类报数用「今天的全部行」算，跟 lines 同一口径（不按角色各算再相加，免得漏掉没登记角色的行）。
+    const byClass = {}
+    for (const row of rows) {
+      const cls = wakeClassOf(row?.trigger)
+      byClass[cls] = (byClass[cls] || 0) + 1
+    }
+    let produced = 0
+    let idle = 0
+    let unjudged = 0
+    let selfTicks = 0
+    let lastAt = ''
+    for (const role of MEMORY_ROLES) {
+      const summary = part(parts, `${role} 心跳汇总`, () => summaryOf({ role, now: ts }), null)
+      if (!summary) { roles[role] = { known: false }; continue }
+      roles[role] = {
+        known: true,
+        total: Number(summary.total) || 0,
+        selfTicks: Number(summary.selfTicks) || 0,
+        wakes: Number(summary.wakes) || 0,
+        produced: Number(summary.produced) || 0,
+        idle: Number(summary.idle) || 0,
+        // summaryOf 里叫 unknown（还没认定落点）；这里换个名字，免得和「读不出来」混在一起。
+        unjudged: Number(summary.unknown) || 0,
+        spent: Number(summary.spent) || 0,
+        lastAt: oneLineValue(summary.lastAt, 40),
+        nextAt: oneLineValue(summary.nextAt, 40),
+      }
+      produced += Number(summary.produced) || 0
+      idle += Number(summary.idle) || 0
+      unjudged += Number(summary.unknown) || 0
+      selfTicks += Number(summary.selfTicks) || 0
+      if (summary.lastAt && summary.lastAt > lastAt) lastAt = summary.lastAt
+    }
+    return { day: localDay(ts), lines: rows.length, byClass, produced, idle, unjudged, selfTicks, lastAt, roles }
+  })
+
+  // 概览③b：每轮台账的提醒额度（不是每轮催，但每天多少要看得见）
+  block('reminders', (parts) => {
+    const roles = {}
+    let open = 0
+    let explicit = 0
+    let reminded24h = 0
+    let maxPerDay = 0
+    let enabled = true
+    for (const role of [...MEMORY_ROLES, 'workbench']) {
+      const s = part(parts, `${role} 提醒额度`, () => reminderStats(role, { now: ts }), null)
+      if (!s) { roles[role] = null; continue }
+      roles[role] = s
+      open += Number(s.open) || 0
+      explicit += Number(s.explicit) || 0
+      reminded24h += Number(s.reminded24h) || 0
+      maxPerDay = Math.max(maxPerDay, Number(s.maxPerDay) || 0)
+      enabled = s.enabled !== false
+    }
+    return { enabled, maxPerDay, reminded24h, remaining: Math.max(0, maxPerDay - reminded24h), open, explicit, roles }
+  })
+  // 概览④：压缩摘要模式（default / memory / off）
+  block('compaction', () => {
+    const mode = describeMode()
+    return { mode: oneLineValue(mode.mode, 20), label: oneLineValue(mode.label, 40), modes: Array.isArray(mode.modes) ? mode.modes : [] }
+  })
+
+  // 概览⑤：召回（最近 7 天次数/用上次数 + 最近一条）
+  block('recall', (parts) => {
+    const stats = recallStats({ days: 7 })
+    const rows = part(parts, '最近一条召回', () => readRecallLog({ limit: 200 }), [])
+    const last = rows.length ? rows[rows.length - 1] : null
+    return {
+      windowDays: Number(stats.days) || 7,
+      total: Number(stats.total) || 0,
+      used: Number(stats.used) || 0,
+      hitRate: Number(stats.hitRate) || 0,
+      logRows: rows.length,
+      last: last ? {
+        at: oneLineValue(last.at, 40),
+        who: oneLineValue(last.who, 40),
+        query: oneLineValue(last.query, 80),
+        hits: Number(last.hits) || 0,
+        used: oneLineValue(last.used, 20),
+        source: oneLineValue(last.source, 40),
+      } : null,
+    }
+  })
+
+  // 概览⑥：维护（离线维护脚本最后一份总结 + 记忆目录大小；只读）
+  block('maintenance', (parts) => {
+    const file = path.join(data, 'runtime', 'maintenance-last.json')
+    let last = null
+    if (fs.existsSync(file)) {
+      const doc = part(parts, 'maintenance-last.json', () => {
+        let text = fs.readFileSync(file, 'utf8')
+        if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
+        return JSON.parse(text)
+      }, null)
+      if (doc && typeof doc === 'object') {
+        last = {
+          at: oneLineValue(doc.at, 40),
+          ok: doc.ok !== false,
+          ms: Number(doc.ms) || 0,
+          steps: Array.isArray(doc.steps)
+            ? doc.steps.slice(-40).map((step) => ({
+              step: oneLineValue(step?.step, 40),
+              result: oneLineValue(step?.result, 40),
+              ms: Number(step?.ms) || 0,
+            }))
+            : [],
+          lines: Array.isArray(doc.lines) ? doc.lines.slice(-8).map((line) => oneLineValue(line, 200)) : [],
+        }
+      }
+    }
+    const storage = part(parts, '记忆目录大小', () => memoryStorageStatus(), null)
+    return { ran: Boolean(last), last, storage }
+  })
+
+  return out
+}
+
 export async function apply(ctx) {
   const switches = readSwitches()
   // 接宿主：六能力契约。接不上不挡启动（旧路径照跑）。
@@ -303,7 +601,7 @@ export async function apply(ctx) {
   // 入职分析：启动时扫一遍已装插件（只读、失败不影响主流程）。
   setTimeout(() => { try { scanPlugins() } catch { /* 忽略 */ } }, 1500)
 
-  ctx.effect(() => ctx.webServer.register({
+  if (!MOBILE_BUILD) ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: '/yushen-assets',
     handler: async (req, res) => {
@@ -364,7 +662,7 @@ export async function apply(ctx) {
         res.end(fs.readFileSync(file))
         return
       }
-      if (req.method === 'GET' && url.pathname === '/yushen-assets/avatar') {
+if (req.method === 'GET' && url.pathname === '/yushen-assets/avatar') {
         const who = String(url.searchParams.get('who') || '')
         if (!roleList().includes(who)) return sendJson(res, 400, { ok: false, error: `who 只能是 ${roleList().join(' / ')}` })
         const file = resolveAvatar(who)
@@ -381,7 +679,7 @@ export async function apply(ctx) {
   // 桌宠气泡的实时状态：跟一遍会话事件（老宿主没有这条事件也不影响别的功能）
   try { ctx.on('session/event', trackLiveEvent) } catch { /* 没有事件总线就只靠点按冒泡 */ }
 
-  ctx.effect(() => ctx.webServer.register({
+  if (!MOBILE_BUILD) ctx.effect(() => ctx.webServer.register({
     kind: 'exact',
     path: '/api/yushen/live',
     handler: (req, res) => {
@@ -398,7 +696,7 @@ export async function apply(ctx) {
   }), 'yushen: /api/yushen/live')
 
   // 装前认人：本机已经有哪些角色（只读，不改任何文件）
-  ctx.effect(() => ctx.webServer.register({
+  if (!MOBILE_BUILD) ctx.effect(() => ctx.webServer.register({
     kind: 'exact',
     path: '/api/yushen/roles/detect',
     handler: (req, res) => {
@@ -412,6 +710,36 @@ export async function apply(ctx) {
     },
   }), 'yushen: /api/yushen/roles/detect')
 
+  // 独立记忆后台页（2026-11-18）：/yushen-memory 是整页，不是鱼神侧栏里的卡片。
+  // 页面本身是一份静态 HTML（pages/memory-admin.html），不含任何令牌；脚本只同源请求
+  // /api/yushen/memory/overview，靠浏览器自带的 DSH 登录 Cookie 过门。
+  if (!MOBILE_BUILD) {
+    const serveMemoryAdmin = (req, res) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return sendJson(res, 405, { ok: false, error: '只支持 GET' })
+      let html = ''
+      try {
+        const here = path.dirname(fileURLToPath(import.meta.url))
+        html = fs.readFileSync(path.join(here, 'pages', 'memory-admin.html'), 'utf8')
+      } catch (error) {
+        return sendJson(res, 500, { ok: false, error: `页面文件读不了：${String(error?.message || error)}` })
+      }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+      res.end(req.method === 'HEAD' ? undefined : html)
+    }
+    // 一个 prefix + 入口处白名单：带不带结尾斜杠都给同一页；别的 /yushen-memory* 一律 404。
+    ctx.effect(() => ctx.webServer.register({
+      kind: 'prefix',
+      path: '/yushen-memory',
+      handler: (req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1')
+        if (url.pathname !== '/yushen-memory' && url.pathname !== '/yushen-memory/') {
+          return sendJson(res, 404, { ok: false, error: 'unknown' })
+        }
+        return serveMemoryAdmin(req, res)
+      },
+    }), 'yushen: /yushen-memory')
+  }
+
   // 移动端接口：必须注册在 /api/yushen 之前——手机没有 DSH 登录态，只带自己的设备令牌
   // （X-Mobile-Token）。契约见 手机端-设计.md。
   const mobileGateway = createMobileGateway()
@@ -421,7 +749,7 @@ export async function apply(ctx) {
       return String(JSON.parse(fs.readFileSync(path.join(here, 'package.json'), 'utf8')).version || '0.0.0')
     } catch { return '0.0.0' }
   })()
-  ctx.effect(() => ctx.webServer.register({
+  if (!MOBILE_BUILD) ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: '/api/yushen/mobile',
     handler: guard('api/yushen/mobile', createMobileRoutes({
@@ -442,7 +770,7 @@ export async function apply(ctx) {
     }).handler),
   }), 'yushen: /api/yushen/mobile')
 
-  ctx.effect(() => ctx.webServer.register({
+  if (!MOBILE_BUILD) ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: '/api/yushen',
     handler: guard('api/yushen', async (req, res) => {
@@ -457,6 +785,41 @@ export async function apply(ctx) {
       try {
         if (req.method === 'GET' && url.pathname === '/api/yushen/status') {
           return sendJson(res, 200, { ok: true, switches })
+        }
+        // 桌宠右键 →「现在在忙什么」：只读，不写任何状态（见 lib/busy.js 抬头）。
+        if (req.method === 'GET' && url.pathname === '/api/yushen/busy') {
+          try {
+            const snap = busySnapshot()
+            return sendJson(res, 200, { ok: true, ...snap, text: busyText(snap) })
+          } catch (error) {
+            return sendJson(res, 200, { ok: false, error: String(error?.message || error) })
+          }
+        }
+        // 独立记忆后台页（2026-11-18）：只读总览，给 /yushen-memory 用。
+        // 只读：不写任何文件；哪一块读不出来就如实标 unknown（见 memoryOverview）。
+        if (req.method === 'GET' && url.pathname === '/api/yushen/memory/overview') {
+          try {
+            return sendJson(res, 200, memoryOverview())
+          } catch (error) {
+            return sendJson(res, 200, { ok: false, error: String(error?.message || error) })
+          }
+        }
+        if (req.method === 'POST' && url.pathname === '/api/yushen/memory/retrieval') {
+          try {
+            const body = await readJsonBody(req, 4096)
+            const out = setRetrievalMode(body?.mode)
+            return sendJson(res, out.ok === false ? 400 : 200, out)
+          } catch (error) {
+            return sendJson(res, 400, { ok: false, error: String(error?.message || error) })
+          }
+        }        if (req.method === 'POST' && url.pathname === '/api/yushen/memory/reminders') {
+          try {
+            const body = await readJsonBody(req, 4096)
+            const next = writeSwitches({ turnReminder: body?.turnReminder === true })
+            return sendJson(res, 200, { ok: true, turnReminder: next.turnReminder !== false })
+          } catch (error) {
+            return sendJson(res, 400, { ok: false, error: String(error?.message || error) })
+          }
         }
         if (req.method === 'GET' && url.pathname === '/api/yushen/nest') {
           return sendJson(res, 200, { ...snapshot(), selfDone: selfDoneCounts() })
@@ -473,6 +836,28 @@ export async function apply(ctx) {
             const text = fs.readFileSync(full, 'utf8').slice(0, 200 * 1024)
             return sendJson(res, 200, { ok: true, path: full, text })
           } catch (error) { return sendJson(res, 400, { ok: false, error: String(error?.message || error) }) }
+        }
+        // 文件编辑：读（GET）/ 存（POST）。DSH 右侧的「文件」「第 N 轮改动」是预览与 diff，
+        // 组件层没有写接口（workspaceFiles 只有 read/readBytes/stat/list/changes），所以给插件面板一条路。
+        if (req.method === 'GET' && url.pathname === '/api/yushen/file-edit') {
+          return sendJson(res, 200, { ok: true, ...fileEditCapabilities() })
+        }
+        if (req.method === 'GET' && url.pathname === '/api/yushen/file-text') {
+          const out = readTextResponse(url.searchParams.get('path'))
+          return sendJson(res, out.status, out.body)
+        }
+        if (req.method === 'POST' && url.pathname === '/api/yushen/file-text') {
+          let body = {}
+          try { body = await readJsonBody(req) } catch { body = {} }
+          const out = saveTextResponse(body)
+          return sendJson(res, out.status, out.body)
+        }
+        if (req.method === 'POST' && url.pathname === '/api/yushen/file-open') {
+          // 用本机编辑器打开：优先 VS Code / Cursor，找不到就记事本。同样只认 safePath 的根。
+          let body = {}
+          try { body = await readJsonBody(req) } catch { body = {} }
+          const out = openEditorResponse(body)
+          return sendJson(res, out.status, out.body)
         }
         if (req.method === 'POST' && url.pathname === '/api/yushen/upload') {
           // 聊天里发文件：落到 ~/.dsh/dayu/uploads/，只存本机；返回路径给消息卡片用。

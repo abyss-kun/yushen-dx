@@ -1,4 +1,21 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-bili-inbox
+ * kind: module
+ * summary: B站收件里"谁 @ 了我"：读当天 jsonl、挑主人自己那条、落成 runtime 文件；不回复不碰登录态。
+ * tags: B站, 收件, @我, 只读
+ * created: 2026-11-11 01:05:00
+ * changed: 2026-11-11 01:05:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式；2026-11-01 他说"在 B站 @我，我这头得看得见"）
+ * audience: 她、B站 面板、维护者
+ * owner: 框架；只读别人拉好的文件，写只写自己 runtime
+ * mutable: 可改；四条边界（只读当天 jsonl / 只写 runtime / 不回复 / 不碰登录态）不许破
+ * usage: 跑一次 → 把当天 @她的条目抽到 runtime；失败静默
+ * why: 主人在 B站 叫她，她这边要能看见
+ * result: 一份 runtime 摘要文件，不改原始收件
+ */
+// 改｜2026-11-02 16:12｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜lib/bili-inbox.js:20｜B站 收件的日期改走 clock.todayIn（对端口径）｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
 // B站收件里「谁 @ 了我」这一段：读当天文件 / 挑主人自己那条 / 落成 runtime 文件。
 // 2026-11-01 主人：在 B站 @我，我这头得看得见。
 //
@@ -6,13 +23,18 @@
 // 不回复、不发任何东西、不碰 python 的登录态、不在这里调任何 B站 接口。
 import fs from 'node:fs'
 import path from 'node:path'
+import { todayIn } from './clock.js'
+
+// 对端口径：B站 拉取脚本按 +8 命名文件，这里跟着它，否则凌晨 0–8 点读不到当天那份。
+// 改它之前先改对端（python），别只改这一头。
+const BILI_ZONE = String(process.env.BILI_INBOX_TZ || 'Asia/Shanghai')
 
 /**
  * B站 那边的日期口径。python 用 `datetime.now(timezone(timedelta(hours=8)))` 命名文件，
  * 这里必须按同一个时区算：用 toISOString() 直接切在凌晨 0–8 点会差一天，读不到当天的文件。
  */
 export function atDate(ms = Date.now()) {
-  return new Date(ms + 8 * 3600e3).toISOString().slice(0, 10)
+  return todayIn(BILI_ZONE, ms)
 }
 
 /** 当天的 @我 收件箱：<home>/dayu/inbox/bili-at-<日期>.jsonl */

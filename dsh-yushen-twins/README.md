@@ -127,6 +127,7 @@ node node_modules/dsh-yushen-twins/scripts/restore-to.mjs --at "2026-10-31 18:10
 - 第一次用：[新用户第一页](docs/新用户第一页.md)
 - 安装与卸载：[安装说明](docs/安装说明.md)、[卸载与升级](docs/卸载与升级.md)
 - 记忆：[记忆分级](docs/记忆分级.md)
+- 时间：[时间](docs/时间.md)（一律用系统时间，唯一入口 `lib/clock.js`；系统时区不是东八区、要固定北京时间就设 `YUSHEN_TZ`）
 - 点化与收回：[点化与收回](docs/点化与收回.md)、[运行时契约](docs/点化-运行时契约.md)
 - 备份与恢复：[还原演练](docs/还原演练.md)、[备份分层](docs/备份分层.md)
 - 坏了：[故障档案](docs/故障档案.md)
@@ -135,6 +136,6 @@ node node_modules/dsh-yushen-twins/scripts/restore-to.mjs --at "2026-10-31 18:10
 
 ## 来源与署名
 
-本项目基于 鱼神双子星（https://github.com/abyss-kun/yushen）。
+本项目基于 鱼神双子星（https://github.com/abyss-kun/yushen-dx）。
 
 引用、介绍、做视频，保留这一句就行。改过、发过、做成服务，按 [LICENSE](LICENSE) 公开源码并注明来源。

@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-offsite
+ * kind: module
+ * summary: 离线快照：把关键数据定期拷到另一块盘（比如 E:），并清掉太老的
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: localExtraRoots / fullRoots / runFullBackup / runOffsiteBackup（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 改｜2026-10-31 10:58｜小鱼·工作台｜授权：自己｜lib/offsite.js:11-60 DEFAULT_ROOTS、:37 fullRoots、:69 空 rel 跳过；同批在 scripts/regression.mjs 末尾新增第 103 条断言（只加，没删改任何已有断言）｜备份清单补上宪章/认老板/常住绑定/契约/账本/信箱/公告栏/会话存档；空 root 不再吞整个家｜为什么：今天 16:11 家被清一次，恢复完发现宪章/认老板/常住绑定/契约/账本/信箱/公告栏/会话存档从来没进过任何备份；另 qqBridgeRoot() 返回空时 path.join(home,'') 会把整个 ~/.dsh 平铺进备份根｜可改：清单可增可删（家里添东西就补一行）；filter(Boolean) 与空 rel 跳过不许删
 // 离线快照：把关键数据定期拷到另一块盘（比如 E:），并清掉太老的。
@@ -9,6 +20,17 @@ import crypto from 'node:crypto'
 import { packageRoot, offsiteDir, qqBridgeRoot, treasureDir } from './paths.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+
+// 2026-11-03（老板问「每 10 分钟保存有没有保存鱼神框架整个插件」）：机器上还有插件仓库之外的
+// 文档目录（作者机上是 D:\DSH\大小鱼\鱼神框架），它不属于 packageRoot()，从没进过任何备份。
+// 机器相关的额外根写在本地配置里，不进出厂包：~/.dsh/dayu/backup-roots.json = { "extra": ["<某个绝对路径>"] }
+export function localExtraRoots(home = HOME) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(home, 'dayu', 'backup-roots.json'), 'utf8').replace(/^\uFEFF/, ''))
+    const list = Array.isArray(raw?.extra) ? raw.extra : []
+    return list.filter((p) => typeof p === 'string' && p && path.isAbsolute(p) && fs.existsSync(p))
+  } catch { return [] }
+}
 
 export const DEFAULT_ROOTS = [
   'dayu/soul',
@@ -77,7 +99,7 @@ const EXCLUDE = /[\\/](node_modules|\.git|dist|\.cache)[\\/]|\.log$/i
 export function fullRoots() {
   // filter(Boolean) 不是洁癖：qqBridgeRoot() 找不到桥时返回 ''，而 path.join(home, '') 就是 home 本身——
   // 那样会把整个 ~/.dsh（连 api-token 一起）平铺进备份根目录，manifest 里还记成 rel:''。
-  return [...DEFAULT_ROOTS, 'dayu/protection', 'dayu/avatars', qqBridgeRoot(), treasureDir()].filter(Boolean)
+  return [...DEFAULT_ROOTS, 'dayu/protection', 'dayu/avatars', qqBridgeRoot(), treasureDir(), ...localExtraRoots()].filter(Boolean)
 }
 
 export function runFullBackup({ target = path.join(offsiteDir(), 'FULL'), keep = 3, now = new Date(), dryRun = false } = {}) {
@@ -89,19 +111,34 @@ function stamp(d = new Date()) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
 }
 
-function countFiles(dir) {
+// 2026-11-03：这个计数以前只认目录——单文件根（charter.json 之类）readdirSync 抛 ENOTDIR 被吞成 0/0；
+// 也不套 EXCLUDE，把 cpSync 根本没拷的 node_modules/.git/dist 一起算进 manifest。
+// 实测：manifest 说 24665 个文件、磁盘上只有 13322 个（差 11364 是跳过项，另 20 个单文件根记 0）。
+// 现在：按文件递归、跟 cpSync 的 filter 用同一个 EXCLUDE 口径，单文件根也算 1。
+function countFiles(target, skip = () => false) {
   let files = 0, bytes = 0
-  try {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, e.name)
-      if (e.isDirectory()) { const s = countFiles(full); files += s.files; bytes += s.bytes } else if (e.isFile()) { files += 1; bytes += fs.statSync(full).size }
+  const walk = (p) => {
+    let st
+    try { st = fs.statSync(p) } catch { return }
+    if (st.isFile()) {
+      if (skip(p)) return
+      files += 1
+      bytes += st.size
+      return
     }
-  } catch { /* 读不了跳过 */ }
+    if (!st.isDirectory()) return
+    let entries = []
+    try { entries = fs.readdirSync(p, { withFileTypes: true }) } catch { return }
+    for (const e of entries) walk(path.join(p, e.name))
+  }
+  walk(target)
   return { files, bytes }
 }
 
 /** 跑一次：拷到 target/<时间戳>/，写 manifest，按 keep 清旧。 */
-export function runOffsiteBackup({ target = offsiteDir(), keep = 14, roots = DEFAULT_ROOTS, home = HOME, now = new Date(), dryRun = false } = {}) {
+export function runOffsiteBackup({ target = offsiteDir(), keep = 14, roots = null, home = HOME, now = new Date(), dryRun = false } = {}) {
+  // 不传 roots 就用默认清单 + 本地额外根（backup-roots.json；机器相关，不进出厂包）
+  const list = roots || [...DEFAULT_ROOTS, ...localExtraRoots(home)]
   const exists = fs.existsSync(target)
   if (!exists) {
     if (!dryRun) {
@@ -111,7 +148,7 @@ export function runOffsiteBackup({ target = offsiteDir(), keep = 14, roots = DEF
   const dir = path.join(target, stamp(now))
   if (!dryRun) fs.mkdirSync(dir, { recursive: true })
   const copied = []
-  for (const rel of roots) {
+  for (const rel of list) {
     // 空串不是「根目录」，是没找到：跳过，别让 path.join(home, '') 把整个家备份成一份。
     if (!rel) continue
     const absolute = path.isAbsolute(rel)
@@ -122,7 +159,8 @@ export function runOffsiteBackup({ target = offsiteDir(), keep = 14, roots = DEF
       fs.mkdirSync(path.dirname(dst), { recursive: true })
       fs.cpSync(src, dst, { recursive: true, filter: (from) => !EXCLUDE.test(from) })
     }
-    const s = countFiles(src)
+    // 跟上一行 cpSync 的 filter 同一口径，manifest 的数才对得上磁盘
+    const s = countFiles(src, (p) => EXCLUDE.test(p))
     copied.push({ rel: absolute ? `extra/${path.basename(rel)}` : rel, files: s.files, bytes: s.bytes })
   }
   const manifest = {

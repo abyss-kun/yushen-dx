@@ -1,4 +1,4 @@
-// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+﻿// Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 还原演练：把最新一份保护快照还原到隔离家目录，验证"她能不能被救回来"。
 //
 // 为什么要有这个：2026-10-31 老板点出——做了备份却从没验证过能不能还原；
@@ -19,7 +19,9 @@ import { pathToFileURL, fileURLToPath } from 'node:url'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const P = path.resolve(here, '..')
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
-const store = path.join(HOME, 'dayu', 'protection', 'store')
+// 2026-11-08：库跟着配置走（搬过 D 盘，写死家目录会以为没快照）。
+const CFG = JSON.parse(fs.readFileSync(path.join(HOME, 'dayu', 'protection', 'config.json'), 'utf8').replace(/^\\\\uFEFF/, ''))
+const store = CFG.store || path.join(HOME, 'dayu', 'protection', 'store')
 const cfg = JSON.parse(fs.readFileSync(path.join(HOME, 'dayu', 'protection', 'config.json'), 'utf8').replace(/^\uFEFF/, ''))
 
 const args = process.argv.slice(2)

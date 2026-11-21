@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>记忆后台 · 鱼神双子星</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --ink: #1f2933;
+    --muted: #66727f;
+    --line: #e3e8ee;
+    --accent: #2f6fed;
+    --warn: #a15c00;
+    --warn-bg: #fff6e5;
+    --bad: #b42318;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(244, 246, 248, 0.95);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px 10px;
+    backdrop-filter: blur(6px);
+  }
+  .head-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 19px; letter-spacing: 0.5px; }
+  .sub { color: var(--muted); font-size: 12.5px; }
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+  .toolbar .spacer { flex: 1; }
+  button {
+    font: inherit;
+    font-size: 13px;
+    padding: 5px 14px;
+    color: #fff;
+    background: var(--accent);
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.07); }
+  button:disabled { opacity: 0.55; cursor: default; }
+  main { max-width: 1080px; margin: 0 auto; padding: 16px 20px 40px; display: grid; gap: 14px; }
+  section.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+  }
+  section.card > h2 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  section.card > h2 .hint { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .tile { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fbfcfd; }
+  .tile-label { color: var(--muted); font-size: 12px; }
+  .tile-value { font-size: 20px; font-weight: 600; margin-top: 2px; word-break: break-all; }
+  .tile-sub { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  table.kv { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  table.kv th, table.kv td { text-align: left; padding: 6px 8px; border-bottom: 1px dashed var(--line); vertical-align: top; }
+  table.kv tr:last-child th, table.kv tr:last-child td { border-bottom: 0; }
+  table.kv th { width: 34%; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  table.kv td { word-break: break-word; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+  .chip {
+    display: inline-block;
+    border: 1px solid var(--line);
+    background: #fbfcfd;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .chip.current { border-color: var(--accent); color: var(--accent); background: #eef4ff; }
+  .muted { color: var(--muted); }
+  .warn {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--warn-bg);
+    border: 1px solid #f2d6a8;
+    color: var(--warn);
+    font-size: 12.5px;
+  }
+  .banner { margin: 0 0 2px; }
+  .list { margin: 8px 0 0; padding-left: 18px; color: var(--ink); font-size: 12.5px; }
+  .list li { margin: 2px 0; }
+  code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
+  footer { max-width: 1080px; margin: 0 auto; padding: 0 20px 30px; color: var(--muted); font-size: 12px; }
+  footer code { color: var(--ink); }
+  .empty-note { color: var(--muted); font-size: 12.5px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-row">
+    <h1>记忆后台</h1>
+    <span class="sub">独立页面 · 只读总览（不改数据、不写记忆）</span>
+  </div>
+  <div class="toolbar">
+    <span id="status">还没有读取</span>
+    <span id="at"></span>
+    <span class="spacer"></span>
+    <button id="refresh" type="button">刷新</button>
+  </div>
+</header>
+
+<main>
+  <div id="banner" class="banner hidden"></div>
+
+  <section class="card" id="blk-overview">
+    <h2>概览 <span class="hint">卡片 / 事件段 / 中层 / 信箱 / 心跳 / 压缩 / 召回 / 维护</span></h2>
+    <div class="body"><p class="empty-note">正在读取…</p></div>
+  </section>
+
+  <section class="card" id="blk-inbox">
+    <h2>信箱 <span class="hint">QQ 收件箱逐条镜像 · 未读位按角色</span></h2>
+    <div class="body"><p class="empty-note">正在读取…</p></div>
+  </section>
+
+  <section class="card" id="blk-heartbeat">
+    <h2>心跳 <span class="hint">今天的逐跳留痕 · 只报数不解释</span></h2>
+    <div class="body"><p class="empty-note">正在读取…</p></div>
+  </section>
+
+  <section class="card" id="blk-reminders">
+    <h2>提醒额度 <span class="hint">每轮台账 · 今天还能提醒几条</span></h2>
+    <div class="body"><p class="empty-note">正在读取…</p></div>
+  </section>
+
+  <section class="card" id="blk-retrieval">
+    <h2>检索模式 <span class="hint">默认本地词频 · 小模型只登记地址，不自动下载</span></h2>
+    <div class="body"><p class="empty-note">正在读取…</p></div>
+  </section>
+  <section class="card" id="blk-compaction">
+    <h2>压缩 <span class="hint">会话摘要三档</span></h2>
+    <div class="body"><p class="empty-note">正在读取…</p></div>
+  </section>
+
+  <section class="card" id="blk-recall">
+    <h2>召回 <span class="hint">最近 7 天检索与用上情况</span></h2>
+    <div class="body"><p class="empty-note">正在读取…</p></div>
+  </section>
+
+  <section class="card" id="blk-maintenance">
+    <h2>维护 <span class="hint">离线维护脚本最后一份总结 · 记忆目录大小</span></h2>
+    <div class="body"><p class="empty-note">正在读取…</p></div>
+  </section>
+</main>
+
+<footer>
+  <div>接口：<code>/api/yushen/memory/overview</code> · 页面：<code>/yushen-memory</code></div>
+  <div id="root" class="muted"></div>
+</footer>
+
+<noscript><p style="padding:0 20px">这个页面需要浏览器执行脚本才能读取后台状态。</p></noscript>
+
+<script>
+(function () {
+  'use strict'
+
+  // 只读接口。页面不保存、不内嵌任何令牌：同源请求靠浏览器自带的 DSH 登录态过门。
+  var ENDPOINT = '/api/yushen/memory/overview'
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag)
+    if (className) node.className = className
+    if (text !== undefined && text !== null) node.textContent = String(text)
+    return node
+  }
+
+  function clear(node) {
+    while (node.firstChild) node.removeChild(node.firstChild)
+  }
+
+  function bodyOf(id) {
+    var section = document.getElementById(id)
+    return section ? section.querySelector('.body') : null
+  }
+
+  function num(value) {
+    if (typeof value === 'number' && isFinite(value)) return value.toLocaleString('zh-CN')
+    if (value === null || value === undefined || value === '') return '—'
+    return String(value)
+  }
+
+  function when(value) {
+    if (!value) return '—'
+    var t = Date.parse(value)
+    if (!isFinite(t)) return String(value)
+    return new Date(t).toLocaleString('zh-CN', { hour12: false })
+  }
+
+  function pct(value) {
+    if (typeof value !== 'number' || !isFinite(value)) return '—'
+    return (value * 100).toFixed(1) + '%'
+  }
+
+  function table(rows) {
+    var t = el('table', 'kv')
+    rows.forEach(function (row) {
+      var tr = el('tr')
+      tr.appendChild(el('th', '', row[0]))
+      tr.appendChild(el('td', '', row[1]))
+      t.appendChild(tr)
+    })
+    return t
+  }
+
+  function knownOrWarn(container, block) {
+    if (!block) {
+      container.appendChild(el('div', 'warn', '未知：接口没有返回这一块'))
+      return false
+    }
+    if (block.known === false) {
+      container.appendChild(el('div', 'warn', '未知：' + (block.reason || '读不出来')))
+      return false
+    }
+    return true
+  }
+
+  function noteUnknown(container, block) {
+    var parts = block && Array.isArray(block.unknown) ? block.unknown : []
+    if (!parts.length) return
+    var text = parts.map(function (p) {
+      return p.item + '（' + p.reason + '）'
+    }).join('；')
+    container.appendChild(el('div', 'warn', '未能读取：' + text))
+  }
+
+  function renderOverview(data) {
+    var body = bodyOf('blk-overview')
+    if (!body) return
+    clear(body)
+    var cardsKnown = Boolean(data.cards && data.cards.known !== false)
+    var hbKnown = Boolean(data.heartbeat && data.heartbeat.known !== false)
+    if (!data.cards) body.appendChild(el('div', 'warn', '未知：接口没有返回卡片块'))
+    else if (!cardsKnown) body.appendChild(el('div', 'warn', '未知：' + (data.cards.reason || '卡片读不出来')))
+    if (!data.heartbeat) body.appendChild(el('div', 'warn', '未知：接口没有返回心跳块'))
+    else if (!hbKnown) body.appendChild(el('div', 'warn', '未知：' + (data.heartbeat.reason || '心跳读不出来')))
+
+    var unread = null
+    if (data.inbox && data.inbox.known !== false) {
+      var vals = Object.keys(data.inbox.roles || {}).map(function (role) {
+        var v = data.inbox.roles[role] && data.inbox.roles[role].unread
+        return typeof v === 'number' ? v : null
+      }).filter(function (v) { return v !== null })
+      unread = vals.length ? vals.reduce(function (a, b) { return a + b }, 0) : null
+    }
+
+    var grid = el('div', 'grid')
+    function tile(label, value, sub) {
+      var t = el('div', 'tile')
+      t.appendChild(el('div', 'tile-label', label))
+      t.appendChild(el('div', 'tile-value', value))
+      if (sub) t.appendChild(el('div', 'tile-sub', sub))
+      return t
+    }
+
+    grid.appendChild(tile('卡片（在用）', cardsKnown ? num(data.cards.total) : '未知', cardsKnown ? Object.keys(data.cards.byKind || {}).length + ' 类' : ''))
+    grid.appendChild(tile('事件段', data.episodes && data.episodes.known ? num(data.episodes.count) : '未知', data.episodes && data.episodes.known ? '共 ' + num(data.episodes.versions) + ' 行版本' : ''))
+    grid.appendChild(tile('中层行', data.middle && data.middle.known ? num(data.middle.rows) : '未知', data.middle && data.middle.known ? '待提炼 ' + num(data.middle.queued) + ' 行' : ''))
+    grid.appendChild(tile('信箱未读', unread === null ? '未知' : num(unread), data.inbox && data.inbox.known ? '断档 ' + num(data.inbox.gaps && data.inbox.gaps.count) + ' 处' : ''))
+    grid.appendChild(tile('今日心跳', hbKnown ? num(data.heartbeat.lines) : '未知', hbKnown ? '有产出 ' + num(data.heartbeat.produced) + ' / 空转 ' + num(data.heartbeat.idle) : ''))
+    grid.appendChild(tile('压缩模式', data.compaction && data.compaction.known ? data.compaction.label : '未知', ''))
+    grid.appendChild(tile('近 7 天召回', data.recall && data.recall.known ? num(data.recall.total) + ' 次' : '未知', data.recall && data.recall.known ? '用上 ' + num(data.recall.used) + ' 次' : ''))
+    var maint = data.maintenance && data.maintenance.known ? data.maintenance : null
+    grid.appendChild(tile('维护', maint && maint.ran ? (maint.last && maint.last.ok ? '正常' : '有问题') : (maint ? '未跑过' : '未知'), maint && maint.ran && maint.last ? when(maint.last.at) : ''))
+    body.appendChild(grid)
+
+    if (data.cards && data.cards.known) {
+      var chips = el('div', 'chips')
+      Object.keys(data.cards.byKind || {}).sort().forEach(function (kind) {
+        chips.appendChild(el('span', 'chip', kind + ' · ' + num(data.cards.byKind[kind])))
+      })
+      Object.keys(data.cards.byTier || {}).sort().forEach(function (tier) {
+        chips.appendChild(el('span', 'chip', '游 ' + tier + ' · ' + num(data.cards.byTier[tier])))
+      })
+      if (chips.childNodes.length) body.appendChild(chips)
+    }
+    noteUnknown(body, data.cards)
+    noteUnknown(body, data.episodes)
+    noteUnknown(body, data.middle)
+    noteUnknown(body, data.heartbeat)
+  }
+
+  function renderInbox(data) {
+    var body = bodyOf('blk-inbox')
+    if (!body) return
+    clear(body)
+    if (!knownOrWarn(body, data.inbox)) return
+    var inbox = data.inbox
+    body.appendChild(table([
+      ['未读合计', inbox.unread === null ? '未知（还没有可用的已读位）' : num(inbox.unread)],
+      ['断档', num(inbox.gaps && inbox.gaps.count) + ' 处' + (inbox.gaps && inbox.gaps.last ? '（最近 ' + when(inbox.gaps.last) + '）' : '')],
+      ['镜像游标', inbox.cursorUpdatedAt ? when(inbox.cursorUpdatedAt) : '还没有（没镜像过）']
+    ]))
+    var roles = inbox.roles || {}
+    var roleRows = Object.keys(roles).map(function (role) {
+      var r = roles[role] || {}
+      if (r.hasCursor === false) return [role, '没有已读位：' + (r.note || '')]
+      if (r.unread === null || r.unread === undefined) return [role, '未知：' + (r.note || '算不出来')]
+      var bits = ['未读 ' + num(r.unread), '窗口 ' + num(r.total) + ' 条', '定位 ' + (r.via || '—')]
+      if (r.degraded) bits.push('已读位异常（degraded）')
+      return [role, bits.join(' · ')]
+    })
+    if (roleRows.length) {
+      body.appendChild(el('div', 'muted', '按角色：'))
+      body.appendChild(table(roleRows))
+    }
+    noteUnknown(body, inbox)
+  }
+
+  function renderHeartbeat(data) {
+    var body = bodyOf('blk-heartbeat')
+    if (!body) return
+    clear(body)
+    if (!knownOrWarn(body, data.heartbeat)) return
+    var hb = data.heartbeat
+    body.appendChild(table([
+      ['今天', hb.day || '—'],
+      ['留痕行数', num(hb.lines)],
+      ['自省（体跳）', num(hb.selfTicks)],
+      ['醒（有产出/空转/待认定）', num(hb.produced) + ' / ' + num(hb.idle) + ' / ' + num(hb.unjudged)],
+      ['最近一跳', hb.lastAt ? when(hb.lastAt) : '—']
+    ]))
+    var classes = Object.keys(hb.byClass || {})
+    if (classes.length) {
+      var chips = el('div', 'chips')
+      classes.forEach(function (cls) {
+        chips.appendChild(el('span', 'chip', cls + ' · ' + num(hb.byClass[cls])))
+      })
+      body.appendChild(chips)
+    }
+    var roles = hb.roles || {}
+    var rows = Object.keys(roles).map(function (role) {
+      var r = roles[role] || {}
+      if (r.known === false) return [role, '未知：汇总失败']
+      return [role, '共 ' + num(r.total) + ' 跳 · 体跳 ' + num(r.selfTicks) + ' · 有产出 ' + num(r.produced) + ' · 空转 ' + num(r.idle) + ' · 待认定 ' + num(r.unjudged) + (r.nextAt ? ' · 下一跳约 ' + when(r.nextAt) : '')]
+    })
+    if (rows.length) body.appendChild(table(rows))
+    noteUnknown(body, hb)
+  }
+
+  function renderReminders(data) {
+    var body = bodyOf('blk-reminders')
+    if (!body) return
+    clear(body)
+    if (!knownOrWarn(body, data.reminders)) return
+    var r = data.reminders
+    var toggle = el('button', '', r.enabled ? '当轮提醒：开（点击关闭）' : '当轮提醒：关（点击开启）')
+    toggle.type = 'button'
+    toggle.onclick = function () {
+      toggle.disabled = true
+      fetch('/api/yushen/memory/reminders', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ turnReminder: !r.enabled })
+      }).then(function (res) { return res.json() }).then(function (out) {
+        if (!out || out.ok === false) throw new Error((out && out.error) || '保存失败')
+        location.reload()
+      }).catch(function (err) {
+        toggle.disabled = false
+        alert('保存失败：' + (err && err.message ? err.message : err))
+      })
+    }
+    body.appendChild(toggle)
+    body.appendChild(table([
+      ['每日上限', r.unlimited ? '不限' : num(r.maxPerDay) + ' 条'],
+      ['24 小时已提醒', num(r.reminded24h) + ' 条'],
+      ['今天还剩', r.unlimited ? '不限' : num(r.remaining) + ' 条'],
+      ['未闭合', num(r.open) + ' 条（明确 ' + num(r.explicit) + '）']
+    ]))
+    var roles = r.roles || {}
+    var rows = Object.keys(roles).map(function (role) {
+      var x = roles[role]
+      if (!x) return [role, '未知']
+      return [role, '上限 ' + (x.unlimited ? '不限' : num(x.maxPerDay)) + ' · 已提醒 ' + num(x.reminded24h) + ' · 剩余 ' + (x.unlimited ? '不限' : num(x.remaining)) + ' · 未闭合 ' + num(x.open)]
+    })
+    if (rows.length) body.appendChild(table(rows))
+    noteUnknown(body, r)
+  }
+
+  function renderRetrieval(data) {
+    var body = bodyOf('blk-retrieval')
+    if (!body) return
+    clear(body)
+    if (!knownOrWarn(body, data.retrieval)) return
+    var r = data.retrieval
+    var bar = el('div', 'chips')
+    ;(r.modes || []).forEach(function (m) {
+      var b = el('button', '', (m.mode === r.mode ? '✓ ' : '') + m.label)
+      b.type = 'button'
+      b.disabled = m.mode === r.mode
+      b.onclick = function () {
+        b.disabled = true
+        fetch('/api/yushen/memory/retrieval', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ mode: m.mode })
+        }).then(function (res) { return res.json() }).then(function (out) {
+          if (!out || out.ok === false) throw new Error((out && (out.why || out.error)) || '保存失败')
+          location.reload()
+        }).catch(function (err) {
+          b.disabled = false
+          alert('保存失败：' + (err && err.message ? err.message : err))
+        })
+      }
+      bar.appendChild(b)
+    })
+    body.appendChild(bar)
+    body.appendChild(table([
+      ['当前', r.label || r.mode],
+      ['小模型', r.embeddingInstalled ? '已安装' : '未安装（只登记地址）'],
+      ['模型地址', r.modelUrl || '—'],
+      ['说明', r.note || '—']
+    ]))
+    noteUnknown(body, r)
+  }
+  function renderCompaction(data) {
+    var body = bodyOf('blk-compaction')
+    if (!body) return
+    clear(body)
+    if (!knownOrWarn(body, data.compaction)) return
+    var c = data.compaction
+    body.appendChild(table([
+      ['当前', c.label || c.mode || '—'],
+      ['取值', c.mode || '—']
+    ]))
+    var modes = Array.isArray(c.modes) ? c.modes : []
+    if (modes.length) {
+      var chips = el('div', 'chips')
+      modes.forEach(function (m) {
+        var chip = el('span', 'chip' + (m.mode === c.mode ? ' current' : ''), m.label + '（' + m.mode + '）')
+        chips.appendChild(chip)
+      })
+      body.appendChild(chips)
+    }
+    noteUnknown(body, c)
+  }
+
+  function renderRecall(data) {
+    var body = bodyOf('blk-recall')
+    if (!body) return
+    clear(body)
+    if (!knownOrWarn(body, data.recall)) return
+    var r = data.recall
+    body.appendChild(table([
+      ['窗口', num(r.windowDays) + ' 天'],
+      ['检索次数', num(r.total)],
+      ['用上次数', num(r.used)],
+      ['命中率（用上/检索）', pct(r.hitRate)],
+      ['日志行数', num(r.logRows)]
+    ]))
+    if (r.last) {
+      body.appendChild(el('div', 'muted', '最近一条：'))
+      body.appendChild(table([
+        ['时间', when(r.last.at)],
+        ['谁', r.last.who || '—'],
+        ['查了什么', r.last.query || '—'],
+        ['命中', num(r.last.hits) + ' 条'],
+        ['用上没', r.last.used || '还没核对'],
+        ['来源', r.last.source || '—']
+      ]))
+    } else {
+      body.appendChild(el('p', 'empty-note', '还没有检索日志。'))
+    }
+    noteUnknown(body, r)
+  }
+
+  function bytes(value) {
+    var n = Number(value)
+    if (!isFinite(n) || n < 0) return '—'
+    if (n < 1024) return n + ' B'
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'
+    if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB'
+    return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+  }
+
+  function renderMaintenance(data) {
+    var body = bodyOf('blk-maintenance')
+    if (!body) return
+    clear(body)
+    if (!knownOrWarn(body, data.maintenance)) return
+    var m = data.maintenance
+    if (m.ran && m.last) {
+      body.appendChild(table([
+        ['上次总结', when(m.last.at)],
+        ['结果', m.last.ok ? '正常' : '有失败步骤'],
+        ['用时', num(Math.round((m.last.ms || 0) / 1000)) + ' 秒'],
+        ['步骤数', num((m.last.steps || []).length)]
+      ]))
+      if ((m.last.steps || []).length) {
+        var chips = el('div', 'chips')
+        m.last.steps.forEach(function (step) {
+          chips.appendChild(el('span', 'chip' + (step.result === 'failed' ? ' current' : ''), step.step + '：' + step.result))
+        })
+        body.appendChild(chips)
+      }
+      if ((m.last.lines || []).length) {
+        body.appendChild(el('div', 'muted', '这一轮说了什么：'))
+        var list = el('ul', 'list')
+        m.last.lines.forEach(function (line) {
+          list.appendChild(el('li', '', line))
+        })
+        body.appendChild(list)
+      }
+    } else {
+      body.appendChild(el('p', 'empty-note', '还没跑过维护脚本（或者这一轮还没写总结）。'))
+    }
+    if (m.storage && typeof m.storage === 'object') {
+      var s = m.storage
+      body.appendChild(el('div', 'muted', '记忆目录：'))
+      body.appendChild(table([
+        ['本源（live/raw）', num(s.source && s.source.turns) + ' 个文件 · ' + bytes(s.source && s.source.bytes)],
+        ['归档（archive）', num(s.archive && s.archive.files) + ' 个文件 · ' + bytes(s.archive && s.archive.bytes)],
+        ['投影（live）', num(s.projection && s.projection.turnDays) + ' 天 · ' + bytes(s.projection && s.projection.bytes)],
+        ['待提炼', num(s.pending && s.pending.files) + ' 个文件 · ' + bytes(s.pending && s.pending.bytes)],
+        ['在用', num(s.inuse && s.inuse.files) + ' 个文件 · ' + bytes(s.inuse && s.inuse.bytes)],
+        ['最后写入', s.lastAt ? when(s.lastAt) : '—']
+      ]))
+    }
+    noteUnknown(body, m)
+  }
+
+  function renderBanner(data) {
+    var box = document.getElementById('banner')
+    if (!box) return
+    clear(box)
+    var items = Array.isArray(data.unknown) ? data.unknown : []
+    box.className = items.length ? 'banner' : 'banner hidden'
+    if (!items.length) return
+    box.appendChild(el('div', 'warn', '这几块没读出来（其余照常）：' + items.map(function (x) { return x.block + '（' + x.reason + '）' }).join('；')))
+  }
+
+  function render(data) {
+    renderBanner(data)
+    renderOverview(data)
+    renderInbox(data)
+    renderHeartbeat(data)
+    renderReminders(data)
+    renderRetrieval(data)
+    renderCompaction(data)
+    renderRecall(data)
+    renderMaintenance(data)
+    var at = document.getElementById('at')
+    if (at) at.textContent = data.at ? '数据时间：' + when(data.at) : ''
+    var root = document.getElementById('root')
+    if (root) root.textContent = data.root ? '数据根：' + data.root : ''
+  }
+
+  function setStatus(text, bad) {
+    var node = document.getElementById('status')
+    if (!node) return
+    node.textContent = text
+    node.style.color = bad ? '#b42318' : ''
+  }
+
+  function fail(error) {
+    var message = error && error.message ? error.message : String(error)
+    setStatus('读取失败：' + message, true)
+  }
+
+  function load() {
+    var button = document.getElementById('refresh')
+    if (button) button.disabled = true
+    setStatus('正在读取…')
+    fetch(ENDPOINT + '?t=' + Date.now(), {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { accept: 'application/json' }
+    }).then(function (response) {
+      if (response.status === 401) {
+        throw new Error('需要 DSH 登录态：先用本机浏览器打开 DSH，再进这个页面')
+      }
+      if (!response.ok) throw new Error('HTTP ' + response.status)
+      return response.json()
+    }).then(function (data) {
+      if (!data || data.ok === false) throw new Error((data && data.error) || '接口返回失败')
+      render(data)
+      setStatus('已更新')
+    }).catch(fail).then(function () {
+      if (button) button.disabled = false
+    })
+  }
+
+  var refresh = document.getElementById('refresh')
+  if (refresh) refresh.addEventListener('click', load)
+  document.addEventListener('DOMContentLoaded', load)
+  if (document.readyState !== 'loading') load()
+})()
+</script>
+</body>
+</html>

@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-brain-archive
+ * kind: module
+ * summary: 一次性迁移的无损私有档案：只读本地、带 sha256 与 uuid，不自动注入模型或外部通道。
+ * tags: 私有档案, 迁移, 只读, 无损
+ * created: 2026-11-11 01:10:00
+ * changed: 2026-11-11 01:10:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 维护者（迁移/核对时用）；她不读
+ * owner: 框架；**这些是私有档案，归她本人**，导出/删除要老板点头
+ * mutable: 可改读取逻辑；不许在这里删或改档案正文
+ * usage: 读档案 / 校验 sha256；输出只给搬运用
+ * why: 迁移时最怕"搬丢了一段"；带指纹才能对账
+ * result: 只读 + 指纹核对的档案访问层
+ */
 // 一次性迁移的无损私有档案。仅本地读取；不自动注入任何模型或外部通道。
 import fs from 'node:fs'
 import path from 'node:path'

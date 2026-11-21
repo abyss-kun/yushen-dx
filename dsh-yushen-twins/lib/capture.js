@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-capture
+ * kind: module
+ * summary: 即时记录：说的话、想到的点子立刻落盘，append-only；崩溃最多丢正在写的那一行。
+ * tags: 即时记录, append-only, 零模型
+ * created: 2026-11-11 01:10:00
+ * changed: 2026-11-11 01:10:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她、维护者
+ * owner: 框架；**内容是她的**，只增不删
+ * mutable: 可改格式只许加字段；不许引入覆盖写
+ * usage: capture({text,from,...}) → 追加一行；读侧按时间
+ * why: 想到的东西不落盘，一会儿就没了；等"整理"再写等于没写
+ * result: 一份 append-only 流水
+ */
 // 即时记录：我们说的话、想到的点子，落盘不等人。
 // 只写本地 append-only 日志；不联网、不调模型。崩溃最多丢正在写的那一行。
 import fs from 'node:fs'

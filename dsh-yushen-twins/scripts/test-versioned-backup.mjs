@@ -65,5 +65,13 @@ try {
   await assert.rejects(()=>restoreSnapshot({store,id:malicious.id,roots:mapped}),/unsafe relative path/)
   await assert.rejects(()=>restoreSnapshot({store,id:first.id,roots:[{id:'fish',path:tmp}]}),/overlap/)
   assert.equal(await fs.stat(escaped).then(()=>true,()=>false),false)
-  console.log('versioned-backup tests passed: initial, unchanged, revisions, content dedupe, deletion history, corruption, traversal, dry-run, remap, pre-restore protection, preserve extras')
+  // 2026-11-03（老板：以后还会卡死吗）：root 集变了以后，不许把全部历史快照全量校验一遍。
+  // 上面一份旧快照的对象已经被弄坏（tampered），这里用**全新的 root 集**备一次：
+  // 新逻辑只读清单头，所以这一步必须还能跑；旧逻辑会 load 到坏对象、直接 BACKUP_FAILED。
+  const other=path.join(tmp,'other'); await fs.mkdir(other,{recursive:true})
+  await fs.writeFile(path.join(other,'c.txt'),'gamma')
+  const widened=await createBackup({roots:[{id:'other',path:other}],store})
+  assert.equal(widened.skipped,false,'root 集变了要真备一份，不能被历史快照拖死')
+  assert.equal(widened.manifest.roots.length,1)
+  console.log('versioned-backup tests passed: initial, unchanged, revisions, content dedupe, deletion history, corruption, traversal, dry-run, remap, pre-restore protection, preserve extras, root-set change without full history verify')
 } finally { await fs.rm(tmp,{recursive:true,force:true}) }

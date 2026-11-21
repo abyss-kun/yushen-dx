@@ -1,3 +1,13 @@
+/* 标签
+ * id: lib-platform
+ * kind: module
+ * summary: 平台判定与"手机轻装"开关：电脑完整版、手机轻装版，不靠人记得关。
+ * audience: 框架（所有要分叉的地方）；两端对照表靠它判
+ * owner: 框架；分叉点越少越好（每加一处 check-parity 会要求登记）
+ * mutable: 可改（新增 isMobile 分支必须进 docs/两端对照表.md）
+ * usage: isMobile()/mode()/device() 判平台；capabilities() 这台机器能撑哪一档
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 平台判定与“手机轻装”开关（2026-11-01）
 // 目的：同一个插件，在电脑上是完整版，在手机上是轻装版——不靠人记得关，靠这里判定。

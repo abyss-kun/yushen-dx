@@ -1,3 +1,15 @@
+/* 标签
+ * id: lib-itch
+ * kind: module
+ * summary: 痒：不用模型，读几件事实算"现在有没有事值得想"，够痒才叫自己。
+ * audience: 她（自己叫自己）、心跳、面板
+ * owner: 框架；规则是她写的、可以改
+ * mutable: 可改（只算分不调模型；够痒只写收件箱，不直接开回合）
+ * defaults: 阈值 0.35；够痒写一条"自己叫自己"到收件箱
+ * usage: itchTick(role) 心跳里调用；itchOf 看分数与理由；markThought 记一笔
+ * off: 不调 itchTick 就不算；阈值调到 1.0 = 永不痒
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 痒：不用模型，判断"现在有没有事值得我去想"。
 //

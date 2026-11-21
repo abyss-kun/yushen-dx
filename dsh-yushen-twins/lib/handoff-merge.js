@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-handoff-merge
+ * kind: module
+ * summary: 分身回体：桥算好的摘要/习惯/印象走 state/handoff/<role>.json，由这里合并进本体（appendEvent 唯一写入口）。
+ * tags: 回体, 合并, 唯一写入口
+ * created: 2026-11-11 01:25:00
+ * changed: 2026-11-11 01:25:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 桥、本体记忆、维护流程
+ * owner: 框架；**只经 appendEvent 写**这条不许破
+ * defaults: 合并后清 handoff 文件（已合并的不重放）
+ * off: 不合并=分身说的话本体永远不知道
+ * mutable: 可改合并规则；不许直接写记忆 JSON
+ * usage: 读 handoff → 逐条 appendEvent → 记账
+ * why: 桥直接写本体记忆会绕过脱敏/审计/去重
+ * result: 一条受控的回体通道
+ */
 // 分身回体：桥那边算好的摘要/习惯/印象，不再直接写本体记忆文件；
 // 而是放在 state/handoff/<role>.json，由这里合并进本体（appendEvent = 唯一写入口）。
 //
@@ -42,11 +60,17 @@ export function mergeHandoff({ role = 'dayu', now = Date.now() } = {}) {
   const seen = new Set(Array.isArray(cursor[role]) ? cursor[role] : [])
   const items = []
   if (doc.summary && String(doc.summary).trim()) items.push(`摘要：${String(doc.summary).trim()}`)
-  for (const key of ['habits', 'dynamics', 'impressions']) {
+  for (const key of ['habits', 'dynamics']) {
     for (const value of Array.isArray(doc[key]) ? doc[key] : []) {
-      const text = String(value || '').trim()
-      if (text) items.push(`${key === 'habits' ? '习惯' : key === 'dynamics' ? '动态' : '印象'}：${text}`)
+      // 2026-11-04：习惯/动态可能是 {text, at, source} 对象，别再 String() 成 [object Object]
+      const text = (typeof value === 'string' ? value : (value && value.text) || '').trim()
+      if (text) items.push(`${key === 'habits' ? '习惯' : '动态'}：${text}`)
     }
+  }
+  // 印象是对象（{summary, tags, updatedAt, channel}），不是数组——单独合并，别漏掉
+  for (const [who, v] of Object.entries(doc.impressions && typeof doc.impressions === 'object' ? doc.impressions : {})) {
+    const text = (typeof v === 'string' ? v : String((v && v.summary) || '')).trim()
+    if (text) items.push(`印象：${who}=${text}`)
   }
 
   let merged = 0

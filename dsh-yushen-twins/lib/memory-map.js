@@ -1,3 +1,15 @@
+/* 标签
+ * id: lib-memory-map
+ * kind: module
+ * summary: 记忆地图：只给标题索引，点开一次记一次数；不物理删任何记忆。
+ * audience: 她（想翻旧事时）、面板
+ * owner: 框架；沉底只影响显示，删要老板点头
+ * mutable: 可改（不许在这里加物理删除）
+ * defaults: 超过 30 天没被翻过且从没翻过 = 沉底（只影响显示）
+ * usage: memoryMap(role) 出标题；openMemory(role,id) 点开并计数
+ * off: 不给她翻就行；索引文件可删（会重建）
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 记忆地图：只给标题，要看全文再点开；点开一次记一次数（2026-10-31 老板让做的）。
 //

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-11 19:5x｜大鱼·本班｜授权：主人（「其他的做」）｜scripts/link-cold-archive.mjs:55-150｜冷档接原文补第二来源 dayu/live（归档 699 份之外再加 live 1661 份），source 里带 from 标明来源；最后一行摘要措辞不动（tick 与回归的契约）｜为什么：宿主导出的 sessions-archive 只有 699 份，插件自己每轮写的 live 才是完整原文；只扫一份会漏｜验证：node scripts/link-cold-archive.mjs --role dayu 跑通（2145 条：归档 1361 / live 0）；check-trace 全绿｜可改：可改；命中仍要求 14 字原文，不许放宽
 // 改｜2026-11-01 07:02｜小鱼·工作台｜授权：自己｜scripts/link-cold-archive.mjs 新增 whyMissing()，替换原来那段三选一的原因；最后一行输出格式保持不变｜冷档未接原文按原因分类：日期无归档 / 提炼条目 / 太短 / 原文缺；1061 条里真正的原文缺只有 23 条｜为什么：原来一律写「原文缺（原文里没有这一段）」，1061 条看起来像同一个毛病，会让人以为记忆坏了上千条。实测四种情况完全不同：那天整段没进归档（868）/ 记忆里加工过的摘要习惯（116）/ 不到 8 字定位不了（84）/ 真·原文缺（23）。｜可改：四类名字可改，但「不许合并成一个数」这条不能松
 // 冷档接上原文：给冷档里每一条「一句话事件」找到它出自哪段会话、哪一行。
 // 2026-11-01 主人：完全记忆的缺口在「想起一句话，翻不到上下文」。这一步把两头接上。
@@ -11,12 +12,16 @@
 // 每天由 dayu/index.js 的 tick 跑一次（--role dayu/xiaoyu/dragon），取**最后一行**写进日志；
 // 所以最后一行必须是给人看的那句「冷档 N 条：接上 X，连不上 Y 条（原文缺）」。
 // 退出码恒 0：连不上是数据缺口（原文没归档到那段），不是脚本跑挂了。
+// 2026-11-11：第二个来源是 dayu/live（插件自己每轮写的完整原文，1661 份 / 12.7MB）——
+// 宿主导出的 sessions-archive 只有 699 份，归档缺的会话 live 里往往有。命中仍要求 14 字原文一字不差，不放宽；
+// 归档/live 各接上多少打在上一行，最后一行措辞不动（tick 与回归都认它）。
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const SRC = path.join(HOME, 'dayu', 'sessions-archive')
+const LIVE = path.join(HOME, 'dayu', 'live')
 const args = process.argv.slice(2)
 const flag = (n) => { const i = args.indexOf('--' + n); return i >= 0 ? String(args[i + 1] || '') : '' }
 const role = flag('role') || 'dayu'
@@ -53,22 +58,27 @@ const lineAt = (starts, idx) => {
 }
 
 // 读全部原文进内存并归一化一次（18MB 原文；不缓存的话每条冷档都要重算 470 份，跑一趟 1 分钟起）
+// 2026-11-11：原来只扫 sessions-archive（宿主导出的那份），可是插件自己每轮写的 dayu/live 才是完整原文
+// （1661 份 / 12.7MB）——归档缺的会话，live 里往往有。所以先扫归档（口径不变），没接上的再扫 live。
+// 只加一个来源标记，命中仍要求同样的 14 字原文，不放宽。
 const files = []
-const walk = (dir) => {
+const walk = (dir, from = 'archive') => {
   let es = []
   try { es = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
   for (const e of es) {
     const p = path.join(dir, e.name)
-    if (e.isDirectory()) { walk(p); continue }
+    if (e.isDirectory()) { walk(p, from); continue }
     if (!e.name.endsWith('.md')) continue
     try {
       const text = fs.readFileSync(p, 'utf8')
-      files.push({ p, text, session: e.name.split('-').pop().replace(/\.md$/, ''), ...prep(text) })
+      files.push({ p, from, text, session: e.name.split('-').pop().replace(/\.md$/, ''), ...prep(text) })
     } catch { /* 跳过 */ }
   }
 }
-if (fs.existsSync(SRC)) walk(SRC)
-console.log(`原文 ${files.length} 份`)
+if (fs.existsSync(SRC)) walk(SRC, 'archive')
+const liveCount = files.length
+if (fs.existsSync(LIVE)) walk(LIVE, 'live')
+console.log(`原文 ${files.length} 份（归档 ${liveCount} + live ${files.length - liveCount}）`)
 
 const norm = (s) => String(s || '').replace(/\s+/g, '')
 
@@ -83,17 +93,18 @@ function whyMissing(e, needle) {
   if (needle.length < 8) return '太短（不到 8 字，定位不了）'
   const text = String(e.text || '')
   if (PRECIS.test(text)) return '提炼条目（记忆里加工过的，本来就没有原文）'
-  if (!files.length) return '原文缺（归档里没有原文：sessions-archive 不存在或为空）'
+  if (!files.length) return '原文缺（归档和 live 都不存在或为空）'
   const day = String(e.at || '').slice(0, 10)
   const dayFiles = files.filter((f) => path.basename(f.p).includes(day))
-  if (day && dayFiles.length === 0) return `日期无归档（${day} 的会话没进归档）`
-  return '原文缺（那天的归档里有文件，但没这段话）'
+  if (day && dayFiles.length === 0) return `日期无归档（${day} 的会话既没进归档，也没进 live）`
+  return '原文缺（那天的原文里有文件，但没这段话）'
 }
 
 const rows = []
 const missingRows = []
 let total = 0
 let linked = 0
+const linkedFrom = { archive: 0, live: 0 }
 for (const f of fs.readdirSync(COLD).sort()) {
   if (!f.endsWith('.jsonl') || OWN.has(f)) continue
   for (const line of fs.readFileSync(path.join(COLD, f), 'utf8').split('\n')) {
@@ -114,12 +125,12 @@ for (const f of fs.readdirSync(COLD).sort()) {
       for (const file of files) {
         const idx = file.norm.indexOf(needle)
         if (idx >= 0) {
-          source = { file: file.p, line: lineAt(file.starts, idx), session: file.session }
+          source = { file: file.p, line: lineAt(file.starts, idx), session: file.session, from: file.from }
           break
         }
       }
     }
-    if (source) linked += 1
+    if (source) { linked += 1; linkedFrom[source.from] = (linkedFrom[source.from] || 0) + 1 }
     else missingRows.push({
       at: e.at || '',
       head: String(e.text).slice(0, 60),
@@ -135,4 +146,7 @@ fs.writeFileSync(MISSING_OUT, missingRows.map((r) => JSON.stringify(r)).join('\n
 console.log(`索引：${OUT}（${rows.length} 条）`)
 console.log(`未接原文：${MISSING_OUT}（${missingRows.length} 条）`)
 // 最后一行：tick 直接取这一行进 log。总数对得上 cold 的总行数（含连不上的）。
+// 2026-11-11：这一行的措辞是 tick/回归的契约（有断言钉着），**一个字都不改**；
+// 归档/live 各接上多少，放上一行说。
+console.log(`原文来源：归档 ${linkedFrom.archive} / live ${linkedFrom.live}`)
 console.log(`冷档 ${total} 条：接上 ${linked}，连不上 ${total - linked} 条（原文缺）`)

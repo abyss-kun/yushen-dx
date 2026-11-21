@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-observe
+ * kind: module
+ * summary: 全知·在场：系统现在是什么样——进程、窗口标题、监听端口、磁盘
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: observe（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 全知·在场：系统现在是什么样——进程、窗口标题、监听端口、磁盘。
 // 只读采集，不弹窗、不改系统；结果进 actions.jsonl，供全知页/小鱼查。

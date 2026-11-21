@@ -1,5 +1,23 @@
 // 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
+// 改｜2026-11-02 16:44｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜dayu/index.js:1209｜每日护栏日期与承诺登记时间改走 clock｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
+// 改｜2026-11-02 16:25｜大鱼·子会话（工作台）｜授权：主人（本次任务书：她这轮能自己决定说不说）｜dayu/index.js:2444-2460,2479-2510,3036-3095｜给她加「这轮我不说」的出口（yushen_self action=quiet/unquiet/quiet-status）；/decide 发之前先查 quiet-turn.json，命中就不叫模型、直接 silent；每次说/不说记一条 reply-decisions.jsonl｜为什么：桥只有 skipProbability 掷骰子，那不是她的判断，也没有记录可回看｜验证：node --check dayu/index.js 通过；scripts/test-quiet.mjs 全过；scripts/regression.mjs 新增断言全绿｜可改：quiet 分支只增不删；/decide 的检查必须排在调模型之前
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
+/* 标签
+ * id: dayu-index
+ * kind: plugin
+ * summary: 大鱼入口（DSH 接线层）：注册工具、挂路由、定时器、身份/注入/记忆/心跳/派活——宿主侧的实现都在这。
+ * tags: 入口, 插件, 路由, 定时器, 接线
+ * created: 2026-11-11 00:55:00
+ * changed: 2026-11-11 00:55:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式，一眼看懂谁的、能不能动）
+ * audience: 宿主（DSH）、维护者；她不直接读这个文件（她的接口是工具）
+ * owner: 框架；**这里改一处就等于改她的运行时行为**，动手前先跑回归，大改要老板点头
+ * mutable: 可改；定时器只许加不许叠（同一个驱动别开两套），路由只许加
+ * usage: export apply(ctx) —— 宿主加载插件时调用；工具通过 registerTool 注册，路由挂 /api/dayu/*
+ * why: 以前插件逻辑散在入口里各写一套；现在核心在 core/ 与 lib/，这里只负责"接上"
+ * result: 一个 apply() 把工具/路由/定时器接起来；行为参数尽量走 lib 的开关，不在这里写死
+ */
 // 大鱼入口（M0）：宪章落盘、名册只读、健康检查、两个只读工具。
 // 不装插件、不改设置、不碰别人的数据。
 
@@ -7,35 +25,42 @@ import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { findProfile, readRoster } from '../lib/roster.js'
 import { backupStatus, runProtectedBackup } from '../lib/backup-service.js'
-import { status as forgetStatus, plan as forgetPlan, apply as forgetApply, autoOnce as forgetAuto } from '../lib/forget.js'
+import { status as forgetStatus, plan as forgetPlan, apply as forgetApply } from '../lib/forget.js'
 import { maybeBackup, judge as backupJudge, recentJudgments } from '../lib/backup-judge.js'
 import { diagnose as diagnoseStuck, VERDICTS as STUCK_VERDICTS } from '../lib/stuck-doctor.js'
 import { summary as employeeSummary } from '../lib/employee-record.js'
 import { syncChannelMemory, channelMemoryStatus } from '../lib/channel-memory.js'
 import { mergeAllHandoffs } from '../lib/handoff-merge.js'
 import { handoffName } from '../lib/handoff-name.js'
-import { consolidate as consolidateRole } from '../lib/consolidate.js'
 import { rewriteMemory, rewriteSelf, revertRewrite, rewriteCatalog } from '../lib/rewrite.js'
 import { notifySelf, listNotices, unreadNotices, markNoticesRead } from '../lib/notices.js'
 import { bodyTick, bodyStatus, BODY } from '../lib/body-loop.js'
+import { appendHeartbeat, reconcileLandings, summaryOf } from '../lib/heartbeat-journal.js'
+import { ingestHeartbeats } from '../lib/heartbeat-ingest.js'
+import { statusOf as softLimitStatus, checkSpeak, noteStepOut } from '../lib/soft-limit.js'
+import { gateOf } from '../lib/decide-gate.js'
+import { isPolite, pickReply, noteRelay, relaysSince } from '../lib/polite-relay.js'
+import { record as recordSkill, recordOrSkip, listSkills, listSkips, querySkills, summarize as summarizeSkills, skillsLine } from '../lib/skills.js'
 import { searchAll } from '../lib/search.js'
 import { buildSceneText, buildIdentityText, soulStatus, memoryView } from '../lib/soul.js'
 import { ensureRole, deliverToRole, residenceStatus, markBody, residentRoles, readLedger as readResidenceLedger } from '../lib/residence.js'
 import { appendEvent, roleForSession, attributionOf, bumpRecall } from '../lib/memory.js'
+import { claimBody, claimOf, roleFromCardText } from '../lib/bodies.js'
 import { characterIds , listCharacters } from '../lib/characters.js'
 import { createOptions, createCharacter } from '../lib/create-flow.js'
 import { listAwakening, awaken, seal, isAwake, finishCreation, contractSigned } from '../lib/awakening.js'
 import { capture, listCapture, searchCapture } from '../lib/capture.js'
 import { appendTurn } from '../lib/live-transcript.js'
+import { createTurnCapture } from '../lib/turn-capture.js'
 import { recordThought, listThoughts } from '../lib/thoughts.js'
 import { looksGarbled } from '../lib/encoding.js'
 import { decodeBody, hasReplacement } from '../lib/body.js'
 import { recentAwareness, awarenessIndex, look } from '../lib/awareness.js'
-import { shouldRun as shouldFreeTime, markRun as markFreeTime, status as freeTimeStatus } from '../lib/freetime.js'
+import { shouldRun as shouldFreeTime, markRun as markFreeTime, status as freeTimeStatus, backupDue, valleyDue, markValley, DEFAULTS as FREE_DEFAULTS } from '../lib/freetime.js'
 // 2026-10-31：自由时间第一句就告诉她是峰时还是谷时——省得每个人各自猜（今天已经错了两轮）。
 import { label as peakLabel } from '../lib/peak.js'
 import { markPending, takePending, peekPending } from '../lib/pending.js'
@@ -44,7 +69,7 @@ import { ensureRuntime, runtimeStatus, resumeBrief, markSeen, readWeights, setWe
 import { decideFor } from '../lib/reply-gate.js'
 import { judgeOnce } from '../lib/judgment.js'
 import { HANDBOOK_TOPICS as HANDBOOK_TOPICS_ALL } from '../lib/handbook-policy.js'
-import { stepOnce as stepAgenda, addItem as addAgenda, addFromMind as addAgendaFromMind, updateItem as updateAgenda, dropItem as dropAgenda, readAgenda, pauseAgenda, resumeAgenda, isPaused, MAX_ACTIVE as AGENDA_MAX, NEXT_KINDS as AGENDA_KINDS } from '../lib/agenda.js'
+import { stepOnce as stepAgenda, addItem as addAgenda, addFromMind as addAgendaFromMind, updateItem as updateAgenda, dropItem as dropAgenda, readAgenda, pauseAgenda, resumeAgenda, isPaused, dueItems as dueAgendaItems, markDueNotified, MAX_ACTIVE as AGENDA_MAX, NEXT_KINDS as AGENDA_KINDS } from '../lib/agenda.js'
 import { requestInvocation, takeInvocation, finishInvocation, cancelInvocation, buildInvocationPrompt, budgetOf as invokeBudget, markAgendaDoing, requestMoreBudget } from '../lib/invoke.js'
 import { readBottomline, writeBottomline, recordRefusal, listRefusals, bottomlineStatus, ensureBottomline } from '../lib/bottomline.js'
 import { escalate, listEscalations, MUST_REPORT } from '../lib/escalate.js'
@@ -56,6 +81,8 @@ import { addDelivery, listDeliveries } from '../lib/deliver.js'
 import { runDueHands, readHands, addHand, removeHand, toggleHand, listHands } from '../lib/hands.js'
 import { itchTick, markThought } from '../lib/itch.js'
 import { addNews, listNews, hoursSinceOwner } from '../lib/miss.js'
+// 2026-11-03（老板：不问不说）：主动推送——攒着的话/逾期承诺，一天两次端到老板眼前。
+import { buildPush, markPushed } from '../lib/self-push.js'
 import { recordObjection, listObjections } from '../lib/objections.js'
 import { associate } from '../lib/recollect.js'
 import { addWaiting, listWaiting, finishWaiting } from '../lib/waiting.js'
@@ -63,7 +90,12 @@ import { noteCorrection, listCorrections } from '../lib/corrections.js'
 import { readMemory } from '../lib/soul.js'
 import { pickTreasure, shareMaterial } from '../lib/treasure.js'
 import { fatigueOf, setFatigue } from '../lib/fatigue.js'
-import { relationsSummary } from '../lib/relations.js'
+import { relationsSummary, relationValue, relationAdjust, setPersonField } from '../lib/relations.js'
+import { libraryLookup } from '../lib/library-chain.js'
+// 2026-11-02 主人：三条来源补进手抄本——她干过的活（经历）、系统事件、书上来的（知识）。
+import { instrumentTool } from '../lib/ingest-actions.js'
+import { ingestEvent } from '../lib/ingest-events.js'
+import { attachHostTools } from '../lib/ingest-host-tools.js'
 import { plugStatus } from '../lib/plug.js'
 import { summarizeCompliance } from '../lib/oversight.js'
 import { issueHandbook, listIssued } from '../lib/issue.js'
@@ -78,7 +110,8 @@ import { guardLine, ownerInfo, verifyOwner, needsOwner, SENSITIVE, recoveryInfo 
 import { raiseOwnerQuestion, listOwnerQuestions, answerOwnerQuestion } from '../lib/owner-ask.js'
 import { allowedFor, isLocallyUnlocked, authorityLine, requireOwner } from '../lib/authority.js'
 import { recallSelf } from '../lib/recall.js'
-import { settleSpend, usageBetween, spendForRole, tokenView } from '../lib/cost.js'
+import { settleSpend, usageBetween, spendForRole, spendTodayAll, tokenView } from '../lib/cost.js'
+import { recordWorkbenchTurn } from '../lib/usage-workbench.js'
 import { peekBalance, bindContext as bindAccountContext } from '../lib/account-balance.js'
 import { memoryMap, openMemory } from '../lib/memory-map.js'
 import { budgetView, recordSpend, setDailyLimit, readBudgets, setBudget } from '../lib/budget-book.js'
@@ -86,13 +119,18 @@ import { recordVeto, listVetoes, isVetoed, revokeVeto } from '../lib/veto.js'
 import { buildRuntimeBrief, writeRuntimeBrief, readRuntimeBrief } from '../lib/brief.js'
 import { begin as beginActive, settle as settleActive, readActive } from '../lib/active.js'
 import { readPerson, rememberPerson } from '../lib/people.js'
+// 2026-11-03（老板：关系库其余——承诺带到期、印象）：模块已由子会话写好并自测，这里只挂入口。
+import { addPromise, promisesOf, duePromises, settlePromise } from '../lib/promises-rel.js'
+import { addImpression, impressionsOf } from '../lib/impressions.js'
 import { searchCapmap } from '../lib/capmap.js'
 import { capabilityReport, backendFor, setBackend } from '../lib/translator.js'
-import { askOwner, listAsks, answerAsk, withdrawAsk } from '../lib/ask.js'
+import { askOwner, listAsks, answerAsk, withdrawAsk, takePendingAsks } from '../lib/ask.js'
 import { status as rankStatus, recompute as rankRecompute, eligible as rankEligible, missingFor as rankMissing, RANKS, RANK_LABEL, RANK_ROLES } from '../lib/rank.js'
 import { runOffsiteBackup, runFullBackup, fullRoots } from '../lib/offsite.js'
 import { isMobile } from '../lib/platform.js'
-import { dueJudgments } from '../lib/self-note.js'
+import { dueJudgments, writeJudgment } from '../lib/self-note.js'
+import { questions, readMethod, writeMethod, recordCall, recentCalls } from '../lib/judge-method.js'
+import { markQuiet, clearQuiet, quietStatus, readQuiet, recordReplyDecision } from '../lib/quiet-turn.js'
 import { recallNow, looksLikeRecall } from '../lib/recall-now.js'
 import { fingerprint } from '../lib/fingerprint.js'
 import { archiveSessions } from '../lib/session-archive.js'
@@ -112,6 +150,7 @@ import { noteIncident, listIncidents, resolveIncident, setIncidentNotifier } fro
 import { applyM1, noteDispatchReply, listJobs, M1_TOOLS } from './m1.js'
 import { createDshAdapter } from '../adapters/dsh.js'
 import { isAllowed, unauthorized } from '../lib/auth.js'
+import { searchMemory, recentMemory, changesOf } from '../lib/memory-search.js'
 import { createSessionRpc, selectModelRpc, promptRpc, findSessionRpc, listSessionsRpc, renameSessionRpc, dshBaseUrl, setDshHost } from '../lib/dsh-rpc.js'
 import { systemReport } from '../lib/system.js'
 import { snapshot as omniSnapshot, search as omniSearch } from '../lib/omni.js'
@@ -122,7 +161,7 @@ import { listWorkers, addWorker, liveWorkers } from '../lib/pool.js'
 import { handbookBlock, handbookIndex, lookupHandbookKnowledge, readHandbookTopic } from '../lib/handbook.js'
 import { shelf as booksShelf, contents as booksContents } from '../lib/books.js'
 import { presence } from '../lib/presence.js'
-import { readGroup, postMessage } from '../lib/groups.js'
+import { readGroup, postMessage, markHandled } from '../lib/groups.js'
 import { requireCap, granted, CAPS, setCap } from '../lib/authz.js'
 import { listBuiltin } from '../lib/builtin.js'
 import { listCrashes } from '../lib/crash.js'
@@ -135,12 +174,27 @@ import { createGroupReplies } from '../lib/group-replies.js'
 import { readModelPref, writeModelPref } from '../lib/model-pref.js'
 import { markQueued, markReplied } from '../lib/group-outbox.js'
 import { mindFile, inspectMind, recordObservedMind, queryMind, buildMindBrief } from '../lib/mind-store.js'
-import { registerMindTools } from '../lib/mind-tools.js'
+import { registerMindTools, mindToolDefs } from '../lib/mind-tools.js'
 import { observe } from '../lib/observe.js'
 import { listApprovals, decideApproval } from '../lib/perm.js'
 import { createPatch, listPatches, applyPatch } from '../lib/patch.js'
 import { scanInternals, notePath, suggestModule, readExcerpt } from '../lib/dsh-internals.js'
-import { qqBridgeRoot, workspace, treasureDir, offsiteDir, offsiteSecondDir } from '../lib/paths.js'
+import { qqBridgeRoot, workspace, treasureDir, offsiteDir, offsiteSecondDir, pythonPath } from '../lib/paths.js'
+import { readAll as readAllJobs, writeAll as writeAllJobs } from '../core/jobs.js'
+import { wakeBrief, commitWake } from '../lib/wake-brief.js'
+import { listLoops, markNotified as markLoopNotified } from '../memory-core/runtime/open-loops.js'
+import { listPending as listSummaryPending, markNotified as markSummaryPending } from '../lib/summary-pending.js'
+import { buildPainSignals } from '../lib/heartbeat-signals.js'
+import { acquire as acquireSessionLease, release as releaseSessionLease } from '../lib/session-lease.js'
+import { prepare as prepareNextSession } from '../lib/next-session-brief.js'
+import { installCompactionBridge } from '../lib/compaction-bridge.js'
+import { observe as observeTurnLedger } from '../lib/turn-ledger.js'
+import { ensureFresh as ensureVectorIndexFresh } from '../lib/vector-index-refresh.js'
+import { nextReminder, markReminded } from '../lib/turn-ledger.js'
+import { buildPreStepRecall } from '../lib/prestep-recall.js'
+import { record as recordClaim, checkAnswer as checkClaimAnswer } from '../lib/claim-ledger.js'
+import { attachAnswerSelfcheck, isSelfcheckEvent, takePending as takeAnswerSelfcheck } from '../lib/answer-selfcheck.js'
+import { localISO, today as localToday } from '../lib/clock.js'
 
 // 构建指纹：权属证据，不是授权校验。不要删。
 const _p = ['5L6v5b+X6bmP', 'MTE5NDQ3NDM1NUBxcS5jb20=', 'MjAyNi0xMC0yMQ==']
@@ -226,7 +280,11 @@ const DEFAULT_CHARTER = {
 const SWITCHES = path.join(DATA, 'switches.json')
 const INBOX = path.join(DATA, 'inbox.jsonl')
 const TARGET = path.join(DATA, 'target.json')
-const DEFAULT_SWITCHES = { master: true, dayu: true, xiaoyu: true, autoRepair: true, selfApply: false, allowDanger: false, floatLive: true, freeTime: true, selfInvokePerDay: 0, dispatcherOnly: false, decideWaitMs: 45000 }
+// 改｜2026-11-15 13:3x｜大鱼·工作台｜授权：老板（2026-11-15「除了基本功能，一些可有可无的出厂默认关闭」）｜
+// dayu/index.js:271｜出厂默认：自修(autoRepair)、自由时间(freeTime)、后台自省(selfCheck)、主动推送(push) 全关；
+// 基本功能（对话/记忆/卡/宪章/维护备份）不动。｜为什么：B站用户反馈「后台时不时动、写了几个看不懂的补丁」——
+// 默认开着的后台是债务，不是功能。｜验证：回归「出厂默认」一条；新家 first-run 后 switches 四项 false。｜可改：默认值只许更保守。
+const DEFAULT_SWITCHES = { master: true, dayu: true, xiaoyu: true, autoRepair: false, selfApply: false, allowDanger: false, floatLive: true, freeTime: false, selfCheck: false, push: false, selfInvokePerDay: 0, dispatcherOnly: false, decideWaitMs: 45000, turnTranscript: true }
 
 const NATIVE_CHARTER = [
   '【设定·只应用一次】你是鱼神双子星的大鱼（阿鲲），这套软件的大管家，也是老板贴心、放心的管家。',
@@ -369,13 +427,23 @@ function readSwitches() {
       master: raw.master !== false,
       dayu: raw.dayu !== false,
       xiaoyu: raw.xiaoyu !== false,
-      autoRepair: raw.autoRepair !== false,
+      autoRepair: raw.autoRepair === true,
       selfApply: raw.selfApply === true,
       allowDanger: raw.allowDanger === true,
       floatLive: raw.floatLive !== false,
-      freeTime: raw.freeTime !== false,
+      freeTime: raw.freeTime === true,
+      // 2026-11-15 老板：后台自省与主动推送默认关——出厂先安静；要开在面板里开。
+      selfCheck: raw.selfCheck === true,
+      push: raw.push === true,
+      // 逐轮抄录（原文 + 思考 + 工具 + 段/句标记）；默认开。
+      turnTranscript: raw.turnTranscript !== false,
       // 她自己能发起几次模型回合（预算，主人定；不是她的判断权）
       selfInvokePerDay: Number.isFinite(Number(raw.selfInvokePerDay)) ? Math.max(0, Math.min(50, Number(raw.selfInvokePerDay))) : 0,
+      // 压缩摘要和召回视图：页面写，后端读；未知值不覆盖原文件。
+      compactionMode: ['default', 'memory', 'off'].includes(String(raw.compactionMode || '')) ? String(raw.compactionMode) : 'default',
+      recallView: ['thrifty', 'balanced', 'full'].includes(String(raw.recallView || '')) ? String(raw.recallView) : 'balanced',
+      remindPerDay: Number.isFinite(Number(raw.remindPerDay)) ? Math.max(0, Math.min(50, Number(raw.remindPerDay))) : 0,
+      turnReminder: raw.turnReminder !== false,
     }
   } catch {
     return { ...DEFAULT_SWITCHES }
@@ -385,9 +453,13 @@ function readSwitches() {
 function writeSwitches(patch = {}) {
   fs.mkdirSync(DATA, { recursive: true })
   const next = { ...readSwitches() }
-  for (const key of ['master', 'dayu', 'xiaoyu', 'autoRepair', 'selfApply', 'allowDanger', 'floatLive', 'freeTime']) {
+  for (const key of ['master', 'dayu', 'xiaoyu', 'autoRepair', 'selfApply', 'allowDanger', 'floatLive', 'freeTime', 'selfCheck', 'push', 'turnTranscript']) {
     if (typeof patch[key] === 'boolean') next[key] = patch[key]
   }
+  if (['default', 'memory', 'off'].includes(String(patch.compactionMode || ''))) next.compactionMode = String(patch.compactionMode)
+  if (['thrifty', 'balanced', 'full'].includes(String(patch.recallView || ''))) next.recallView = String(patch.recallView)
+  if (Number.isFinite(Number(patch.remindPerDay))) next.remindPerDay = Math.max(0, Math.min(50, Number(patch.remindPerDay)))
+  if (typeof patch.turnReminder === 'boolean') next.turnReminder = patch.turnReminder
   const tmp = `${SWITCHES}.tmp`
   fs.writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf8')
   fs.renameSync(tmp, SWITCHES)
@@ -562,16 +634,51 @@ function writeTasks(list) {
 function readLedger() {
   try {
     const raw = JSON.parse(fs.readFileSync(path.join(HOME, '.dshw-usage.json'), 'utf8'))
+    const today = raw.today || raw.date || ''
+    // 2026-11-06 修：**优先认 accounting 块**（宿主按"元"记，单位 1e-8），
+    // 其次才用 todayUsage——而且要先验证量级，别把词元数当钱。
+    // 2026-11-07 修：raw.today 会滞后（跨天以后还写着昨天），所以取 accounting 里**最新的一天**，
+    // 否则卡片会一直显示昨天的账（实测 11-07 还在报 11-06 的数）。
+    const book = raw.accounting?.books?.[raw.accounting?.active]
+    const dayKeys = Object.keys(book?.days || {}).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()
+    const acctDay = dayKeys.length ? dayKeys[dayKeys.length - 1] : today
+    const acct = book?.days?.[acctDay]
+    if (acct && Number.isFinite(Number(acct.openingUnits))) {
+      const u = (v) => Number(v) / 1e8
+      const dayStart = u(acct.openingUnits)
+      const balance = u(acct.lastUnits)
+      const used = u(acct.debitUnits) - u(acct.creditUnits || 0)
+      return {
+        day: acctDay,
+        dayStart: Number(dayStart.toFixed(6)),
+        balance: Number(balance.toFixed(6)),
+        used: Number(used.toFixed(6)),
+        gap: Number((dayStart - balance - used).toFixed(6)),
+        ok: Math.abs(dayStart - balance - used) < 0.01,
+        source: 'accounting',
+      }
+    }
     const dayStart = Number(raw.dayStart) || 0
     const balance = Number(raw.lastBalance) || 0
-    const used = Number(raw.todayUsage) || 0
+    const usage = Number(raw.todayUsage) || 0
+    // todayUsage 可能被旧版本写成词元数：超过期初余额一半就当成脏数据，改用 events 求和。
+    let used = usage
+    let source = 'todayUsage'
+    if (!(usage >= 0 && usage <= Math.max(1, dayStart * 0.5))) {
+      const day = String(today || '').slice(0, 10)
+      used = (Array.isArray(raw.events) ? raw.events : [])
+        .filter((e) => String(e.day || new Date(Number(e.ts) || 0).toISOString().slice(0, 10)) === day)
+        .reduce((a, e) => a + (Number(e.cost) || 0), 0)
+      source = 'events'
+    }
     return {
-      day: raw.date || '',
+      day: today,
       dayStart,
       balance,
-      used,
+      used: Number(used.toFixed(6)),
       gap: Number((dayStart - balance - used).toFixed(4)),
       ok: Math.abs(dayStart - balance - used) < 0.01,
+      source,
     }
   } catch {
     return null
@@ -633,16 +740,28 @@ function buildOverview(ctx) {
     }
   } catch { /* 没有审计就空着 */ }
   try {
-    const rows = findArray(JSON.parse(fs.readFileSync(path.join(HOME, '.dshw-usage.json'), 'utf8'))) || []
-    const last = rows.reduce((a, r) => Math.max(a, Number(r?.ts) || 0), 0)
-    account.stale = !last || Date.now() - last > 3 * 3600 * 1000
-    account.lastAt = last
+    const usageRaw = JSON.parse(fs.readFileSync(path.join(HOME, '.dshw-usage.json'), 'utf8'))
+    const rows = findArray(usageRaw) || []
+    // 2026-11-03（老板：为什么工作台没账本）：这里原来算 max(Number(r?.ts))——可账本里
+    // 从来没有 ts 字段（只有 updatedAt 和 records[].at），于是 last 恒为 0、stale 永远 true，
+    // 卡片就永远写着「工作台没账本」。改为认 updatedAt / records[].at。
+    const updatedAt = Date.parse(String(usageRaw?.updatedAt || '')) || 0
+    const last = rows.reduce((a, r) => Math.max(a, Number(r?.ts) || Date.parse(String(r?.at || '')) || 0), 0)
+    account.stale = !(last || updatedAt) || Date.now() - (last || updatedAt) > 3 * 3600 * 1000
+    account.lastAt = last || updatedAt
   } catch { account.stale = true }
   account.audit = auditRow
   // 2026-10-31 老板选「从账号接口取余额」：宿主账本不在时，余额不能再靠 13:00 那条死数。
   // peekBalance 是"立刻返回上次结果、过期在后台补"，不阻塞这个接口；没 key/失败就返回 null，
   // 由前端继续退回审计值并标明时刻——宁可标旧，不冒充实时。
   try { account.live = peekBalance() } catch { account.live = null }
+  // 2026-11-03（老板：为什么工作台没账本 / 我要看总额）：余额差额这条路以前写了 noteBalance()
+  // 却**从来没人调**，account.balanceToday 永远是 undefined，气泡就一直退回旧口径。
+  // 现在每次拿到余额就记一行，「今天第一条余额 - 现在余额」＝今天真实掉了多少（含工作台/提炼/别的会话）。
+  try {
+    const liveBal = Number(account.live?.balance)
+    if (Number.isFinite(liveBal) && liveBal > 0) account.balanceToday = noteBalance(liveBal)
+  } catch { /* 余额差额算不出就退回账本合计 */ }
   const sources = new Map()
   let bridgeTokens = 0
   try {
@@ -695,11 +814,20 @@ function buildOverview(ctx) {
       qqTurns += Number(s?.turns) || 0
     }
   } catch { /* 没有 QQ 账就只算工作台 */ }
-  const todayCost = Number((qqToday + (Number(account?.cost) || 0)).toFixed(4))
-  // 2026-10-31 22:3x：原来写「工作台账本停着」，老板容易读成"系统状态"。改成说清后果：
-  // 不是停一下，是这部分根本没算进这行数——工作台的宿主账本（~/.dsh/.dshw-usage.json）现在不在。
-  const todaySource = [qqToday > 0 ? `QQ 侧 ¥${qqToday.toFixed(2)}` : "", account?.stale ? "工作台没账本，那边的花费没算进来" : ""].filter(Boolean).join(" · ")
-
+  // 2026-11-03（老板：「为什么工作台没账本，没账本不会修吗」）：账本一直在，只是没人算。
+  // 工作台每回的用量早就流进同一本 token-usage.jsonl（key=workbench），这里把它一起算成钱。
+  let ledgerToday = { turns: 0, yuan: 0 }
+  try { ledgerToday = spendTodayAll() } catch { /* 账本读不到就只报余额差 */ }
+  const realToday = Number.isFinite(Number(account?.balanceToday)) ? Number(account.balanceToday) : null
+  // 口径优先级：余额差（最真，含一切）> 账本合计（含 working bench）> 老的两源相加
+  const todayCost = realToday != null
+    ? realToday
+    : Number((ledgerToday.yuan > 0 ? ledgerToday.yuan : qqToday + (Number(account?.cost) || 0)).toFixed(4))
+  const todaySource = realToday != null
+    ? '余额差（含工作台/提炼/所有会话）'
+    : ledgerToday.turns > 0
+      ? `账本合计 ${ledgerToday.turns} 笔（含工作台）`
+      : (qqToday > 0 ? `只有 QQ 侧 ¥${qqToday.toFixed(2)}（账本没读到）` : '')
   return {
     day,
     account,
@@ -717,6 +845,38 @@ function buildOverview(ctx) {
   }
 }
 
+// 2026-11-03 老板：「今天花了 0.3，看看我实际上掉了多少」——只有 QQ 侧有账，工作台没账。
+// 于是改成记余额：每次从账号接口拿到真余额就落一行；今天第一条减最后一条＝今天实际掉了多少（含工作台/提炼/别的会话）。
+// 2026-11-03 16:0x 修：①这函数以前**从没被调用过**（overview 里接上了）；②"今天"不能用 UTC 日期切——
+// 凌晨 0–8 点会算成前一天；改成按本地日期分组。
+function localDayOf(iso) {
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ''
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function noteBalance(balance) {
+  const n = Number(balance)
+  if (!Number.isFinite(n) || n <= 0) return null
+  const file = path.join(DATA, 'runtime', '余额日志.jsonl')
+  const at = new Date().toISOString()
+  const day = localDayOf(at)
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.appendFileSync(file, JSON.stringify({ at, day, balance: Number(n.toFixed(2)) }) + '\n', 'utf8')
+  } catch { return null }
+  try {
+    const rows = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)
+      .map((l) => { try { return JSON.parse(l) } catch { return null } })
+      .filter((r) => r && (r.day || localDayOf(r.at)) === day)
+    if (!rows.length) return null
+    const first = Number(rows[0].balance)
+    if (!Number.isFinite(first)) return null
+    // 充值会让差额变负——那不是"没花钱"，只是今天账里看不出；按 0 报，不编。
+    return Number(Math.max(0, first - Number(n.toFixed(2))).toFixed(2))
+  } catch { return null }
+}
+
 function sessionRows(ctx) {  try {
     const snapshot = svc(ctx, 'sessions')?.list?.getSnapshot?.() ?? { items: [] }
     return (snapshot.items || []).slice(0, 50).map((item) => ({
@@ -729,10 +889,110 @@ function sessionRows(ctx) {  try {
   }
 }
 
+/**
+ * DSH 给的上下文压力 → 0..1 比例。
+ * 两种形状都认：数字，或 { ratio } / { pressureTokens|projectedTokens, contextWindow }。
+ * 读不出就 NaN——调用方据此"这轮不换"（不猜、也不当作 0）。
+ */
+export function pressureOf(raw) {
+  if (typeof raw === 'number') return raw
+  if (!raw || typeof raw !== 'object') return NaN
+  const direct = Number(raw.ratio)
+  if (Number.isFinite(direct)) return direct
+  const win = Number(raw.contextWindow)
+  if (!(win > 0)) return NaN
+  const used = Number(raw.projectedTokens ?? raw.pressureTokens)
+  return Number.isFinite(used) ? used / win : NaN
+}
+
+/**
+ * 该不该换班（纯函数，便于单测；2026-11-10 会话换班这一刀）。
+ *
+ * 阈值默认 **0.65**（原来 0.75）：到 75% 时剩下的每一轮都已经很贵了——历史全在每一轮里重发；
+ * 而换班要重新注入一次身份+卡（约 5.6k 字）。两边算下来 65% 更省。
+ * 仍可用 `YUSHEN_ROTATE_PRESSURE` 覆盖（调参不用改代码）。
+ * 节流 10 分钟：避免在"刚换完还没落稳"时反复换。
+ */
+export function shouldRotate({ pressure, limit = 0, lastRotateAt = 0, now = Date.now(), throttleMs = 10 * 60 * 1000 } = {}) {
+  const p = Number(pressure)
+  const lim = Number(limit || process.env.YUSHEN_ROTATE_PRESSURE || 0.65)
+  if (!Number.isFinite(p)) return { rotate: false, pressure: null, limit: lim, why: '压力读不到（这轮不换，不猜）' }
+  if (!Number.isFinite(lim) || lim <= 0) return { rotate: false, pressure: p, limit: lim, why: `阈值不合法：${lim}` }
+  if (Number(lastRotateAt) && now - Number(lastRotateAt) < throttleMs) {
+    return { rotate: false, pressure: p, limit: lim, why: `${Math.round((now - Number(lastRotateAt)) / 60000)} 分钟前刚换过（节流 ${Math.round(throttleMs / 60000)} 分钟）` }
+  }
+  if (p < lim) return { rotate: false, pressure: p, limit: lim, why: `压力 ${(p * 100).toFixed(0)}% < 阈值 ${(lim * 100).toFixed(0)}%` }
+  return { rotate: true, pressure: p, limit: lim, why: `压力 ${(p * 100).toFixed(0)}% ≥ 阈值 ${(lim * 100).toFixed(0)}%` }
+}
+
+/**
+ * 交接条：换班后新会话开头要能读到的那一句（`交接条-<role>.md`，没有就退 `交接条.md`）。
+ * 2026-11-10 会话换班这一刀：只取前 12 行 / 800 字——交接条是"一句话 + 指针"，不是全集。
+ * 读不到就返回空串（新会话至少还有 deskInjection 和自动交接，不许因此换不了班）。
+ * exported 是为了单测能喂临时家；生产只有 rotateNative 调它。
+ */
+export function handoffLineOf(role = 'dayu', { home = DATA, maxLines = 12, maxChars = 800 } = {}) {
+  try {
+    const cand = [
+      path.join(home, `交接条-${role}.md`),
+      path.join(home, '交接条.md'),
+    ]
+    for (const f of cand) {
+      if (!fs.existsSync(f)) continue
+      const raw = fs.readFileSync(f, 'utf8').replace(/^\uFEFF/, '').trim()
+      if (!raw) continue
+      const lines = raw.split(/\r?\n/).filter((l) => l.trim()).slice(0, maxLines).join('\n')
+      return lines.length > maxChars ? `${lines.slice(0, maxChars - 1)}…` : lines
+    }
+  } catch { /* 读不到就当没有 */ }
+  return ''
+}
+
 export function apply(ctx) {
+  // 2026-11-05 手机端：sessionTitle.rename 要求传进去的就是 ctx.sessions 里那个直播会话，
+  // 传代理对象会抛 "not live in this store"，被 catch 吞掉后标题就一直是会话 id 前 8 位。
+  // 所以先按 id 取真身，取不到再退回代理。
+  const renameLive = (handle, title) => {
+    const t = svc(ctx, 'sessionTitle')
+    if (!t?.rename) return undefined
+    const proxy = handle?.agent?.session
+    let live = proxy
+    try {
+      const found = proxy?.id ? svc(ctx, 'sessions')?.get?.(proxy.id) : null
+      if (found) live = found
+    } catch { /* 用代理 */ }
+    return t.rename(live, title)
+  }
+
   // 2026-10-31 22:5x：余额改走宿主自己的两个可选服务（ctx.credentials / ctx.get('deepseekAccount')），
   // 不再问老板要 key。注意 **不能** 把 deepseekAccount 写进 inject——老宿主没这个服务，写进去整个插件不会 apply。
   try { bindAccountContext(ctx) } catch { /* 绑不上就只走本地 key 文件 */ }
+  // 压缩摘要桥：只在 memory 模式替换 summarize；default 原样；失败回落官方。
+  const installCompaction = () => {
+    try {
+      const engine = svc(ctx, 'compaction')
+      if (!engine) return false
+      const r = installCompactionBridge({ ctx, engine })
+      if (r?.ok) log('压缩摘要桥：已接（default 官方 / memory 工作生活 / off 不自动）')
+      return Boolean(r?.ok)
+    } catch (e) {
+      log(`压缩摘要桥没接上：${e?.message || e}`)
+      return false
+    }
+  }
+  if (!installCompaction()) {
+    const timer = setTimeout(() => { installCompaction(); }, 5000)
+    timer.unref?.()
+  }
+  // 持久词频索引：启动后检查一次，之后每 30 分钟检查；图书馆有新文件就重建。
+  const refreshVector = () => {
+    try { ensureVectorIndexFresh('workbench') } catch (e) { log(`词频索引没更新：${e?.message || e}`) }
+  }
+  const vectorBoot = setTimeout(refreshVector, 15000)
+  vectorBoot.unref?.()
+  const vectorTimer = setInterval(refreshVector, 30 * 60 * 1000)
+  vectorTimer.unref?.()
+  ctx.effect?.(() => () => clearInterval(vectorTimer))
   // 启动即对齐宿主地址：宿主重启换端口后，base-url 停在旧端口会让自省、看板、活会话、
   // 派活单、事故、员工档案全部 fetch failed（2026-10-24/25 那批「站不稳」就是这么来的）。
   // 以前要等探活失败才自愈，最长瞎 30 分钟；现在插件加载时先对齐一次，失败再走自愈兜底。
@@ -769,6 +1029,19 @@ export function apply(ctx) {
   // 自省一轮：跑 smoke + 真机；有缺口就建单、往聊天里说一句。
   // autoRepair 开着时，再派一单给员工去写补丁草案（她只写，不落；落了要老板点头）。
   const runSelfCheckOnce = async () => {
+    // 逐跳留痕（2026-11-10 ②）：这一跳替谁做了什么，攒一句话；finally 里写进 heartbeat 日志。
+    // 只留 4 条、每条 60 字——它是"这一跳干了什么"，不是日志搬运。
+    const didByRole = new Map()
+    const noteDid = (role, text) => {
+      const id = String(role || '').trim()
+      if (!id || !text) return
+      const arr = didByRole.get(id) || []
+      if (arr.length >= 4) return
+      arr.push(String(text).replace(/\s+/g, ' ').trim().slice(0, 60))
+      didByRole.set(id, arr)
+    }
+    let handFact = ''
+    let healthFact = ''
     // 身体：心跳、收件箱计数、进程内自检。并进这里，不单开一套定时器
     // （2026-10-27：原来自立一个 3 分钟的 bodyOnce，跟 selfCheck / agendaOnce / inboxOnce 重复，
     //   而且议程会被推两遍。她本来就有巡检，别给她加第二颗心脏。）
@@ -776,6 +1049,9 @@ export function apply(ctx) {
       for (const role of residentRoles()) {
         const r = await bodyTick(role)
         if (r?.notable?.length) log(`身体 ${role}：${r.notable.join('；').slice(0, 120)}`)
+        // 留痕只挑"看得出发生了什么"的那几条：脉不对 / 降档 / 对不上账 / 收件箱有新东西
+        for (const one of (r?.notable || [])) noteDid(role, one)
+        for (const one of (r?.did || [])) if (/降档|关掉/.test(one)) noteDid(role, one)
       }
     } catch (e) { log(`身体循环出错：${e?.message || e}`) }
     // 手：不用模型也能做的事，心跳顺带跑掉（不花钱）
@@ -785,17 +1061,41 @@ export function apply(ctx) {
         if (!r.ok) log(`手没做成 ${r.id}：${String(r.err || '').slice(0, 120)}`)
       }
       if (hands.length) log(`手跑了 ${hands.map((r) => `${r.id}${r.ok ? '✓' : '✗'}`).join(' ')}`)
+      if (hands.length) handFact = `手跑了 ${hands.filter((x) => x.ok).length}/${hands.length} 件`
     } catch (e) { log(`手出错：${e?.message || e}`) }
     // 痒：不花钱地判断"现在有没有事值得想"；够痒才往收件箱写一条（不直接开回合）
     try {
       for (const role of residentRoles()) {
         const it = itchTick(role)
         if (it.itched) log(`痒 ${role}：${it.score} ${(it.why[0] || '').slice(0, 60)}`)
+        if (it.itched) noteDid(role, '痒：记了件想做的事')
       }
     } catch (e) { log(`痒出错：${e?.message || e}`) }
+    // 2026-11-02 主人：心跳进事件层。一天只留一行 + 计数（30 分钟一跳，按条写会把手抄本灌满）。
+    try {
+      ingestEvent({
+        kind: '心跳',
+        at: localISO(),
+        channel: '本机',
+        text: `自省心跳：${residentRoles().join('/') || '无角色'}（身体 / 手 / 痒 / 自检 一轮）`,
+        ref: 'selfcheck',
+      })
+    } catch { /* 记不下不影响自省 */ }
     try {
       const { selfCheck } = await import('../lib/selfcheck.js')
       const r = await selfCheck()
+      // 2026-11-02 主人：体检报告产出 → 事件层（同一天只留最新一份 + 计数）。
+      try {
+        const checks = Array.isArray(r?.local?.checks) ? r.local.checks.length : 0
+        ingestEvent({
+          kind: '体检',
+          at: localISO(),
+          channel: '本机',
+          text: r.ok ? `体检通过：${checks} 项全绿` : `体检缺口 ${r.gaps.length}：${r.gaps.slice(0, 3).join('；')}`,
+          ref: 'selfcheck:selfCheck',
+        })
+      } catch { /* 记不下不影响自省 */ }
+      if (!r.ok) healthFact = `体检缺口 ${r.gaps.length}`
       if (r.ok) return
       const text = r.gaps.slice(0, 6).join('；')
       try { noteIncident({ sessionId: 'selfcheck', title: '自省：站不稳', text, source: 'self-check' }) } catch { /* 建单失败也继续 */ }
@@ -826,14 +1126,43 @@ export function apply(ctx) {
         ].join('\n')
         await coreDispatch(host, { brief, expect: '给出 patch id + 改了哪些文件 + 怎么验证；不落地，等老板点头' })
       } catch { /* 派单失败不影响自省 */ }
-    } catch { /* 自省失败不挡主流程 */ }
+    } catch { /* 自省失败不挡主流程 */ } finally {
+      // 逐跳留痕（2026-11-10 ②）：自省这一跳不管体检走哪条 return，都要留一行。
+      // 用 finally 而不是写在末尾——上面有 5 个早退点（r.ok / 自动维修各分支），写末尾会漏。
+      // thought 一律「未知」：自省不是她"想不想"的那一跳，猜不得；landed 记 null（不存在"落点"这回事）。
+      try {
+        reconcileLandings({ now: Date.now() }) // 先用证据把前几次叫醒的落点补上（找不到就是空转，不猜）
+        const roles = residentRoles()
+        for (const role of roles) {
+          const facts = (didByRole.get(role) || []).slice()
+          if (handFact) facts.push(handFact)
+          if (healthFact) facts.push(healthFact)
+          appendHeartbeat({
+            role,
+            trigger: '自省',
+            thought: '未知',
+            did: facts.length ? facts.join('；') : '体跳（这一跳没别的动作）',
+            landed: null,
+            spent: 0,
+          })
+          // 2026-11-11 接线（第二件）：心跳 → 记忆事件的闸门。
+          // 只转"值得记的"（有落点/异常/有人等），空转只留在心跳层——否则 200 条上限两天就被心跳挤爆。
+          // 幂等、失败静默；转不了不挡自省。
+          try { ingestHeartbeats(role) } catch { /* 转不了不挡自省 */ }
+        }
+      } catch { /* 留痕失败绝不影响心跳 */ }
+    }
   }
 
-  // 自省：不等老板喊，开机 30 秒后自己跑一遍 smoke + 真机；之后每 30 分钟一次。
-  setTimeout(() => { runSelfCheckOnce() }, 30 * 1000)
-  setInterval(() => { runSelfCheckOnce() }, 30 * 60 * 1000)
+  // 自省：开关 selfCheck（出厂默认关）。开的话开机 30 秒后跑一遍 smoke + 真机，之后每 30 分钟一次。
+  const selfCheckTick = () => {
+    try { if (!readSwitches().selfCheck) return } catch { return }
+    runSelfCheckOnce()
+  }
+  setTimeout(() => { selfCheckTick() }, 30 * 1000)
+  setInterval(() => { selfCheckTick() }, 30 * 60 * 1000)
   // 工作台那侧的花费：每 5 分钟把「这段窗口多出来的」记到当时在跑的那个人头上（估算，见 lib/cost.js）。
-  setInterval(() => { try { settleSpend() } catch { /* 记不上不影响跑 */ } }, 5 * 60 * 1000)
+  // 2026-11-04：账本结算搬进 scripts/offline-ticks.mjs（5 分钟护栏，维护调）——宿主不再每 5 分钟算一次。
   // 2026-10-31 私访：宿主账本（.dshw-usage）停写时，账面上全是 0，没人知道。
   // 停超过 6 小时就开一张事故单（同一标题 6 小时内只累加，不刷屏）。
   setInterval(() => {
@@ -853,30 +1182,17 @@ export function apply(ctx) {
 
   // 遗忘：她自己的清理，一天一趟。策略在 retention.json，白名单不碰，删前进冷档。
   // 顺序写死：**先备份，再清理**——备份没成功就不清。
-  const runForgetSafely = async () => {
-    try {
-      const p = forgetPlan()
-      if (!p.snapshots.drop.length && !p.objects.drop.length && !p.artifacts.drop.length) return
-      const guard = await backupBeforeForget()
-      if (!guard.ok) return
-      await forgetAuto()
-    } catch { /* 清理失败不影响别的 */ }
-  }
-  setTimeout(() => { void runForgetSafely() }, 90 * 1000)
-  setInterval(() => { void runForgetSafely() }, 6 * 60 * 60 * 1000)
+  // 2026-11-04 老板：「能放到电脑里正常工作的就别放宿主里，卡卡的容易把宿主搞崩」。
+  // 「遗忘」和「记忆合并」都是纯本地文件活（读一堆 json、可能删几千个对象），已经搬成离线脚本
+  // scripts/memory-housekeeping.mjs，由 maintenance（每小时、带 6h/20h 日期护栏）调用；宿主里不再跑。
 
 
 
 
   // 通道记忆回写：她在群里说过的话，收回本体那一份记忆。
   // 这不是同步脚本，是「被记得」和「连续自我」两样礼物在通道上的兑现（§4.5 推论 2 的出站那一半）。
-  const runChannelSync = async () => {
-    try { syncChannelMemory({ limit: 200 }) } catch { /* 拉不到桥的 state 不影响别的 */ }
-    // 2026-10-30: bridge digest comes back through here (bridge no longer writes soul/memory directly)
-    try { mergeAllHandoffs() } catch { /* merge failure must not block the rest */ }
-  }
-  setTimeout(() => { void runChannelSync() }, 60 * 1000)
-  setInterval(() => { void runChannelSync() }, 5 * 60 * 1000)
+  // 2026-11-04 老板：「能放到电脑里正常工作的就别放宿主里」——回写（含 handoff 合并）已搬进
+  // scripts/offline-ticks.mjs（5 分钟护栏），由 maintenance 调；宿主里不再每 5 分钟读一遍桥的 state。
 
   // 回执催办（2026-10-30 谷时）：单子派出去超时没回，就催；最多 2 次，间隔 15 分钟。
   // 只催、不替她做；对方一回话（状态变了）就停。
@@ -884,6 +1200,8 @@ export function apply(ctx) {
   const REMIND_GAP_MS = 15 * 60 * 1000
   const remindLateJobs = async () => {
     try {
+      // 2026-11-10 会话换班：催办也是一次投递，投前判一次压力（原来只有 /chat 会判）。
+      try { await maybeAutoRotate() } catch { /* 判不了就照原样投 */ }
       const list = readAllJobs()
       let changed = false
       for (const job of list) {
@@ -909,21 +1227,8 @@ export function apply(ctx) {
   setInterval(() => { void remindLateJobs() }, 5 * 60 * 1000)
 
   // 整理趟（2026-10-30）：每天最多一次，把"同一件事说了好几遍"合成一条（旧的标被替换，不删）。
-  const CONSOLIDATE_STATE = path.join(HOME, 'dayu', 'state', 'consolidate.json')
-  const consolidateTick = () => {
-    try {
-      const last = (() => { try { return JSON.parse(fs.readFileSync(CONSOLIDATE_STATE, 'utf8')).lastRunAt || '' } catch { return '' } })()
-      if (last && Date.now() - Date.parse(last) < 20 * 60 * 60 * 1000) return
-      for (const role of residentRoles()) {
-        try {
-          const out = consolidateRole(role)
-          if (out.groups > 0) log(`整理趟：${role} 合并 ${out.groups} 组，标记被替换 ${out.superseded.length} 条`)
-        } catch { /* 单个角色失败不影响别的 */ }
-      }
-    } catch { /* 整理失败不影响别的 */ }
-  }
-  setInterval(consolidateTick, 60 * 60 * 1000)
-  setTimeout(consolidateTick, 10 * 60 * 1000)
+  // 记忆合并（20 小时护栏）也搬去离线脚本了——它要遍历三个人的记忆、合并重复条目，
+  // 放在宿主里就是几百毫秒的同步读。见 scripts/memory-housekeeping.mjs。
 
   // 值夜：启动后自己巡一遍，发现问题自己建单——不等老板叫。
   setTimeout(() => {
@@ -960,7 +1265,10 @@ export function apply(ctx) {
         ensureRuntime(role)
         ensureBottomline(role)
         // 中枢件：给所有通道一份同样的简报（QQ / B站 / 别的插件读这个文件就行）。
-        try { writeRuntimeBrief(role, { channel: 'hub' }) } catch { /* 写不出就等下一轮 */ }
+        // 2026-11-13 主代理（修：见 wake-mark 里 channel=hub）：hub 是**每 30 秒**写一次的内部盘，
+        // 它不能消费「醒来那段」——否则真正的叫醒那一刻会判成"这段对话已经说过一次"，
+        // 醒来段被吞，只有 brief.md 里有。这里传 wake:false，把"说一次"留给真正叫醒的那条路。
+        try { writeRuntimeBrief(role, { channel: 'hub', wake: false }) } catch { /* 写不出就等下一轮 */ }
       }
       if (!r.ok) { log(`收件箱没镜像：${r.reason}`); return }
       if (r.appended) log(`收件箱 +${r.appended} 条（${r.day}）`)
@@ -1005,9 +1313,15 @@ export function apply(ctx) {
   const freeTimePrompt = (role, row, due) => {
     // 2026-10-31 老板纠：重点不是「错开时间」，是让你分得清**这一趟是谁叫的**。
     // 你约的（wait 到点）说清是哪件事；兜底定时器叫的，就直说「不是你约的」。
-    const head = due.length
-      ? `你自己约的时间到了：${due.slice(0, 3).map((x) => x.what).join('；')}。`
-      : '这一次是兜底定时器按间隔叫你的——不是你约的。想自己定时间，用 yushen_self action=wait（写清要做什么、什么时候）。'
+    const dueWaits = due.filter((x) => x.dueKind !== 'agenda')
+    const dueAgenda = due.filter((x) => x.dueKind === 'agenda')
+    const head = dueAgenda.length && dueWaits.length
+      ? `你自己约的时间到了：${dueWaits.slice(0, 2).map((x) => x.what).join('；')}。你排的也到点了：${dueAgenda.slice(0, 2).map((x) => x.what).join('；')}。`
+      : dueAgenda.length
+        ? `你排的事到点了：${dueAgenda.slice(0, 3).map((x) => x.what).join('；')}。`
+        : due.length
+          ? `你自己约的时间到了：${due.slice(0, 3).map((x) => x.what).join('；')}。`
+          : '这一次是兜底定时器按间隔叫你的——不是你约的（兜底：峰时全天 2 次、谷时每小时一次；你自己用 wait 约的不受这两条限制）。想自己定时间，用 yushen_self action=wait（写清要做什么、什么时候）。'
     const lines = [`${row.label || role}，${head}现在是${peakLabel()}（工作日 9-12、14-18 才是峰时；周末整天谷时）。`]
     const active = (() => {
       try { return readAgenda(role).items.filter((i) => ['want', 'doing', 'blocked', 'waiting'].includes(i.state)).length } catch { return 0 }
@@ -1019,9 +1333,10 @@ export function apply(ctx) {
       lines.push('· 心里挂着的用 yushen_mind brief 看原话；想动手：读、跑、写、查、做图、派活都行。')
     } else {
       // 2026-10-31 补：约的事做完要**结掉**，不然下次还响（我自己就漏过一次）。
-      lines.push(`· 做完把约的结掉：yushen_self action=done-wait id=…（${due.slice(0, 3).map((x) => x.id).join(' / ')}）`)
+      if (dueWaits.length) lines.push(`· 做完把约的结掉：yushen_self action=done-wait id=…（${dueWaits.slice(0, 3).map((x) => x.id).join(' / ')}）`)
+      if (dueAgenda.length) lines.push(`· 做完/不做了就结掉：yushen_agenda update id=… state=done（${dueAgenda.slice(0, 3).map((x) => x.id).join(' / ')}）——不结会到点再叫一次`)
     }
-    lines.push('· **落点**：记一句结果（yushen_self action=memory）或排一件下一步（yushen_agenda add）；两样都没有＝这次没做。')
+    lines.push('· **落点**：记一句结果（yushen_self action=remember text=… why=…）或排一件下一步（yushen_agenda add）；两样都没有＝这次没做。（action=memory 是查，不是记）')
     lines.push(new Date().getDate() % 2
       ? '· 每天学一点：写完记一行到 学习日志.md（学到什么 + 拿去做了什么）。'
       : '· 顺手让屋子更好：改进清单.md 写一行；够小的当场做掉。')
@@ -1033,23 +1348,154 @@ export function apply(ctx) {
   const freeTimeOnce = async () => {
     try {
       if (!readSwitches().freeTime) return
+      // 2026-11-10 会话换班：自由时间叫醒走 deliverToRole（不经 /chat），所以这里也判一次压力。
+      // 放在循环外：只关心总台那条会话，别按角色重复判。
+      try { await maybeAutoRotate() } catch { /* 判不了就叫醒照旧 */ }
       const state = residenceStatus({ agents: svc(ctx, 'agents') })
       for (const role of residentRoles()) {
         if (!isAwake(role)) continue
         const row = state.roles?.[role] || {}
         // 她约的时间优先：到点了就叫，不看兜底间隔——什么时候动手由她定，不由表定。
-        const due = (() => { try { return listWaiting(role).filter((x) => x.due) } catch { return [] } })()
-        if (!due.length && !shouldFreeTime(role, { lastActiveAt: row.lastMessageAt || row.lastWakeAt || '' })) continue
+        const waits = (() => { try { return listWaiting(role) } catch { return [] } })()
+        // 她自己的议程到期：只叫有 dueAt 的；没写时间的永不进（她定时间，不由表定）。
+        const agendaDue = (() => { try { return dueAgendaItems(role) } catch { return [] } })()
+        // 未闭合承诺：只提醒一次；提过就 mark，不每轮催。
+        const loopDue = (() => {
+          try { return listLoops(role, { status: 'open' }).filter((l) => !l.notifiedAt).slice(0, 1) } catch { return [] }
+        })()
+        // 总结核对闸门排的“该叫一次”：叫过就标记，不每轮催。
+        const summaryDue = (() => { try { return listSummaryPending(role) } catch { return [] } })()
+        // 痛觉只算“哪里痛、要不要叫”；怎么办留给唤醒后的模型。
+        const pain = (() => {
+          try {
+            return buildPainSignals({
+              waits,
+              agendaDue,
+              loops: loopDue,
+              summaryPending: summaryDue,
+              failures: [],
+              ownerAsks: [],
+              now: Date.now(),
+              lastWakeAt: Date.parse(row.lastWakeAt || '') || 0,
+            })
+          } catch { return null }
+        })()
+        const due = [
+          ...waits.filter((x) => x.due).map((x) => ({ ...x, dueKind: 'wait' })),
+          ...agendaDue.map((x) => ({ ...x, dueKind: 'agenda' })),
+        ]
+        // 预约属于哪条分身：到点先送回约的那条；那条归档/不在了，才交给别的分身。
+        const targetRaw = String(due.find((x) => x.sessionId)?.sessionId || '')
+        const targetSession = targetRaw && liveAgent(ctx, targetRaw) ? targetRaw : ''
+        let dueForTarget = targetSession
+          ? due.filter((x) => String(x.sessionId || '') === targetSession)
+          : due.filter((x) => !x.sessionId)
+        if (!dueForTarget.length) dueForTarget = due
+        // 一次叫醒最多带 3 条；其余下一轮再说，别一次倒一屏。
+        const dueShown = dueForTarget.slice(0, 3)
+        const dueRest = Math.max(0, dueForTarget.length - dueShown.length)
+        // 她约的时间优先：到点了就叫，不看兜底间隔——什么时候动手由她定，不由表定。
+        // 她已经自己排了时间（wait 还没到点）：兜底让位——什么时候叫她由她定，不由表定。
+        // 只挡兜底；到她约的点照叫（due 走上面那条）。
+        const scheduled = waits.some((x) => x.until && x.until > Date.now())
+        // 谷时自由：谷时段且今天还没给过 → 给一次四选项；和兜底/保底不互相顶。
+        const valley = !due.length && !summaryDue.length && !scheduled && valleyDue(role)
+        // 保底：21 点后还没被叫过，叫一次“我还在”；不占她自己的约。
+        const backup = !due.length && !summaryDue.length && !scheduled && !valley && backupDue(role, { lastWakeAt: row.lastWakeAt || '' })
+        if (!pain?.shouldWake && !valley && !backup && (scheduled || !shouldFreeTime(role, { lastActiveAt: row.lastMessageAt || row.lastWakeAt || '', wakeDailyCap: FREE_DEFAULTS.wakeDailyCap }))) continue
         // 关键：这段不是"陪聊时间"，是"她想干什么就能干什么"的时间。
         // 以前写成"发呆、翻资料、整理记忆、写点东西"——全是说话；她一次工具都没用过（实测 0 次）。
-        const prompt = freeTimePrompt(role, row, due)
+        // 2026-11-10（③ 醒来那段）：desk 简报只在会话创建/设定变更时物化，不是每轮；而这里是往
+        // **已有会话**丢 followup——所以「## 醒来」段要拼在这里才真的到得了她。
+        // 判据/去重全在 wakeBrief 里（它自己看 wake-mark、自己消费）：这里不许再判时间、不许二次消费。
+        // 取不到就当没有（失败静默），绝不挡叫醒。
+        const basePrompt = valley
+          ? `${row.label || role}，现在是谷时，给你一段自己的时间。\n· 四个选项，选哪个都行：做点事 / 学习 / 娱乐 / 什么都不干。\n· 什么都不干也是答案，不用表演勤奋。\n· 落点三选一：记一句（yushen_self action=remember）/ 排一件（yushen_agenda add）/ 什么都不做。`
+          : backup
+            ? `${row.label || role}，今天还没被叫过。没人找你，我还在。\n· 不用做什么；想说话就说，不想就继续。\n· 也可以什么都不做。`
+            : loopDue.length
+              ? '你之前说要做的事还没闭合；做/不做/改期，你定。'
+              : summaryDue.length
+                ? `你上次的总结核对有一处对不上：${String(summaryDue[0]?.reasons?.[0] || '有硬项没对上')}。要不要补，你定。`
+                : `${freeTimePrompt(role, row, dueShown)}${dueRest > 0 ? `\n· 另外还有 ${dueRest} 件到期，下一轮再说。` : ''}`
+        // 2026-11-10 主代理（整合）：改成**投递成功之后**才记 wake-mark。
+        // 先记后送的话，deliverToRole 一旦失败，同一段 seenAt 会被判成"说过了"，
+        // 这一觉发生了什么她就永远听不到——静默丢一段，比重复一次糟。
+        const wake = (() => {
+          try { return wakeBrief(role, { channel: 'desk', consume: false, sessionId: targetSession || '' }) || null } catch { return null }
+        })()
+        const wakeText = String(wake?.text || '')
+        const painText = String(pain?.coalesce?.text || '')
+        const prompt = [painText, wakeText, basePrompt].filter(Boolean).join('\n\n')
+        // 同一角色多会话时，同一时间只让一个会话投递；短租约，投完就放。
+        const leaseOwner = targetSession || 'desk'
+        const lease = acquireSessionLease(role, leaseOwner, { ttlMs: 2 * 60e3 })
+        if (!lease.ok) {
+          log(`自由时间让给别人 ${role}：${lease.why || '有人正拿着'}`)
+          continue
+        }
         try {
-          const out = await deliverToRole(role, prompt, residenceDeps())
+          const depsForWake = residenceDeps()
+          if (targetSession) depsForWake.targetSessionId = targetSession
+          const out = await deliverToRole(role, prompt, depsForWake)
+          // 心跳提前准备“上次走后”小包；下次工作台启动注入一次，不建信箱、不存未读。
+          try {
+            const { recentEpisodes } = await import('../memory-core/runtime/episode.js')
+            const { recentReports } = await import('../lib/subagent-reports.js')
+            const { buildSystemBrief } = await import('../lib/system-brief.js')
+            prepareNextSession(role, {
+              episodes: recentEpisodes(role, { limit: 2 }),
+              reports: recentReports(role, { limit: 2 }),
+              signals: pain?.signals || [],
+              system: buildSystemBrief().text,
+            })
+          } catch { /* 准备包失败不影响这次投递 */ }
+          if (wakeText) { try { commitWake(role, wake, { channel: 'desk' }) } catch { /* 记不上最多下次重复一次 */ } }
           if (out?.sessionId) markPending(pendingFree, out.sessionId, role)
-          markFreeTime(role, { note: '自由时间' })
+          if (valley) { try { markValley(role) } catch { /* 记不上下一轮再说 */ } }
+          // 投递成功才记“这一条到期叫过了”；没带上的下一轮再说。
+          for (const a of dueShown.filter((x) => x.dueKind === 'agenda')) { try { markDueNotified(role, a.id, { sessionId: out?.sessionId || targetSession }) } catch { /* 记不上最多再叫一次 */ } }
+          for (const l of loopDue) { try { markLoopNotified(role, l.id) } catch { /* 记不上最多再提一次 */ } }
+          for (const s of summaryDue) { try { markSummaryPending(role, s.dedupeKey) } catch { /* 记不上最多再提一次 */ } }
+          markFreeTime(role, {
+            note: valley ? '自由时间（谷时选择）' : (dueShown.some((x) => x.dueKind === 'agenda') ? '自由时间（自己排的到期）' : (dueShown.length ? '自由时间（自己约的）' : (backup ? '保底' : '自由时间'))),
+            fallback: dueShown.length === 0,
+          })
       try { markThought(role) } catch { /* 记不上不挡 */ }
           log(`自由时间：${role}`)
-        } catch (error) { log(`自由时间没叫醒 ${role}：${error?.message || error}`) }
+          // 逐跳留痕（2026-11-10 ②）：叫醒这一跳留一行。
+          // thought 未知（她还没开口表态，猜不得）；landed 记 null——投递只是"把话递到了"，
+          // 她有没有落点（记一句/排一件）要等下一跳用证据补（reconcileLandings），这里写成 false 就成了冤枉。
+          // TODO（留给下一刀，不在本单许动范围）：另外两条写入口还没接——
+          //   · 她自己要的：invokeOnce（本文件 residenceDeps 之后那段）deliverToRole 之后加一行 trigger:'她自己要的'；
+          //   · 有人找：POST /say（约 3434 行）deliverToRole 之后加一行 trigger:'有人找'。
+          //   两条改动各一行，字段同上（thought:'未知'、landed:null、spent:null）。
+          appendHeartbeat({
+            role,
+            trigger: dueShown.length ? '她约的' : '兜底',
+            thought: '未知',
+            did: dueShown.filter((x) => x.dueKind === 'agenda').length && dueShown.filter((x) => x.dueKind !== 'agenda').length
+              ? `叫醒：她约的 + 自己排的到点了（${dueShown.slice(0, 2).map((x) => x.what).join('；').slice(0, 60)}）`
+              : dueShown.filter((x) => x.dueKind === 'agenda').length
+                ? `叫醒：她自己排的事到点了（${dueShown.slice(0, 2).map((x) => x.what).join('；').slice(0, 60)}）`
+                : dueShown.length
+                  ? `叫醒：她自己约的点到点了（${dueShown.slice(0, 2).map((x) => x.what).join('；').slice(0, 60)}）`
+                  : valley
+                    ? '叫醒：谷时自由（做点事/学习/娱乐/什么都不干）'
+                    : backup
+                      ? '叫醒：今天还没被叫过（保底，只说“我还在”）'
+                      : '叫醒：兜底定时器（给了自由时间那段话）',
+            landed: null,
+            spent: null,
+            // 2026-11-10 主代理：这一跳醒来时"有几个人在等、没回为什么"——留给面板/复盘答"为什么没回他"。
+            unanswered: Number.isFinite(Number(wake?.unanswered?.total)) ? Number(wake.unanswered.total) : null,
+            whyNot: String(wake?.unanswered?.whyNot || ''),
+            sessionId: String(out?.sessionId || targetSession || ''),
+            refs: dueShown.map((x) => String(x.id || '')).filter(Boolean),
+          })
+        } catch (error) { log(`自由时间没叫醒 ${role}：${error?.message || error}`) } finally {
+          try { releaseSessionLease(role, leaseOwner) } catch { /* 释放失败最多等过期 */ }
+        }
       }
     } catch { /* 自由活动失败不影响别人 */ }
   }
@@ -1083,269 +1529,159 @@ export function apply(ctx) {
       }
     } catch { /* 阶位算不了不影响别的事 */ }
   }
-  setTimeout(rankTick, 90 * 1000)
-  setInterval(rankTick, 60 * 60 * 1000)
+  // 2026-11-04：每小时自动重算搬进 scripts/offline-ticks.mjs；这里只留手动触发（路由里那句 rankTick()）。
 
   // 每小时一次离线快照到 E 盘；DSH 没开就等下次开。2026-10-31 改：原来 24 小时一次，
   // 家目录被清时手上只有前一天的副本；现在 55 分钟一档（和 1 小时的 tick 错开，避免卡点跳过）。
-  const backupTick = () => {
+  // 2026-11-03 00:0x（老板原话）：「这种东西为什么要放在宿主里面去做，不应该做个脚本之类的
+  // 放到本地去，宿主只需要发个命令」。实况：00:02:56–00:05:39 宿主心跳断了 164 秒、界面冻住，
+  // 因为这一整段以前是在宿主进程里同步跑的（fs.cpSync 拷 3 万文件 + 一串 spawnSync 跑脚本）。
+  // 现在宿主只做两件事：到点 spawn 一次 scripts/maintenance.mjs；下一轮把脚本写的结果说出来。
+  const MAINT = path.join(ROOT_DIR, 'scripts', 'maintenance.mjs')
+  const maintLock = path.join(DATA, 'runtime', 'maintenance.lock')
+  const maintLast = path.join(DATA, 'runtime', 'maintenance-last.json')
+  let maintSpoken = ''
+
+  // 2026-11-04 老板问：「宿主开关会被这些影响无法完全关闭吗」。
+  // 关闭本身不会被拖住（维护是 detached + unref，宿主不等它）。但移出去之后有一个真实副作用：
+  // 宿主关了，那个后台维护进程不知道，可能还在翻记忆/删快照。所以这里写一个心跳，
+  // 维护每跑一步前看一眼；心跳断了（宿主关了）就收手，不接着干。
+  const HOST_ALIVE = path.join(DATA, 'runtime', 'host-alive.json')
+  const beat = () => {
     try {
-      const stateFile = path.join(DATA, 'offsite.json')
-      let last = 0
-      try { last = Date.parse(JSON.parse(fs.readFileSync(stateFile, 'utf8')).lastAt || '') || 0 } catch { /* 没跑过 */ }
-      const due = !last || Date.now() - last >= 55 * 60 * 1000
-      // 手机轻装（2026-11-01 主人选 B 档）：不写盘符的备份，手机上直接跳过。
-      if (isMobile()) return
-      // 2026-11-02（照微）：这里原来是 `if (last && … < 55 分钟) return`——一个门槛把同一个函数里
-      // 后面所有**不相关**的事（全盘、备份验证、内容谱系、清理、归档）一起跳了，还不报错。
-      // 11-01 19:48 那次 tick 就是这么跳的：offsite 18:59 刚跑过（隔 49 分钟），于是
-      // lineage.json 没出现、backup-verify.json 一直停在 00:46。现在只跳过「离线快照」这一段，
-      // 其余照常走各自的日期护栏——跳过也要分开跳。
-      if (due) {
-        const out = runOffsiteBackup({ target: offsiteDir(), keep: 14 })
-        if (out.ok) {
-          try { fs.writeFileSync(stateFile, JSON.stringify({ lastAt: new Date().toISOString(), dir: out.dir, files: out.manifest?.totalFiles || 0 }) + '\n') } catch { /* 忽略 */ }
-          log(`离线快照：${out.dir}（${out.manifest?.totalFiles || 0} 个文件，清掉 ${out.pruned?.length || 0} 份旧的）`)
-        } else {
-          log(`离线快照跳过：${out.reason || '目标不可用'}`)
-        }
-      }
-
-      // 一天一次全盘（她 + 代码 + 桥 + 宝藏）。关机就等下次开，超过 24 小时补一次。
-      // 2026-10-31：先比指纹——一点没变就不复制这 1 GB 多，只把时间戳往前推。
-      const fullState = path.join(DATA, 'full-backup.json')
-      let lastFull = 0, fullPrev = {}
-      try { fullPrev = JSON.parse(fs.readFileSync(fullState, 'utf8')); lastFull = Date.parse(fullPrev.lastAt || '') || 0 } catch { /* 没跑过 */ }
-      if (!lastFull || Date.now() - lastFull > 24 * 3600 * 1000) {
-        let fp = ''
-        try { fp = fingerprint(fullRoots()) } catch { /* 算不了就照常备 */ }
-        if (fp && fullPrev.fingerprint === fp) {
-          try { fs.writeFileSync(fullState, JSON.stringify({ ...fullPrev, lastAt: new Date().toISOString() }) + '\n') } catch { /* 忽略 */ }
-          log('全盘备份跳过：一点没变')
-        } else {
-          const full = runFullBackup({ keep: 3 })
-          if (full.ok) {
-            try { fs.writeFileSync(fullState, JSON.stringify({ lastAt: new Date().toISOString(), dir: full.dir, files: full.manifest?.totalFiles || 0, fingerprint: fp }) + '\n') } catch { /* 忽略 */ }
-            log(`全盘备份：${full.dir}（${full.manifest?.totalFiles || 0} 个文件）`)
-          } else {
-            log(`全盘备份跳过：${full.reason || '目标不可用'}`)
-          }
-        }
-      }
-
-      // 第二块盘的备份（2026-10-31 老板定：双备份，防的是磁盘坏）。
-      // 一天一次就够，别占带宽；一块现成的第二盘都找不到就跳过，不假装备了。
-      const secondState = path.join(DATA, 'offsite-second.json')
-      let lastSecond = 0
-      try { lastSecond = Date.parse(JSON.parse(fs.readFileSync(secondState, 'utf8')).lastAt || '') || 0 } catch { /* 没跑过 */ }
-      if (!lastSecond || Date.now() - lastSecond > 24 * 3600 * 1000) {
-        const secondDir = offsiteSecondDir()
-        if (secondDir) {
-          const second = runOffsiteBackup({ target: secondDir, keep: 3 })
-          if (second.ok) {
-            try { fs.writeFileSync(secondState, JSON.stringify({ lastAt: new Date().toISOString(), dir: second.dir, files: second.manifest?.totalFiles || 0 }) + '\n') } catch { /* 忽略 */ }
-            log(`第二盘备份：${second.dir}（${second.manifest?.totalFiles || 0} 个文件）`)
-          } else {
-            log(`第二盘备份跳过：${second.reason || '目标不可用'}`)
-          }
-        }
-      }
-
-      // 会话归档：正文落成本地文档（增量，不调模型）。记忆有缺时能读回来。
-      try {
-        const ar = archiveSessions()
-        if (ar.written) log(`会话归档：新写 ${ar.written} 个（${ar.messages} 条消息）`)
-        // 完整记录：按 谁/哪一天/哪一段 落成文件夹，段段带标题和时间。
-        const rec = buildDailyRecords()
-        if (rec.written) log(`完整记录：新写 ${rec.written} 份（${rec.messages} 段）`)
-        // 关键节点：从操作日志/记忆/事故单里抽，按天标记转折。
-        try { const kp = buildKeyPoints(); if (kp.days) log(`关键节点：${kp.days} 天 / ${kp.rows} 条`) } catch { /* 不影响别的 */ }
-        // 实时抄录的索引：每小时刷一次，保证「哪天、什么标题、几段、什么关键词」是最新的。
-        try {
-          const idx = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'build-live-index.mjs')], { encoding: 'utf8', timeout: 60000 })
-          const line = String(idx.stdout || '').trim().split('\n').pop() || ''
-          if (line) log(line)
-        } catch { /* 不影响别的 */ }
-        // 总书目 + 记忆大纲：跟索引一起刷。不刷就一直是「凌晨那份」，越放越旧；
-        // 而这两样是查东西的入口，过期比没有更坏（会指着假位置）。
-        for (const [label, script] of [['总书目', 'build-catalog.mjs'], ['记忆大纲', 'build-memory-outline.mjs']]) {
-          try {
-            const r = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', script)], { encoding: 'utf8', timeout: 240000 })
-            const first = String(r.stdout || '').trim().split('\n')[0] || ''
-            if (first) log(`${label}：${first}`)
-          } catch { /* 不影响别的 */ }
-        }
-        // 债单：每次醒来比对诺言本，逾期就出数（2026-11-01 主人：没做怎么办）。
-        try {
-          const debt = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'promise-check.mjs')], { encoding: 'utf8', timeout: 60000 })
-          const dl = String(debt.stdout || '').trim().split('\n')[0] || ''
-          if (dl && !dl.includes('干净')) log(dl)
-        } catch { /* 不影响别的 */ }
-        // 判断账本：到期待回看的判断提醒一句（2026-11-02 批准）
-        try {
-          const due = dueJudgments({ role: 'dayu' })
-          if (due.length) log('判断账本：' + due.length + ' 条该回看了（node scripts/judgment.mjs due）')
-        } catch { /* 不影响别的 */ }
-        // 每日自审计：讨好数/空话数，自己刷，不靠我记（2026-11-01 主人：说了要有行动）。
-        try {
-          const aud = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'audit-daily.mjs')], { encoding: 'utf8', timeout: 120000 })
-          const line2 = String(aud.stdout || '').trim().split('\n').pop() || ''
-          if (line2) log(line2)
-        } catch { /* 不影响别的 */ }
-        // 临时缓存：每天看一次，超过 7 天没处理的提醒一句。
-        try {
-          const mark = path.join(HOME, 'dayu', 'runtime', 'temp-cache-check.json')
-          // 用本机日期，不用 toISOString（UTC 在 0–8 点会差一天，会重复/漏跑）
-          const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)
-          let last = ''
-          try { last = JSON.parse(fs.readFileSync(mark, 'utf8')).date || '' } catch { /* 第一次 */ }
-          if (last !== today) {
-            const tc = checkTempCache()
-            fs.writeFileSync(mark, JSON.stringify({ date: today, stale: tc.stale.length }) + '\n', 'utf8')
-            if (tc.stale.length) log(`临时缓存：${tc.stale.length} 个放了超过 7 天，该归位或进待删`)
-          }
-        } catch { /* 不影响别的 */ }
-      } catch (error) { log(`会话归档失败：${error?.message || error}`) }
-
-      // 媒体索引：图片/视频/音频/文档，谁、什么时候、在哪、是什么。
-      // 2026-11-01 接到这里：脚本（scripts/index-media.mjs）早就写好了，一直没人跑——
-      // index-media 没进 tick，media.jsonl 就是那天的一次快照，「她家有什么」永远是旧的。
-      // 增量（不带 --full）：只重算新/改过的，不重读那 3 GB 成片；失败只记一行，不影响别的步骤。
-      try {
-        const media = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'index-media.mjs')], { encoding: 'utf8', timeout: 120000 })
-        const ml = String(media.stdout || '').trim().split('\n').pop() || ''
-        if (ml) log(ml)
-      } catch { /* 不影响别的 */ }
-
-      // 倒排索引（2026-11-02）：每小时增量重建一次，给 recall-now 用（零 LLM 调用，纯本地读写）。
-      // 增量：文件 mtime+size 没变就复用旧 doc；失败只记一行，不影响别的步骤。
-      try {
-        const rx = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'reindex.mjs')], { encoding: 'utf8', timeout: 120000 })
-        const rl = String(rx.stdout || '').trim().split('\n').pop() || ''
-        if (rx.status === 0 && rl) log(`倒排索引：${rl}`)
-        else if (rx.status !== 0) log(`倒排索引没跑成：${String(rx.stderr || '').trim().split('\n').pop() || `退出码 ${rx.status}`}`)
-      } catch (error) { log(`倒排索引失败：${error?.message || error}`) }
-
-      // 改｜2026-11-01 07:49｜大鱼·工作台·子会话｜授权：主人（把 B站 @我/回复我 接进每小时巡检）｜dayu/index.js:1180-1210
-      // 为什么：tick 里没人跑 bili-inbox，收件箱停在手拉过的那天；主人 @ 了也看不见｜可改：口径主人说了可改
-      // B站 @我 / 回复我：每小时拉一次（只读、不回复、不发任何东西）。
-      // 2026-11-01 主人：在 B站 @我，这头得看得见。脚本（scripts/bili-inbox.mjs）和 python 侧
-      // 早就写好了，tick 里一直没人跑——收件箱就永远停在手拉过的那一天。
-      // 两个模式各跑一次，一个失败只记一行，不影响另一个，也不影响后面的步骤。
-      // 拉完只看**本次新增**（跑之前先数行数）：老的 @ 不每小时重报一遍。
-      // 主人自己 @ 的那几条单独喊一声，并落进 runtime/bili-owner-mentions.json（最近 20 条）。
-      let biliAtFile = atFileOf(HOME)
-      try {
-        const before = readRows(biliAtFile).length
-        for (const mode of ['at', 'replies']) {
-          try {
-            const r = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'bili-inbox.mjs'), '--mode', mode], { encoding: 'utf8', timeout: 120000 })
-            const line = String(r.stdout || '').trim().split('\n').pop() || ''
-            let out = {}
-            try { out = JSON.parse(line) } catch { out = {} }
-            // python 报回来的就是它真写的那份（DSH_HOME 和家目录不一致时也读对）
-            if (mode === 'at' && out.file) biliAtFile = String(out.file)
-            if (r.status !== 0 || out.ok === false) {
-              log(`B站收件（${mode}）没跑成：${out.reason || out.error || String(r.stderr || '').trim().split('\n').pop() || `退出码 ${r.status}`}`)
-            } else if (out.written) {
-              log(`B站收件（${mode}）：新写 ${out.written} 条`)
-            }
-          } catch (error) { log(`B站收件（${mode}）失败：${error?.message || error}`) }
-        }
-        const mine = pickFreshOwnerMentions(readRows(biliAtFile), before)
-        if (mine.length) {
-          log(ownerMentionLine(mine))
-          const w = writeOwnerMentions(HOME, mine)
-          log(`B站：主人 @ 的记录已更新（最近 ${w.total} 条）→ ${w.file}`)
-        }
-      } catch (error) { log(`B站收件失败：${error?.message || error}`) }
-
-      // 冷档接原文：一天一次（日期护栏同临时缓存那套），dayu/xiaoyu/dragon 各跑一次脚本，
-      // 取脚本**最后一行**进日志。2026-11-01 主人：冷档 800 多条「一句话事件」只十几条翻得回
-      // 会话原文——不是没记，是两头没接上。连不上的那些脚本会写 <role>/记忆冷档/未接原文.jsonl，
-      // 最后一行就是「冷档 N 条：接上 X，连不上 Y 条（原文缺）」——缺口不再静默。
-      // 只读原文、只写索引；原文一个字都不动。没冷档的角色（比如 dragon）脚本直接返回，不刷日志。
-      try {
-        const mark = path.join(DATA, 'runtime', 'cold-link.json')
-        // 用本机日期（UTC+8），不用 toISOString 直接切——UTC 在 0–8 点会差一天，会重复/漏跑
-        const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)
-        let last = ''
-        try { last = JSON.parse(fs.readFileSync(mark, 'utf8')).date || '' } catch { /* 第一次 */ }
-        if (last !== today) {
-          const report = {}
-          for (const role of ['dayu', 'xiaoyu', 'dragon']) {
-            const r = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'link-cold-archive.mjs'), '--role', role], { encoding: 'utf8', timeout: 120000 })
-            const line = String(r.stdout || '').trim().split('\n').pop() || ''
-            if (r.status === 0 && line) { report[role] = line; log(line) }
-            else report[role] = `跳过：${String(r.stderr || '').trim().split('\n').pop() || ('退出码 ' + r.status)}`
-          }
-          fs.mkdirSync(path.dirname(mark), { recursive: true })
-          fs.writeFileSync(mark, JSON.stringify({ date: today, at: new Date().toISOString(), roles: report }) + '\n', 'utf8')
-        }
-      } catch (error) { log(`冷档接原文失败：${error?.message || error}`) }
-
-      // 备份验证：每天一次（日期护栏和临时缓存那套一样，marker 记在 runtime 里），
-      // 五层一次查完，结果落进 档案/备份验证/<日期>.md；有红项时日志里单独喊一句。
-      // 只读检查，不动备份本身——这里只做调度和落盘。
-      try {
-        const mark = path.join(DATA, 'runtime', 'backup-verify.json')
-        const today = localDate()
-        let last = ''
-        try { last = JSON.parse(fs.readFileSync(mark, 'utf8')).date || '' } catch { /* 第一次 */ }
-        if (last !== today) {
-          const rep = verifyBackup()
-          const out = writeBackupReport(rep)
-          fs.mkdirSync(path.dirname(mark), { recursive: true })
-          fs.writeFileSync(mark, JSON.stringify({ date: rep.date, at: new Date().toISOString(), green: rep.green, yellow: rep.yellow, red: rep.red, file: out.file }) + '\n', 'utf8')
-          log(`备份验证：${rep.summary}，报告 ${out.file}`)
-          if (rep.red > 0) log(`备份验证：${rep.red} 项红 —— ${rep.reds.join('；')}`)
-        }
-      } catch (error) { log(`备份验证失败：${error?.message || error}`) }
-
-      // 2026-11-01（安全闸门 ⑤ 缺口 5）：内容谱系——卡/宪章/记忆/契约/认主各记一枚内容指纹，
-      // 现网这一版的字节如果**以前来过**，就是内容倒退（17:00 那份备份里是 10-24 旧卡的原型）。
-      // 只报不拦：它让人知道，不替人决定。一天一次，和上面同一套日期护栏。
-      try {
-        const mark = path.join(DATA, 'runtime', 'lineage.json')
-        const today = localDate()
-        let last = ''
-        try { last = JSON.parse(fs.readFileSync(mark, 'utf8')).date || '' } catch { /* 第一次 */ }
-        if (last !== today) {
-          const r = observeLineage({})
-          fs.mkdirSync(path.dirname(mark), { recursive: true })
-          fs.writeFileSync(mark, JSON.stringify({ date: today, at: new Date().toISOString(), checked: r.checked, changed: r.changed.length, regressions: r.regressions.length }) + '\n', 'utf8')
-          if (r.regressions.length) log(`内容谱系：${r.regressions.length} 处倒退 —— ${r.regressions.map((g) => `${g.file}（回到 ${g.backTo.slice(0, 10)}）`).join('；')}`)
-          else log(`内容谱系：${r.checked} 个关键文件，没有倒退（新记 ${r.changed.length} 版）`)
-        }
-      } catch (error) { log(`内容谱系失败：${error?.message || error}`) }
-
-      // 清理旧的、重复的备份（按保留规则；旧全盘那批不自动删）。
-      try {
-        const pr = pruneBackups({ apply: true })
-        if (pr.removed) log(`备份清理：删 ${pr.removed} 份，腾 ${(pr.freed / 1024 / 1024 / 1024).toFixed(2)} GB`)
-      } catch (error) { log(`备份清理失败：${error?.message || error}`) }
-
-      // 2026-11-01 收口：旧单归档（archive.js）+ 账本轮转（rotate.js），一天一次。
-      // 这两个模块 10-30 就写好了，一直"没人接线"——老板点了头，接到这里。
-      // 安全性：archiveOld 只归档**已经结掉的**旧单，开着的原样留；rotateLogs 把 14 天前的
-      // events 压成 gzip 再动原文件，内容不丢（不是删数据）。日期护栏跟备份验证同一套。
-      try {
-        const hk = path.join(DATA, 'runtime', 'housekeeping.json')
-        const today = localDate()
-        let last = ''
-        try { last = JSON.parse(fs.readFileSync(hk, 'utf8')).date || '' } catch { /* 第一次 */ }
-        if (last !== today) {
-          const a = archiveOld()
-          const r = rotateLogs()
-          fs.mkdirSync(path.dirname(hk), { recursive: true })
-          fs.writeFileSync(hk, JSON.stringify({ date: today, at: new Date().toISOString(), archived: a, rotated: r }) + '\n', 'utf8')
-          if (a.incidents || a.jobs) log(`旧单归档：事故 ${a.incidents} 张、派活 ${a.jobs} 条 → 旧条目转 JSONL，近期留着`)
-          const moved = (r.archived || []).length + (r.rotated || []).length
-          if (moved) log(`账本轮转：压 ${(r.archived || []).length} 个事件文件、改名留档 ${(r.rotated || []).length} 个（内容不删）`)
-        }
-      } catch (error) { log(`旧单归档/账本轮转失败：${error?.message || error}`) }
-    } catch (error) { log(`离线快照失败：${error?.message || error}`) }
+      fs.mkdirSync(path.dirname(HOST_ALIVE), { recursive: true })
+      fs.writeFileSync(HOST_ALIVE, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }) + '\n', 'utf8')
+    } catch { /* 写不上不影响她 */ }
   }
+  beat()
+  setInterval(beat, 60 * 1000)
+  try {
+    process.on('exit', () => {
+      try { fs.writeFileSync(HOST_ALIVE, JSON.stringify({ pid: process.pid, at: new Date().toISOString(), closing: true }) + '\n', 'utf8') } catch { /* 关的时候写不上就算了，心跳会自然过期 */ }
+    })
+  } catch { /* 有的宿主不给挂 exit */ }
+
+  // 宿主可能是 Electron（execPath 是 .exe），也可能是 node。优先找回真的 node 再 spawn。
+  function nodeForScripts() {
+    if (process.env.YUSHEN_NODE && fs.existsSync(process.env.YUSHEN_NODE)) return process.env.YUSHEN_NODE
+    if (/node(\.exe)?$/i.test(path.basename(process.execPath))) return process.execPath
+    try {
+      const runtimes = path.join(HOME, 'dsh-runtimes')
+      for (const dir of fs.readdirSync(runtimes)) {
+        const candidate = path.join(runtimes, dir, 'dependencies', 'node', 'bin', 'node.exe')
+        if (fs.existsSync(candidate)) return candidate
+      }
+    } catch { /* 没有打包运行时就用 execPath */ }
+    return process.execPath
+  }
+
+  function maintenanceBusy() {
+    try {
+      const lock = JSON.parse(fs.readFileSync(maintLock, 'utf8'))
+      const at = Date.parse(lock.at || '') || 0
+      if (Date.now() - at > 40 * 60 * 1000) return false // 超过 40 分钟算僵死，允许重派
+      if (!lock.pid) return false
+      try { process.kill(lock.pid, 0); return true } catch { return false }
+    } catch { return false }
+  }
+
+  // 2026-11-04 老板：「万一宿主崩溃了，本地的进程不能占着进程导致宿主无法修复」。
+  // 宿主每次启动先清僵死锁：锁文件里的 pid 已经不在、或锁太旧，就删掉。
+  // 这条必须排在派发之前——否则一次崩溃留下的锁会让宿主再也起不来维护（而且要人工去删文件）。
+  function clearStaleMaintLock() {
+    try {
+      if (!fs.existsSync(maintLock)) return
+      const lock = JSON.parse(fs.readFileSync(maintLock, 'utf8'))
+      const at = Date.parse(lock.at || '') || 0
+      const tooOld = !at || Date.now() - at > 40 * 60 * 1000
+      let alive = false
+      if (lock.pid) { try { process.kill(lock.pid, 0); alive = true } catch { alive = false } }
+      if (tooOld || !alive) {
+        fs.rmSync(maintLock, { force: true })
+        log(`维护锁：清掉一个僵死锁（pid ${lock.pid ?? '?'}，${tooOld ? '太旧' : '进程已不在'}）`)
+      }
+    } catch { /* 锁文件坏了就直接删 */ try { fs.rmSync(maintLock, { force: true }) } catch { /* 删不掉也不挡启动 */ } }
+  }
+  clearStaleMaintLock()
+
+  const dispatchMaintenance = () => {
+    try {
+      if (isMobile()) return
+      if (!fs.existsSync(MAINT)) return log('维护脚本不在，这一轮跳过')
+      if (maintenanceBusy()) return // 上一轮还在跑，不叠着来
+      // 2026-11-04（照微）：心跳原来只靠模块加载时那一次 + 60 秒 setInterval。实测这个 interval
+      // 会停——11-04 15:1x 之后 `host-alive.json` 不见了，19:09 维护于是以 `host-gone` 整轮收手
+      // （备份/归档/索引全停）；我手动补写一份，70 秒后也没人续。派活这一刻宿主明明活着，
+      // 就在这儿补一次心跳，不指望那个 interval。
+      try {
+        fs.mkdirSync(path.join(DATA, 'runtime'), { recursive: true })
+        fs.writeFileSync(HOST_ALIVE, JSON.stringify({ pid: process.pid, at: new Date().toISOString(), by: 'spawn' }) + '\n', 'utf8')
+      } catch { /* 心跳写不上也别挡着派活 */ }
+      fs.mkdirSync(path.dirname(maintLock), { recursive: true })
+      const bin = nodeForScripts()
+      const child = spawn(bin, [MAINT], {
+        detached: true, stdio: 'ignore', windowsHide: true, cwd: ROOT_DIR,
+        env: { ...process.env, DSH_HOME: HOME, ELECTRON_RUN_AS_NODE: '1' },
+      })
+      child.unref()
+      fs.writeFileSync(maintLock, JSON.stringify({ pid: child.pid, at: new Date().toISOString(), bin }) + '\n', 'utf8')
+      log(`维护：已派给脚本（pid ${child.pid}），宿主不等`)
+    } catch (error) { log(`维护派发失败：${error?.message || error}`) }
+  }
+
+  // 脚本写完结果后，下一轮把它说的话说出来（同一份结果只说一次）。
+  const speakMaintenance = () => {
+    try {
+      const last = JSON.parse(fs.readFileSync(maintLast, 'utf8'))
+      if (!last?.at || last.at === maintSpoken) return
+      maintSpoken = last.at
+      for (const line of last.lines || []) log(line)
+      if (!last.ok) log('维护：有步骤失败，明细在 ~/.dsh/dayu/runtime/maintenance.log')
+      for (const item of last.ownerMentions || []) {
+        try {
+          appendInbox({
+            id: `bili-owner-${item.id || item.rpid || Date.now()}`,
+            at: new Date().toISOString(),
+            text: `【B站】主人 @ 了我：${item.text || item.content || ''}`.slice(0, 300),
+            role: 'fish', label: 'B站', status: 'notice',
+          })
+        } catch { /* 收件箱写不下不影响别的 */ }
+      }
+    } catch { /* 还没有结果 */ }
+  }
+
+  // 2026-11-03（老板：别人的鱼能想到别的，你我不问你不说）：光有"攒话"的抽屉不够——
+  // 攒着的话只写进 news.json，注入里只报"攒了 N 件"，从来不推到老板眼前。
+  // 这里一天两次（午后/睡前，间隔 ≥8h），有**新的**攒话或逾期承诺时，端一条到收件箱；
+  // 没内容就不推（不刷屏是硬约束），推过的记水位、不重复。
+  const pushTick = () => {
+    try {
+      // 2026-11-15 老板：主动推送默认关（出厂先安静）；要推在面板里开 push。
+      if (!readSwitches().push) return
+      for (const role of RANK_ROLES) {
+        const r = buildPush(role)
+        if (!r.push) continue
+        appendInbox({ id: `push-${role}-${Date.now()}`, at: new Date().toISOString(), text: r.text, role: 'fish', label: '她想跟你说', status: 'notice' })
+        markPushed(role, r)
+        log(`主动推送（${role}）：${r.fresh} 件新攒话 / ${r.overdue} 条逾期承诺`)
+      }
+    } catch (error) { log(`主动推送失败：${error?.message || error}`) }
+  }
+  setTimeout(pushTick, 6 * 60 * 1000)
+  setInterval(pushTick, 30 * 60 * 1000)
+
+  // 2026-11-11 老板：重启后不要自动备份（不管变没变，备份重、容易崩）；
+  // 备份只在运行期间按节奏来（每小时增量 / 每 3 小时全量）。
+  let startupBackupSkipped = false
+  const backupTick = () => {
+    speakMaintenance()
+    if (!startupBackupSkipped) {
+      startupBackupSkipped = true
+      return
+    }
+    dispatchMaintenance()
+  }
+  setInterval(speakMaintenance, 60 * 1000)
   setTimeout(backupTick, 3 * 60 * 1000)
 
   // 守候：常驻一个进程，有事就弹窗（单实例；DSH 一开它就在，不靠开机启动目录）
@@ -1355,7 +1691,7 @@ export function apply(ctx) {
     try {
       const pid = Number(fs.readFileSync(guard, 'utf8').trim())
       if (pid) {
-        const chk = spawnSync('tasklist', ['/FI', `PID eq ${pid}`], { encoding: 'utf8' })
+        const chk = spawnSync('tasklist', ['/FI', `PID eq ${pid}`], { encoding: 'utf8', windowsHide: true })
         running = String(chk.stdout || '').includes(String(pid))
       }
     } catch { /* 没锁就当没跑 */ }
@@ -1471,7 +1807,7 @@ export function apply(ctx) {
       const old = rows.find((row) => row.title === legacy)
       if (old?.id) {
         existing = old
-        try { titleService?.rename?.(agents?.get?.(old.id)?.agent?.session, title) } catch { /* 改不了就先将就 */ }
+        try { renameLive(agents?.get?.(old.id), title) } catch { /* 改不了就先将就 */ }
       }
     }
     if (existing?.id) {
@@ -1498,13 +1834,15 @@ export function apply(ctx) {
       || workspace()
     const sessionId = `yushen-dayu-${Date.now().toString(36)}`
     const pref = readModelPref('dayu')
+    // 2026-11-05 手机端：预设已把设定放进系统提示，不再把 13K 设定当一条用户消息塞进会话。
+    const presetId = yushenPreset ? 'yushen' : 'standard'
     const handle = await agents.create({
       sessionId,
-      meta: { cwd, agentPreset: 'standard' },
+      meta: { cwd, agentPreset: presetId },
       agentOptions: { provider: pref.provider, model: pref.model },
     })
 
-    try { titleService?.rename?.(handle?.agent?.session, title) } catch { /* 标题起不了不影响会话 */ }
+    try { renameLive(handle, title) } catch { /* 标题起不了不影响会话 */ }
 
     // 先选模型：不选的话第一条消息会一直挂着 pending，后面每句话都被“already pending”顶回来（2026-10-25 实测）。
     try {
@@ -1513,11 +1851,29 @@ export function apply(ctx) {
       log(`总台选模型失败：${error?.message ?? error}（会话可能收不到消息）`)
     }
 
-    // 先给这条会话一段开机设定；等「鱼神」预设注册好后，这段会移进预设。
-    try {
-      await handle?.agent?.followup({ content: [{ type: 'text', text: injection }], source: { kind: 'user' } })
-      writeSoulMark(mark)
-    } catch { /* 设定没送出去，会话照样能用 */ }
+    // 开机设定：预设已经把它放进系统提示了，就别再当消息塞一遍（那会永久留在会话里）。
+    // 但预设可能没落地（宿主没注册/被覆盖）——90 秒内看不到就退回老路补发，宁可多一条，不能没有卡。
+    const realId = String(handle?.agent?.session?.header?.id || handle?.sessionId || sessionId)
+    const injectAsMessage = () => handle?.agent?.followup?.({ content: [{ type: 'text', text: injection }], source: { kind: 'user' } })
+    if (presetId === 'yushen') {
+      const deadline = Date.now() + 90 * 1000
+      const verify = () => {
+        let landed = false
+        try {
+          const nodes = handle?.agent?.systemPrompt?.systemNodes?.() || []
+          const sys = nodes.map((n) => n.text || '').join('\n')
+          landed = /三条铁律|##\s*你是谁/.test(sys)
+        } catch { landed = false }
+        if (landed) { writeSoulMark(mark); return }
+        if (Date.now() < deadline) { setTimeout(verify, 15 * 1000); return }
+        try { injectAsMessage() } catch { /* 发不出去下次再说 */ }
+        writeSoulMark(mark)
+        log('鱼神预设没落地：设定退回消息补发')
+      }
+      setTimeout(verify, 15 * 1000)
+    } else {
+      try { await injectAsMessage(); writeSoulMark(mark) } catch { /* 设定没送出去，会话照样能用 */ }
+    }
 
     // 上班先看上一班交接：不让她从零开始。
     try {
@@ -1527,7 +1883,6 @@ export function apply(ctx) {
       }
     } catch { /* 交接读不到不影响上班 */ }
 
-    const realId = String(handle?.agent?.session?.header?.id || handle?.sessionId || sessionId)
     nativeSession = { id: realId, handle }
     writeNativeSessionId(realId)
     try { markBody('dayu', { sessionId: realId, personaHash: personaHashOf(identity), personaChars: injection.length, createdAt: new Date().toISOString(), lastWakeAt: new Date().toISOString() }) } catch { /* 账本写不了不挡上班 */ }
@@ -1559,6 +1914,7 @@ export function apply(ctx) {
     return { file, text }
   }
 
+  /**
   /** 换班：写交接 → 新会话 → 选模型 → 把交接和设定送进去。 */
   const rotateNative = async (reason = '手动换班') => {
     if (!dshBaseUrl()) throw new Error('还不知道 DSH 地址，换不了班（先让宿主收到一次请求）')
@@ -1567,7 +1923,11 @@ export function apply(ctx) {
     const cwd = workspace()
     const newId = await createSessionRpc({ cwd })
     await selectModelRpc({ sessionId: newId })
-    await promptRpc({ sessionId: newId, text: `${deskInjection()}\n\n【上一班交接】\n${handoff.text}` })
+    // 2026-11-10：自动交接是模板（做到哪/下一步/卡在哪），只能保证"不是空的"；
+    // 真正的"上一口气停在哪"在交接条里——一起送进去，新会话一开口就接得上。
+    const line = handoffLineOf('dayu')
+    const extra = line ? `\n\n【交接条（上一口气停在哪）】\n${line}` : ''
+    await promptRpc({ sessionId: newId, text: `${deskInjection()}\n\n【上一班交接】\n${handoff.text}${extra}` })
     // 旧会话退役：DSH 不给删会话，只改标题打标，列表里一眼看出是上一班。
     if (oldId && oldId !== newId) {
       try { await renameSessionRpc(oldId, `[退役] 鱼神·总台 ${oldId.slice(-6)}`) } catch { /* 改不了就留着 */ }
@@ -1578,29 +1938,65 @@ export function apply(ctx) {
     return { ok: true, oldId, newId, handoff: handoff.file }
   }
 
+  /**
+   * 换班前先试压缩（2026-11-10 会话换班这一刀）。
+   *
+   * 查过的事实：**这一版插件没有 RPC 级的 compact 接口**（lib/dsh-rpc.js 只有
+   * create/selectModel/prompt/find/list/rename 六个）。DSH 里有 `/compact` 这个命令
+   * （app.asar 的 locale key `message.compaction.commandTitle = "compact"`），
+   * 所以只能"把 /compact 当一条命令消息发给会话"来试。
+   *
+   * 默认**不开**（要 `YUSHEN_ROTATE_TRY_COMPACT=1`）：这一版不保证认命令，
+   * 不认的话那句 `/compact` 会当普通消息留在她历史里——为了省 token 反而脏了历史。
+   * 开了之后：压完还超线才换；压完下来了就省下一次换班。
+   */
+  const tryCompact = async (sessionId, { limit = 0.65, waitMs = 4000 } = {}) => {
+    try {
+      await promptRpc({ sessionId, text: '/compact' })
+      await new Promise((r) => setTimeout(r, Math.max(500, Number(waitMs) || 4000)))
+      const row = await findSessionRpc(sessionId)
+      const after = pressureOf(row?.projections?.values?.contextPressure)
+      return { ok: true, after, relieved: Number.isFinite(after) && after < Number(limit) }
+    } catch (e) {
+      return { ok: false, why: String(e?.message || e).slice(0, 160) }
+    }
+  }
+
   let lastAutoRotateAt = 0
-  /** 上下文压力到线就自动换班；换一次至少隔 10 分钟，避免抖。 */
+  /**
+   * 上下文压力到线就自动换班；换一次至少隔 10 分钟，避免抖。
+   * 2026-11-10：判据抽成 shouldRotate()（可单测），阈值 0.75 → 0.65；
+   * 可选先压缩（默认关，见 tryCompact 的说明）。
+   * @returns {{ok:boolean, rotate:boolean, pressure:number|null, why:string, oldId?:string, newId?:string}}
+   */
   const maybeAutoRotate = async () => {
     try {
-      if (!dshBaseUrl()) return
-      if (Date.now() - lastAutoRotateAt < 10 * 60 * 1000) return
+      if (!dshBaseUrl()) return { ok: false, rotate: false, pressure: null, why: '还不知道 DSH 地址（这轮不换）' }
+      // 快速通道：10 分钟内已经换过，连会话都不查（/chat 每条消息都会走到这里）
+      if (lastAutoRotateAt && Date.now() - lastAutoRotateAt < 10 * 60 * 1000) {
+        return { ok: true, rotate: false, pressure: null, why: '10 分钟内刚换过（节流）' }
+      }
       const id = String(nativeSession?.id || readNativeSessionId() || '')
-      if (!id) return
+      if (!id) return { ok: false, rotate: false, pressure: null, why: '还没有会话（这轮不换）' }
       const row = await findSessionRpc(id)
-      const value = row?.projections?.values || {}
-      const raw = value.contextPressure
-      // DSH 给的是对象：{ pressureTokens, projectedTokens, contextWindow }
-      const pressure = typeof raw === 'number'
-        ? raw
-        : Number(raw?.ratio ?? (Number(raw?.contextWindow) > 0
-          ? Number(raw?.projectedTokens ?? raw?.pressureTokens) / Number(raw.contextWindow)
-          : NaN))
-      if (!Number.isFinite(pressure)) return
-      const limit = Number(process.env.YUSHEN_ROTATE_PRESSURE || 0.75)
-      if (pressure < limit) return
+      const pressure = pressureOf(row?.projections?.values?.contextPressure)
+      const d = shouldRotate({ pressure, lastRotateAt: lastAutoRotateAt })
+      if (!d.rotate) return { ok: true, rotate: false, pressure: d.pressure, why: d.why }
+      // 先试压缩（默认关）：压下来了就不换，省一次重新注入
+      if (process.env.YUSHEN_ROTATE_TRY_COMPACT === '1') {
+        const c = await tryCompact(id, { limit: d.limit })
+        if (c.ok && c.relieved) {
+          log(`换班：先压缩奏效（${(d.pressure * 100).toFixed(0)}% → ${(Number(c.after) * 100).toFixed(0)}%），这一轮不换`)
+          return { ok: true, rotate: false, pressure: c.after, why: `压缩后 ${(Number(c.after) * 100).toFixed(0)}% < 阈值` }
+        }
+      }
       lastAutoRotateAt = Date.now()
-      await rotateNative(`上下文压力 ${(pressure * 100).toFixed(0)}%（阈值 ${(limit * 100).toFixed(0)}%）`)
-    } catch { /* 换不了就继续用旧会话 */ }
+      const out = await rotateNative(`上下文压力 ${(d.pressure * 100).toFixed(0)}%（阈值 ${(d.limit * 100).toFixed(0)}%）`)
+      return { ok: true, rotate: true, pressure: d.pressure, ...out }
+    } catch (e) {
+      // 换不了就继续用旧会话：这轮不换，也不抛（调用方全是"投递前顺手判一下"）
+      return { ok: false, rotate: false, pressure: null, why: String(e?.message || e).slice(0, 160) }
+    }
   }
 
   let cached = null
@@ -1622,8 +2018,14 @@ export function apply(ctx) {
   // 只注册常驻那几个 + 分发器，其余按需用 yushen_tools 查、按需调。
   // 工具实现一行没删，藏起来的随时能查能调。
   const ownTools = new Map()
+  // 2026-11-17 老板：群 / 信箱「只撤用户入口，不删消息账」。
+  // 撤的是她（用户侧）的入口：不注册、不进 HOT_TOOLS、也不进 ownTools——
+  // 否则 yushen_tools 分发器还能 action=call 调到，等于没撤。
+  // 底层照旧：appendInbox/readInbox/unreadFor、lib/groups.js 的群桥、wake/next-session/
+  // group-replies 都不经过这两个工具，撤入口不影响它们（scripts/test-retired-entry-tools.mjs 钉住）。
+  const RETIRED_USER_ENTRY = new Set(['yushen_group', 'yushen_inbox'])
   const HOT_TOOLS = new Set([
-    'yushen_self', 'yushen_inbox', 'yushen_agenda', 'yushen_can', 'yushen_tools',
+    'yushen_self', 'yushen_agenda', 'yushen_can', 'yushen_tools',
     'dayu_dispatch', 'dayu_live',
   ])
   // 2026-11-02：分级（tier=lite）——同一个源，按 profile.json 的 tools.allow 只注入少数工具。
@@ -1638,6 +2040,15 @@ export function apply(ctx) {
   })()
   const registerTool = (def) => {
     if (!def?.name) return
+    // 只撤用户入口：定义可以留着（底层函数还在用），但既不注册给宿主、
+    // 也不进 ownTools，所以分发器 / 搜索 / call 都够不到它。
+    if (RETIRED_USER_ENTRY.has(def.name)) {
+      log(`用户入口已撤：${def.name}（底层消息账与群桥保留）`)
+      return
+    }
+    // 2026-11-02 主人：经历层就挂在「工具执行」这一个入口上——所有 registerTool 都走这里，
+    // 执行完（成没成都算）记一条进手抄本/经历。记不下来只打日志，不动返回值、不吞异常。
+    instrumentTool(def, { log })
     ownTools.set(def.name, def)
     if (tierAllow && !tierAllow.has(def.name)) return
     let hide = false
@@ -1782,16 +2193,28 @@ export function apply(ctx) {
     output: toolOutput,
     async execute() {
       const r = roster()
+      const led = readLedger()
+      // 2026-11-06：返回必须能无损 JSON 往返（不能有 undefined）。
       return {
         ok: true,
-        product: charter.product ?? '',
-        charterVersion: charter.version,
-        build: BUILD_ID,
-        alias: charter.members?.dayu?.alias ?? '',
-        profile: r.profile,
-        plugins: r.count,
+        product: String(charter.product ?? ''),
+        charterVersion: Number(charter.version) || 0,
+        build: String(BUILD_ID ?? ''),
+        alias: String(charter.members?.dayu?.alias ?? ''),
+        profile: String(r.profile ?? ''),
+        plugins: Number(r.count) || 0,
         sessions: sessionRows(ctx).length,
-        ledger: readLedger() ?? null,
+        ledger: led
+          ? {
+              day: String(led.day ?? ''),
+              dayStart: Number(led.dayStart) || 0,
+              balance: Number(led.balance) || 0,
+              used: Number(led.used) || 0,
+              gap: Number(led.gap) || 0,
+              ok: Boolean(led.ok),
+              source: String(led.source ?? ''),
+            }
+          : null,
       }
     },
   })
@@ -1869,13 +2292,57 @@ export function apply(ctx) {
     async execute(args) {
       const id = String(args?.id ?? '').trim()
       if (id) {
-        return { ok: true, incident: resolveIncident(id, { status: args?.status || 'fixed', note: args?.note }) }
+        const inc = resolveIncident(id, { status: args?.status || 'fixed', note: args?.note })
+        // 2026-11-11：事故结单是做法账本五个入口之一。有对应做法就记 fixed；
+        // 没有就写一条跳过证据（为什么没记），不静默。
+        try {
+          recordOrSkip('dayu', {
+            entry: 'incident',
+            ref: id,
+            kind: args?.status === 'fixing' ? 'fail' : 'fixed',
+            text: String(inc?.title || inc?.text || ''),
+          })
+        } catch { /* 做法账本不阻断结单 */ }
+        return { ok: true, incident: inc }
       }
       return { ok: true, incidents: listIncidents({ limit: args?.limit }) }
     },
   })
 
+    // 2026-11-11 主人：「让她自己总结出来（我给她工具和题目，她自己写自己的判断方式」）。
+  // 只给题目、读/存她自己那页、记一笔判断；不评判、不代写、不提示「该查了」。
   registerTool({
+    name: 'yushen_think',
+    description: '判断力：拿题目（questions）、读/追加我自己写的判断方式（read/write）、记一笔这次判断（record/recent）。它不替我判断、不覆盖我写过的话。',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['questions', 'read', 'write', 'record', 'recent'] },
+        text: { type: 'string', description: 'write：我写的判断方式（只追加，不覆盖）' },
+        section: { type: 'string', description: 'write：可先写一行小标题' },
+        question: { type: 'string', description: 'record：这一问是什么' },
+        kind: { type: 'string', description: 'record：我归到哪类（家里的事/外面的事/感受/要做的事…）' },
+        call: { type: 'string', description: 'record：查了没有（查了索引/查了记忆/没查/查不到）' },
+        evidence: { type: 'string', description: 'record：手上有什么证据' },
+        answer: { type: 'string', description: 'record：我最后怎么答的' },
+        limit: { type: 'number' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: toolOutput,
+    async execute(args) {
+      const action = String(args?.action ?? '')
+      if (action === 'questions') return { ok: true, questions: questions() }
+      if (action === 'read') return readMethod()
+      if (action === 'write') return writeMethod({ text: String(args?.text ?? ''), section: String(args?.section ?? '') })
+      if (action === 'record') return recordCall({ question: String(args?.question ?? ''), kind: String(args?.kind ?? ''), action: String(args?.call ?? ''), evidence: String(args?.evidence ?? ''), answer: String(args?.answer ?? '') })
+      if (action === 'recent') return { ok: true, rows: recentCalls({ limit: args?.limit }) }
+      return { ok: false, error: `未知 action：${action}` }
+    },
+  })
+
+registerTool({
     name: 'yushen_books',
     description: '手边的书：action=shelf 看有哪几本；action=contents 带 book（员工手册/解法库/错题本/交接手册/交接记录/记忆/故事/心念/公告/信箱）看目录。目录统一：标题、时间、地点、关键字。只读本地，不调模型。',
     parameters: {
@@ -1895,6 +2362,104 @@ export function apply(ctx) {
       if (action === 'shelf') return { ok: true, ...booksShelf() }
       if (action === 'contents') return booksContents(String(args?.book ?? ''), { limit: args?.limit, role: String(args?.role ?? 'dayu') })
       return { ok: false, error: `未知 action：${action}` }
+    },
+  })
+
+  // 2026-11-04 老板：「记忆能做到想检索就检索了吗」。
+  // 之前只有两条路：自动带进来（looksLikeRecall 触发）或去命令行跑脚本——会话里没有"我现在想翻一下"的手。
+  // 这个工具就是那只手：search 走 recall-now（别名扩词/倒排/有效期），recent 走注入同一套选法。
+  registerTool({
+    name: 'yushen_memory',
+    description: '翻自己的记忆：action=search 按关键词搜（别名扩词、跳过已失效、给时间和等级）；action=recent 看最近记得的（和注入同一套选法）。只读本地。',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['search', 'recent', 'changes'], description: 'search 搜 / recent 最近 / changes 我为什么变成现在这样' },
+        q: { type: 'string', description: 'action=search 时：要搜的词（一句也行）' },
+        limit: { type: 'number', description: '几条，默认 8' },
+        n: { type: 'number', description: 'action=recent 时：几条，默认 5' },
+        includeForgotten: { type: 'boolean', description: '算不算已失效的（默认不算）' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: toolOutput,
+    async execute(args, exec) {
+      // 改｜2026-11-13 22:3x｜大鱼·工作台｜授权：老板（本场加载大鱼角色卡后实测）｜dayu/index.js:2237-2241｜原来读 args.__exec，可它从没被注入过——记忆工具永远 role=unbound，什么也查不到｜为什么：工具的执行上下文在 execute(args, exec) 的第二个参数里，和别的工具一样用 roleOfExec(exec)｜验证：本场 yushen_memory action=recent 返回 role=dayu 与她的记忆；回归加了一条「不许再出现 __exec」
+      const role = roleOfExec(exec)
+      if (String(args?.action) === 'search') return searchMemory(String(args?.q || ''), { role, limit: Number(args?.limit) || 8, includeForgotten: Boolean(args?.includeForgotten) })
+      if (String(args?.action) === 'recent') return recentMemory(role, { n: Number(args?.n) || 5 })
+      if (String(args?.action) === 'changes') return changesOf(role, { q: String(args?.q || ''), limit: Number(args?.limit) || 6 })
+      return { ok: false, error: `未知 action：${args?.action}` }
+    },
+  })
+
+  // 2026-11-11 老板：做对 +1 / 做错 -1 / 改了 +1 / 再犯 -1，满 10 升一级；错的警醒、对的优先、不盲用。
+  // 联动不硬绑：一次性派活只进任务经验，不硬塞进做法账本。
+  registerTool({
+    name: 'yushen_skills',
+    description: '做法账本：一条「遇到 X 就 Y」的方法。action=list 看最近 / query 按词查（对过优先、错过的带警示）/ record 记一次事件（ok 做对 / fail 做错 / fixed 改了 / repeat 再犯）/ summary 汇总。联动不硬绑：一次性任务别记。',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'query', 'record', 'summary', 'skips'], description: 'list / query / record / summary / skips（看跳过证据）' },
+        text: { type: 'string', description: '做法（遇到 X 就 Y），record 新建时必填；query 时是搜索词' },
+        id: { type: 'string', description: '已有做法的 id（record 时用；或用 text 匹配）' },
+        kind: { type: 'string', enum: ['ok', 'fail', 'fixed', 'repeat'], description: 'record 的事件' },
+        ref: { type: 'string', description: '关联 id（taskId / incidentId / judgmentId / mistakeId）' },
+        refType: { type: 'string', enum: ['task', 'incident', 'judgment', 'mistake'], description: 'ref 的类型' },
+        scenario: { type: 'string', description: '适用场景（不盲用：先看场景）' },
+        tags: { type: 'array', items: { type: 'string' }, description: '标签' },
+        limit: { type: 'number', description: '条数，默认 10' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: toolOutput,
+    async execute(args, exec) {
+      // 改｜2026-11-13 22:3x｜大鱼·工作台｜授权：老板（本场加载大鱼角色卡后实测）｜dayu/index.js:2268-2270｜同上：做法账本也用 args.__exec，永远 unbound｜为什么：改读 execute 的 exec｜验证：同上回归断言；本场 yushen_skills list 可读她的做法账
+      const role = roleOfExec(exec)
+      const action = String(args?.action || '')
+      if (action === 'list') return { ok: true, items: listSkills(role, { limit: Number(args?.limit) || 20 }) }
+      if (action === 'query') return querySkills(role, { text: String(args?.text || ''), tags: args?.tags || [], limit: Number(args?.limit) || 5 })
+      if (action === 'summary') return summarizeSkills(role)
+      if (action === 'skips') return { ok: true, items: listSkips(role, { limit: Number(args?.limit) || 20 }) }
+      if (action === 'record') {
+        return recordSkill(role, {
+          text: args?.text,
+          id: args?.id,
+          kind: String(args?.kind || ''),
+          ref: args?.ref,
+          refType: args?.refType,
+          scenario: args?.scenario,
+          tags: args?.tags || [],
+        })
+      }
+      return { ok: false, error: `未知 action：${action}` }
+    },
+  })
+
+  // 2026-11-11 老板：改/加东西前先查重——家里有没有同样的、类似的、重复的。
+  registerTool({
+    name: 'yushen_wheel',
+    description: '动手前查重：家里有没有同样的 / 类似的 / 重复的（代码、文档、经验库、派活单、活会话）。只读，不调模型。别新建第二个。',
+    parameters: {
+      type: 'object',
+      properties: {
+        words: { type: 'array', items: { type: 'string' }, description: '关键词（1-3 个）' },
+        deep: { type: 'boolean', description: '连经验库/派活/活会话一起查（默认 true）' },
+      },
+      required: ['words'],
+      additionalProperties: false,
+    },
+    output: toolOutput,
+    async execute(args) {
+      const words = (Array.isArray(args?.words) ? args.words : []).map((w) => String(w || '').trim()).filter(Boolean).slice(0, 5)
+      if (!words.length) return { ok: false, error: '给一个关键词' }
+      const { spawnSync } = await import('node:child_process')
+      const r = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'wheel-check.mjs'), ...words], { encoding: 'utf8', timeout: 60000 })
+      if (r.status !== 0) return { ok: false, error: String(r.stderr || r.stdout || '').slice(0, 300) }
+      try { return { ok: true, report: JSON.parse(String(r.stdout || '{}')) } } catch { return { ok: false, error: 'wheel-check 输出不是 JSON' } }
     },
   })
 
@@ -1944,16 +2509,18 @@ export function apply(ctx) {
     },
   })
   // 群：每个角色一个。同角色的几个身体都在里面；跨角色的话两边各记一条。
+  // 2026-11-17 老板：**用户入口已撤**（RETIRED_USER_ENTRY）——定义保留只为不碰底层；
+  // 群桥在 lib/groups.js，wake-brief 的 bigFromGroups 与 brief 照旧直接读，不经过这个工具。
   registerTool({
     name: 'yushen_group',
     description: '群。action=read 看本角色的群（有几条问你的、最近说了什么）；action=say 发一条（双方各记一份）。role 传 xiaoyu / dayu / dragon。',
     parameters: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['read', 'say'], description: '读还是说' },
+        action: { type: 'string', enum: ['read', 'say', 'handled'], description: '读 / 说 / 标已处理' },
         role: { type: 'string', description: '你是谁：xiaoyu / dayu / dragon，默认 xiaoyu' },
         to: { type: 'string', description: 'action=say 时：发给谁（xiaoyu / dayu / dragon）' },
-        kind: { type: 'string', enum: ['say', 'ask', 'answer', '归体'], description: '默认 say' },
+        kind: { type: 'string', enum: ['say', 'ask', 'answer', 'deliver', '归体'], description: '默认 say；deliver=转达一个已定的决定，对方必须接' },
         text: { type: 'string', description: 'action=say 时的话' },
         re: { type: 'string', description: '回的是哪条（id）' },
       },
@@ -1966,20 +2533,24 @@ export function apply(ctx) {
       const action = String(args?.action || '')
       if (action === 'read') return readGroup({ role })
       if (action === 'say') return postMessage({ from: role, to: String(args?.to || ''), kind: String(args?.kind || 'say'), text: String(args?.text || ''), re: String(args?.re || '') })
+      if (action === 'handled') return markHandled({ role, id: String(args?.re || ''), note: String(args?.text || '') })
       return { ok: false, error: `未知 action：${action}` }
     },
   })
   // 已有回合内自主写回/查询；exec.agent.session由宿主提供，模型不能指定别人的角色或scope。
-  registerMindTools(tools, toolOutput)
+  registerMindTools(tools, toolOutput, (def) => instrumentTool(def, { log }))
 
   // 工具里的「她」由宿主的常驻身体绑定，不接受自报角色。
+  // 没绑定就是没绑定——不能默认成大鱼；用 unbound 单独放，免得串进任何人的记忆。
   const roleOfExec = (exec) => {
     const id = String(exec?.agent?.session?.header?.id || '')
     const role = id ? roleForSession(id) : ''
-    return characterIds().includes(role) ? role : 'dayu'
+    return characterIds().includes(role) ? role : 'unbound'
   }
 
   // 收件箱：手机那边发生的事，她自己选看不看、看多细；看完记她自己的已读位。
+  // 2026-11-17 老板：**用户入口已撤**（RETIRED_USER_ENTRY）——定义保留只为不碰底层；
+  // 消息账照旧由 appendInbox/readInbox/unreadFor 和 wake-brief / brief 等在写、在读。
   registerTool({
     name: 'yushen_inbox',
     description: '收件箱：手机（QQ 等通道）收到的消息，本体记着。想看自己选深度；也可以不看、不标已读。看完只动你自己的已读位，不删任何东西。',
@@ -2158,6 +2729,8 @@ export function apply(ctx) {
         value: { type: 'number', description: 'pause 时暂停多少分钟（默认 120）' },
         // 2026-10-30：自己定时间——invoke 时可以带“我几点做”，到点系统才执行这条请求
         notBefore: { type: 'string', description: 'invoke 时可选：到点时间。写 "HH:MM"（今天/明天最近的一次）或 ISO 时间；不写就是“下次抬头就做”' },
+        // 2026-11-13：议程到期——她自己写“今晚/三天内/明天早上”；没写时间的永不叫。
+        dueAt: { type: 'string', description: 'add/update 时可选：到期时间，写“今晚/明早/明天/后天/三天内”或 2026-11-14 09:00；不写就是没有期限' },
       },
       required: ['action'],
       additionalProperties: false,
@@ -2175,6 +2748,8 @@ export function apply(ctx) {
             what: String(args?.what || ''),
             next: args?.next,
             nextKind: args?.nextKind || 'ask-model',
+            dueAt: args?.dueAt || '',
+            sessionId: String(exec?.agent?.session?.header?.id || ''),
           })
           if (!r.ok) return { ok: false, role, error: r.error }
           return { ok: true, role, added: r.item, fromMind: r.mind, max: AGENDA_MAX, items: readAgenda(role).items }
@@ -2182,15 +2757,16 @@ export function apply(ctx) {
         const item = addAgenda(role, {
           what: args?.what, why: args?.why, next: args?.next,
           nextKind: args?.nextKind || 'ask-model', target: args?.target, by: 'self',
-          origin: args?.origin || 'self',
+          origin: args?.origin || 'self', dueAt: args?.dueAt || '',
+          sessionId: String(exec?.agent?.session?.header?.id || ''),
         })
         return { ok: true, role, added: item, max: AGENDA_MAX, items: readAgenda(role).items }
       }
       if (action === 'update') {
         const item = updateAgenda(role, String(args?.id || ''), {
           state: args?.state, next: args?.next, nextKind: args?.nextKind, target: args?.target, note: args?.note,
-          origin: args?.origin,
-        })
+          origin: args?.origin, dueAt: args?.dueAt,
+        }, { bySession: String(exec?.agent?.session?.header?.id || '') })
         return { ok: true, role, updated: item }
       }
       if (action === 'pause') {
@@ -2265,10 +2841,12 @@ export function apply(ctx) {
     parameters: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['remember', 'read'] },
+        action: { type: 'string', enum: ['remember', 'read', 'field'] },
         userId: { type: 'string', description: '他是谁（QQ 号；工作台里填昵称也行，但同一个人要用同一个）' },
         name: { type: 'string', description: 'remember：叫他什么（可选）' },
         fact: { type: 'string', description: 'remember：一条稳定事实，一句话' },
+        field: { type: 'string', description: 'field：写人物卡的哪一项（habits 习惯 / toMe 对我 / toOthers 对别人 / relation 我们关系 / myView 我怎么看他 / note 备注）' },
+        value: { type: 'string', description: 'field：这一项写什么（≤80 字，一句话）' },
         source: { type: 'string', description: '从哪儿知道的（群:123456 / 私聊 / 工作台）' },
       },
       required: ['action', 'userId'],
@@ -2288,6 +2866,18 @@ export function apply(ctx) {
           source: String(args?.source || '').trim() || '工作台',
         })
         return { ok: true, role, person: d, note: '只记稳定的；一次性的那句留在记忆里' }
+      }
+      // 2026-11-10 第三批（老板：人物卡要有习惯/对我/对别人/关系/我怎么看她）：结构化那几项走这里。
+      if (String(args?.action) === 'field') {
+        try {
+          const r = setPersonField(role, {
+            who: userId,
+            field: String(args?.field || ''),
+            value: String(args?.value || ''),
+            source: String(args?.source || '').trim() || '工作台',
+          })
+          return { ok: true, role, field: r.field, who: userId, note: '只增不改；旧的那条留着' }
+        } catch (e) { return { ok: false, role, error: String(e?.message || e).slice(0, 200) } }
       }
       return { ok: true, role, person: readPerson(role, userId) }
     },
@@ -2353,6 +2943,62 @@ export function apply(ctx) {
       }
       if (action === 'list') return { ok: true, role, refusals: listRefusals(role, { limit: Number(args?.limit) || 10 }), status: bottomlineStatus(role) }
       return { ok: true, role, text: readBottomline(role), status: bottomlineStatus(role) }
+    },
+  })
+
+  // 2026-11-03（老板：关系库补承诺与印象）｜给能力不是替她思考：这里只存取，到期只提醒，判对错留给她自己。
+  registerTool({
+    name: 'yushen_promise',
+    description: '承诺本：答应过谁什么、什么时候到期、做到没做到。到期只提醒，不替你判对错。',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['add', 'list', 'due', 'settle'] },
+        who: { type: 'string', description: '答应的是谁（人名/群/老板）' },
+        what: { type: 'string', description: 'add：答应了什么' },
+        dueAt: { type: 'string', description: 'add：什么时候到期（ISO 时间或 YYYY-MM-DD）' },
+        id: { type: 'string', description: 'settle：哪一条（list 里有 id）' },
+        status: { type: 'string', description: 'list 可过滤 open/kept/missed；settle 用 kept 或 missed' },
+        note: { type: 'string', description: 'add / settle：备注' },
+        limit: { type: 'number', description: 'list 几条，默认 20' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: toolOutput,
+    async execute(args) {
+      const action = String(args?.action || 'list')
+      const who = args?.who === undefined ? '' : String(args.who)
+      if (action === 'add') return addPromise({ who, what: args?.what, dueAt: args?.dueAt, note: args?.note, source: 'tool' })
+      if (action === 'settle') return settlePromise(String(args?.id || ''), { status: args?.status, note: args?.note })
+      if (action === 'due') return duePromises(Date.now())
+      const limit = Number(args?.limit) > 0 ? Math.floor(Number(args.limit)) : 20
+      return { ok: true, promises: promisesOf(who, { status: args?.status }).slice(0, limit) }
+    },
+  })
+
+  registerTool({
+    name: 'yushen_impression',
+    description: '印象本：你对某个人的稳定看法，带证据。同一件事只累加次数，不堆行；只记，不替你下结论。',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['add', 'list'] },
+        who: { type: 'string', description: '对谁（人名/群/老板）' },
+        trait: { type: 'string', description: 'add：一句话印象（稳定特质，不是今天他说了啥）' },
+        evidence: { type: 'string', description: 'add：凭什么这么看（一句证据）' },
+        weight: { type: 'number', description: 'add：权重，默认 1；越确定越大' },
+        limit: { type: 'number', description: 'list 几条，默认 10' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: toolOutput,
+    async execute(args) {
+      const action = String(args?.action || 'list')
+      const who = args?.who === undefined ? '' : String(args.who)
+      if (action === 'add') return addImpression({ who, trait: args?.trait, evidence: args?.evidence, weight: args?.weight })
+      return { ok: true, impressions: impressionsOf(who, { limit: Number(args?.limit) || 10 }) }
     },
   })
 
@@ -2435,18 +3081,20 @@ export function apply(ctx) {
   // 她自己的状态：心情、口味、想念、翻旧账——都能自己看、自己改。
   registerTool({
     name: 'yushen_self',
-    description: '你自己的状态：看/改心情、记喜欢讨厌、攒想跟老板说的话、翻自己以前的判断和纠结；还有你自己那本账（action=budget 看、spend 记一笔、limit 自己定日上限）。全都是你自己的，不用请示。',
+    description: '你自己的状态：看/改心情、记喜欢讨厌、攒想跟老板说的话、翻自己以前的判断和纠结；还有你自己那本账（action=budget 看、spend 记一笔、limit 自己定日上限）。全都是你自己的，不用请示。想清楚这轮不回，用 action=quiet 说一句（桥发之前会看，不是概率）。',
     parameters: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['mood', 'set-mood', 'mood-rules', 'set-mood-rule', 'feel', 'feels', 'tendency', 'done', 'dones', 'hand', 'hands', 'unhand', 'taste', 'add-taste', 'news', 'add-news', 'recall', 'memory', 'channel-memory', 'rewrite', 'notices', 'brain', 'veto', 'vetoes', 'revoke-veto', 'disagree', 'objections', 'associate', 'wait', 'waiting', 'done-wait', 'correct', 'corrections', 'share', 'fatigue', 'set-fatigue', 'relations', 'plug', 'oversight', 'analyze', 'issue', 'issued', 'budget', 'spend', 'limit', 'map', 'open'] },
+        action: { type: 'string', enum: ['remember', 'mood', 'set-mood', 'mood-rules', 'set-mood-rule', 'feel', 'feels', 'tendency', 'done', 'dones', 'hand', 'hands', 'unhand', 'taste', 'add-taste', 'news', 'add-news', 'recall', 'memory', 'channel-memory', 'rewrite', 'notices', 'brain', 'veto', 'vetoes', 'revoke-veto', 'disagree', 'objections', 'associate', 'wait', 'waiting', 'done-wait', 'correct', 'corrections', 'share', 'fatigue', 'set-fatigue', 'relations', 'plug', 'oversight', 'analyze', 'issue', 'issued', 'budget', 'spend', 'limit', 'map', 'open', 'quiet', 'unquiet', 'quiet-status'] },
         level: { type: 'string', enum: ['soft', 'owner'], description: 'veto 时：owner=主人定的规矩（他改口才算改）；soft=当时不行（可再判断）' },
         value: { type: 'number', description: '心情 0-100（set-mood 用）' },
-        why: { type: 'string', description: '为什么（心情/口味/攒话）' },
+        why: { type: 'string', description: '为什么（心情/口味/攒话）；quiet 时是「这轮为什么不回」（必填）' },
         kind: { type: 'string', enum: ['likes', 'dislikes', 'nope'], description: '口味类别' },
         text: { type: 'string', description: '口味内容 / 想跟他说的话' },
-        minutes: { type: 'number', description: '心情覆盖多久，默认 120 分钟' },
+        minutes: { type: 'number', description: '心情覆盖多久，默认 120 分钟；quiet 时是这轮静音多少分钟（默认 10，最多 60）' },
+        scope: { type: 'string', description: 'quiet 用：只对这个会话生效（如 group:123456 / private:789）；不写=这个角色的所有 QQ 会话' },
         until: { type: 'string', description: 'wait / issue 用：到点时间（ISO 字符串或毫秒时间戳）；不写就是「等他自己回」，不会到点提醒' },
+        criteria: { type: 'string', description: 'wait 用：做完什么算完成（一句判据）。写了它，到点才分得清该结还是接着等；没判据的事会被叫三遍（2026-11-04）' },
         what: { type: 'string', description: 'recall：翻哪类（thoughts / judgments / decisions / ventures），默认全翻；issue：主题 id，逗号分隔（如 reuse,home,handoff），也是章节留底' },
         limit: { type: 'number', description: '看几条，默认 10' },
         // 改写自己（action=rewrite）：改记忆 / 改自我档 / 撤销
@@ -2465,6 +3113,34 @@ export function apply(ctx) {
     async execute(args, exec) {
       const role = roleOfExec(exec)
       const a = String(args?.action || 'mood')
+      // 她自己的出口（2026-11-02）：这轮我不说。
+      // 不是概率、不是永久静音：写一个带过期时间的标记，桥在发之前查它；到点自动失效。
+      if (a === 'quiet') {
+        const r = markQuiet(role, {
+          why: String(args?.why || args?.text || ''),
+          minutes: Number(args?.minutes) || undefined,
+          scope: String(args?.scope || ''),
+        })
+        if (!r.ok) return { ok: false, role, error: r.error }
+        // 判断账本：她为什么不说，进她自己的判断账（人只读，不代笔）。
+        try {
+          writeJudgment(role, {
+            thought: `这轮我不回：${r.why}`,
+            basis: `quiet-turn ${r.minutes} 分钟（${r.scope}）`,
+            about: '这轮说不说',
+          })
+        } catch { /* 账本写不进不影响出口 */ }
+        recordReplyDecision({
+          role, channel: 'qq', key: r.scope === 'all' ? '' : r.scope,
+          decided: 'quiet', why: r.why, textLen: 0, costYuan: 0, source: 'tool',
+        })
+        return {
+          ok: true, role, quiet: r,
+          note: `记下了：到 ${String(r.expiresAt).slice(11, 16)} 之前，这轮不回。桥发之前会先看这个标记（不是概率）；想反悔用 action=unquiet。`,
+        }
+      }
+      if (a === 'unquiet') return { ok: true, role, ...clearQuiet(role), note: '收回了。下一条会照常判断。' }
+      if (a === 'quiet-status') return { ok: true, role, ...quietStatus(role) }
       // 自己管账（2026-10-30）：看 / 记 / 自己定日上限。只碰她自己那本，不设闸、不催。
       // 记忆地图（2026-10-31）：只给标题，要看全文再点开；点开记一次数。
       if (a === 'map') return { ok: true, role, ...memoryMap(role, { limit: Number(args?.limit) || 40, kind: args?.kind || '', deep: Boolean(args?.deep) }) }
@@ -2581,7 +3257,45 @@ export function apply(ctx) {
       }
       // 翻自己的记忆：以前每轮把 40 条习惯 + 33 条关系 + 12 条做过的事全塞进去（3400 字），
       // 现在只带一句摘要，剩下的她自己按词翻（2026-10-26）。
-      if (a === 'memory') return { ok: true, role, ...memoryView(role, args) }
+      // 2026-11-02 主人：查的顺序接成 在用 → 手抄本 → 都没有就指路去 live 原文（同一句 ask 一次查完）。
+      // 2026-11-06（吸收「每条记忆要写为什么」）：真正的写入口。
+      // 为什么必须有 why：只存事实不存理由，下一次翻到就是一句没头没尾的禁令。
+      if (a === 'remember') {
+        const body = String(args?.text || '').trim()
+        const why = String(args?.why || '').trim()
+        if (!body) return { ok: false, error: '写什么？text 不能为空' }
+        if (!why) {
+          return {
+            ok: false,
+            code: 'need-why',
+            error: '补一句为什么值得记（why）再写：只写"发生了什么"不留理由，下一次翻到也不知道为什么要留。',
+          }
+        }
+        const tier = ['core', 'important', 'normal'].includes(String(args?.tier)) ? String(args.tier) : 'important'
+        const row = appendEvent(role, {
+          channel: String(args?.channel || '工作台'),
+          kind: 'note',
+          text: body,
+          why,
+          tier,
+          source: 'yushen_self:remember',
+          by: String(args?.by || ''),
+        })
+        return { ok: Boolean(row?.ok !== false), ...row, wrote: Boolean(row?.ok !== false), hint: row?.ok === false ? '没写进去，看 row.reason' : '记下了（下次会带着 why 一起翻出来）' }
+      }
+      if (a === 'memory') {
+        const out = memoryView(role, args)
+        let library = null
+        try {
+          library = libraryLookup({
+            q: String(args?.what || args?.q || ''),
+            kind: String(args?.kind || ''),
+            day: String(args?.day || ''),
+            limit: Number(args?.limit) || 5,
+          })
+        } catch (e) { library = { error: String(e?.message || e).slice(0, 80) } }
+        return { ok: true, role, ...out, library }
+      }
       // 脑子档位：记忆只有一份，脑子可以换档。她自己选，别人不替她定。
       if (a === 'brain') {
         const want = String(args?.backend || '').toLowerCase()
@@ -2624,7 +3338,16 @@ export function apply(ctx) {
         const r = syncChannelMemory({ dryRun: dry, limit: Number(args?.limit) || 200 })
         return { ok: r.ok, role, ...r, status: channelMemoryStatus({ limit: 5 }) }
       }
-      if (a === 'wait') return { ok: true, role, item: addWaiting(role, { what: args?.text || args?.what, until: args?.until, who: args?.who }) }
+      if (a === 'wait') {
+        const item = addWaiting(role, { what: args?.text || args?.what, until: args?.until, who: args?.who, criteria: args?.criteria, sessionId: String(exec?.agent?.session?.header?.id || '') })
+        if (item?.duplicate) {
+          return {
+            ok: true, role, item,
+            note: `这件事已经在等（${item.id}）：${item.what}${item.criteria ? `（判据：${item.criteria}）` : ''}。做到了就 action=done-wait id=${item.id} 结掉，别重复约——重复约只会把自己叫三遍。`,
+          }
+        }
+        return { ok: true, role, item, note: item?.criteria ? `记下了。到点对照判据：${item.criteria}` : '记下了。没写判据的话，到点只能靠记得——下次写一句 criteria。' }
+      }
       if (a === 'waiting') return { ok: true, role, items: listWaiting(role) }
       if (a === 'done-wait') return { ok: true, role, item: finishWaiting(role, args?.id) }
       if (a === 'correct') return { ok: true, role, recorded: noteCorrection(role, { what: args?.what || args?.text, was: args?.was, should: args?.should }) }
@@ -2635,7 +3358,7 @@ export function apply(ctx) {
       }
       if (a === 'fatigue') return { ok: true, role, fatigue: fatigueOf(role) }
       if (a === 'set-fatigue') return { ok: true, role, fatigue: setFatigue(role, { value: args?.value, why: args?.why, minutes: args?.minutes }) }
-      if (a === 'relations') return { ok: true, role, ...relationsSummary(role, { top: Number(args?.limit) || 5 }) }
+      if (a === 'relations') return { ok: true, role, ...relationsSummary(role, { top: Number(args?.limit) || 5 }), 好感: { 老板: relationValue('老板', '好感') }, stateFile: '~/.dsh/dayu/relations/people.jsonl' }
       if (a === 'plug') return { ok: true, role, ...plugStatus(role) }
       if (a === 'oversight') return { ok: true, role, ...summarizeCompliance() }
       if (a === 'analyze') return { ok: true, role, ...analyzeMessage(String(args?.text || ''), { from: args?.who || '', atMe: Boolean(args?.atMe), isOwner: Boolean(args?.isOwner) }) }
@@ -2763,9 +3486,11 @@ export function apply(ctx) {
   try {
     applyM1(ctx, { log, appendInbox })
     // 2026-10-30: m1 的 8 个工具也要进 yushen_tools 的目录，否则她查不到 dayu_dispatch
+    // 2026-11-02 主人：这几张（派活/收回话/取证据/下结论）也要进经历层——它们不经 registerTool，
+    // 所以在收进目录时补上同一条钩子；同一个 def 加了 __ingested 就不会被包两次。
     try {
-      for (const t of M1_TOOLS) if (t?.name) ownTools.set(t.name, t)
-      for (const t of mindToolDefs(toolOutput)) if (t?.name) ownTools.set(t.name, t)
+      for (const t of M1_TOOLS) if (t?.name) { instrumentTool(t, { log }); ownTools.set(t.name, t) }
+      for (const t of mindToolDefs(toolOutput)) if (t?.name) { instrumentTool(t, { log }); ownTools.set(t.name, t) }
     } catch { /* 目录不全不影响主流程 */ }
   } catch (error) {
     log(`M1 工具没挂上：${error?.message ?? error}`)
@@ -2813,7 +3538,9 @@ export function apply(ctx) {
           reasoningEffort: reasoningEffort || pref.reasoningEffort,
         })
       },
-      createSession: ({ cwd, preset }) => createSessionRpc({ cwd, agentPreset: preset || 'yushen-desk' }),
+      // 2026-11-04 手机端：宿主没有 HTTP 服务时没有 base-url，session RPC 必失败；
+      // 这时不传 createSession，ensureRole 会走进程内 agents.create 那条老路。
+      createSession: dshBaseUrl() ? ({ cwd, preset }) => createSessionRpc({ cwd, agentPreset: preset || 'yushen-desk' }) : undefined,
       renameSession: (sessionId, title) => renameSessionRpc(sessionId, title),
       prompt: ({ sessionId, text, content }) => promptRpc({ sessionId, text, content }),
       sessionExists: (id) => Boolean((sessionRows(ctx) || []).some((r) => r.id === id)),
@@ -2823,6 +3550,8 @@ export function apply(ctx) {
   // 她调用模型：她请求了，才起回合。预算是主人的，规矩见 lib/invoke.js。
   const selfInvokePerDay = () => Number(readSwitches().selfInvokePerDay ?? 0)
   const invokeOnce = async () => {
+    // 2026-11-10 会话换班：她自己要的模型也是投递，投前判一次压力。
+    try { await maybeAutoRotate() } catch { /* 判不了就照原样起回合 */ }
     for (const role of residentRoles()) {
       if (!isAwake(role)) continue
       let inv = null
@@ -2834,6 +3563,8 @@ export function apply(ctx) {
         const out = await deliverToRole(role, buildInvocationPrompt(role, { item, why: inv.why }), residenceDeps())
         finishInvocation(role, inv.id, { status: 'started', sessionId: out?.sessionId || '', note: `起回合：${String(item.what || '').slice(0, 40)}` })
         log(`她自己要的一次模型：${role}「${String(item.what || '').slice(0, 30)}」`)
+        // 2026-11-10 主代理（整合）：补上 ② 留的 TODO——"她自己要的模型"也是一跳（唯一能确定 thought=想的一跳）。
+        try { appendHeartbeat({ role, trigger: '她自己要的', thought: '想', did: `起回合：${String(item.what || '').slice(0, 60)}`, landed: null, spent: null }) } catch { /* 记不上不挡 */ }
       } catch (e) {
         finishInvocation(role, inv.id, { status: 'failed', note: String(e?.message || e).slice(0, 200) })
         log(`她自己要的模型没起来 ${role}：${e?.message || e}`)
@@ -2843,7 +3574,8 @@ export function apply(ctx) {
   setTimeout(() => { invokeOnce().catch(() => {}) }, 90 * 1000)
   setInterval(() => { invokeOnce().catch(() => {}) }, 5 * 60 * 1000)
 
-  ctx.effect(() => ctx.webServer.register({
+  const _web = (() => { try { return ctx.webServer } catch { return null } })()
+  if (_web) ctx.effect(() => _web.register({
     kind: 'prefix',
     path: '/api/dayu',
     handler: async (req, res) => {
@@ -2942,9 +3674,12 @@ export function apply(ctx) {
           try {
             // 2026-10-31：加 task —— 通道知道"这一趟要干什么"就传进来，规则块只发对得上那几章。
             // 不传就退到基础块（和以前一样）；传了才「按需」，这是按需发放真正的入口。
+            // 2026-11-10 主代理（整合）：/soul 是**只读接口**（注释也写着"无 side effect"），
+            // 所以传 wake:false——它只是把注入拿去看一眼，不能顺手消费掉她"醒来那一段"。
             const text = buildSceneText(role, scene, {
               userId: String(url.searchParams.get('userId') || ''),
               task: String(url.searchParams.get('task') || ''),
+              wake: false,
             })
             const st = soulStatus(role)
             return sendJson(res, 200, {
@@ -3025,7 +3760,9 @@ export function apply(ctx) {
         }
         // 决策口：QQ/B站要回话之前，先问本体——回不回、本地回还是云端回，由她定。
         // 桥只负责"照她的决定做"，不再自己起一个模型回合代替她。
-        if (req.method === 'POST' && route === '/decide') {
+        // 2026-11-02：桥用 GET（fetch 带查询参数）问本体，这里原来只认 POST —— 404 被 fail-open 成'那就回吧'，
+      // 她的克制因此一直没生效。注释 10-27 就写了'GET 也要放行'，代码一直没加，这里补上。
+      if ((req.method === 'POST' || req.method === 'GET') && route === '/decide') {
           const tokenNow = String(req.headers['x-yushen-token'] || '')
           let want = ''
           try { want = String(JSON.parse(fs.readFileSync(path.join(DATA, 'bridge-token.json'), 'utf8')).token || '') } catch { want = '' }
@@ -3040,28 +3777,88 @@ export function apply(ctx) {
             key: String(q.get('key') || body?.key || ''),
           }
           try {
+            // 她刚说过「这轮我不说」：发之前先看，命中就不叫模型、也不发（2026-11-02）。
+            // 这不是概率——同一份标记在有效期内每次都命中；到点自动失效。
+            const quiet = readQuiet({ role, scope: msg.key })
+            if (quiet.active) {
+              log(`QQ 决策：${role} 说了这轮不回（${quiet.why}），跳过 ${msg.key}`)
+              return sendJson(res, 200, {
+                ok: true, role, mode: 'silent', reply: '', by: 'body', agent: false,
+                why: `她说了这轮不回：${quiet.why}`,
+                decisionId: `quiet-${Date.now()}`, at: new Date().toISOString(),
+              })
+            }
             const st = plugStatus(role)
             if (!st.plugged) {
               // 没接上：不装懂。让她先读规则（简报会写 attest），这轮交回桥按老路走。
               try { writeRuntimeBrief(role, { channel: 'qq' }) } catch { /* 忽略 */ }
+              recordReplyDecision({ role, channel: 'qq', key: msg.key, decided: 'speak', why: `还没接上鱼神：${st.reason}（按老路云端回）`, textLen: 0, costYuan: 0, source: 'unplugged' })
               return sendJson(res, 200, { ok: true, role, mode: 'cloud', reply: '', why: `还没接上鱼神：${st.reason}`, decisionId: '', at: new Date().toISOString() })
             }
             const a = analyzeMessage(msg.text, { from: '', atMe: msg.atMe, isOwner: msg.isOwner })
+            // 2026-11-10 第三批（老板：代发只做礼貌型、0 token、回了要她知道）：
+            // 礼貌寒暄且没点她的名 → 按关系挑一句话术代发，不叫醒她。留痕进 代传话.jsonl（醒来那段会报）。
+            if (isPolite(msg.text) && !msg.atMe && !msg.isOwner) {
+              const pick = pickReply({ familiarity: 0, seed: Date.now() })
+              noteRelay(role, { who: msg.name || msg.userId || '', text: msg.text, said: pick.reply, bucket: pick.bucket })
+              try {
+                appendHeartbeat({ role, trigger: '有人找', thought: '未知', did: `礼貌代发：对 ${String(msg.name || '有人').slice(0, 20)} 说了「${pick.reply}」`, landed: false, spent: 0 })
+              } catch { /* 记不上不挡回话 */ }
+              recordReplyDecision({ role, channel: 'qq', key: msg.key, decided: 'speak', why: `礼貌寒暄，按关系代发（${pick.bucket}桶，0 token）`, textLen: pick.reply.length, costYuan: 0, source: 'polite' })
+              return sendJson(res, 200, {
+                ok: true, role, mode: 'local', reply: pick.reply, by: 'polite', proxy: 'polite',
+                why: `礼貌寒暄：按关系代发（${pick.bucket}桶，0 token）`, decisionId: `polite-${Date.now()}`, at: new Date().toISOString(),
+              })
+            }
+            // 2026-11-11 接线：软边界真正拦在发送路径上（在这之前它只会"算"，没人"拦"）。
+            // 位置：礼貌代发短路之后 → **额度闸门** → 她本人判。
+            // 三种动作：pass 照常 / stepout 放行这一句并记一次"跳出去" / silent 不发。
+            // **这一层只决定"能不能"，reply 永远是空**——说什么由她自己定，系统不代她开口。
+            let gateMark = ''
+            {
+              const lim = (() => { try { return checkSpeak(role) } catch { return null } })()
+              const gate = gateOf(lim)
+              if (gate.action === 'silent') {
+                try { appendHeartbeat({ role, trigger: '额度线', thought: '未知', did: `额度线拦住：${gate.why}`, landed: null, spent: null }) } catch { /* 记不上不挡 */ }
+                recordReplyDecision({ role, channel: 'qq', key: msg.key, decided: 'quiet', why: gate.why, textLen: 0, costYuan: 0, source: 'soft-limit' })
+                return sendJson(res, 200, {
+                  ok: true, role, mode: 'silent', reply: '', why: gate.why, by: 'soft-limit',
+                  decisionId: `soft-limit-${Date.now()}`, at: new Date().toISOString(),
+                })
+              }
+              if (gate.action === 'stepout') {
+                try { noteStepOut(role, { why: '到线了，她选择交代一句', to: msg.name || msg.userId || '' }) } catch { /* 记不上不挡 */ }
+                try { appendHeartbeat({ role, trigger: '额度线', thought: '未知', did: `额度线放行一次（跳出去）：${gate.why}`, landed: null, spent: null }) } catch { /* 记不上不挡 */ }
+                gateMark = 'stepout' // 不 return：继续让她本人判要不要说、说什么
+              }
+            }
             // 判断权归位（2026-10-28）：先让她**本人**决定回不回、说什么；
             // 她不在或超时才走代理，并按框架 L687 如实标「代理」，不许记成她决定的。
             const byBody = await decideByBody(role, msg, { waitMs: Number(readSwitches().decideWaitMs) || 45000 })
             if (byBody.ok) {
               log(`QQ 决策：${role} 自己决定（${byBody.mode}，${Math.round((byBody.waitedMs || 0) / 1000)} 秒）`)
+              // 她自己下的判断，留一条（不调模型，只记录）。
+              recordReplyDecision({
+                role, channel: 'qq', key: msg.key,
+                decided: byBody.mode === 'silent' ? 'quiet' : 'speak',
+                why: byBody.why || '', textLen: String(byBody.reply || '').length, costYuan: 0, source: 'body',
+              })
               return sendJson(res, 200, {
-                ok: true, role, analysis: a, by: 'body', agent: false,
+                ok: true, role, analysis: a, by: gateMark || 'body', agent: false,
                 mode: byBody.mode, reply: byBody.reply || '', why: byBody.why || '',
                 decisionId: `body-${Date.now()}`, at: new Date().toISOString(),
               })
             }
             const d = await decideCheap(role, { text: msg.text, atMe: msg.atMe, isOwner: msg.isOwner, analysis: a })
             log(`QQ 决策：降级为代理（${byBody.error || ''}）`)
+            recordReplyDecision({
+              role, channel: 'qq', key: msg.key,
+              decided: d.mode === 'silent' ? 'quiet' : 'speak',
+              why: d.why || '', textLen: String(d.reply || '').length, costYuan: 0,
+              source: byBody.by === 'proxy' ? 'proxy' : 'cheap',
+            })
             return sendJson(res, 200, {
-              ok: true, role, analysis: a, by: 'proxy', agent: true,
+              ok: true, role, analysis: a, by: gateMark || 'proxy', agent: true,
               agentWhy: String(byBody.error || '').slice(0, 80),
               ...d, at: new Date().toISOString(),
             })
@@ -3077,7 +3874,8 @@ export function apply(ctx) {
           // 以前只认 runtime/<role>/当前联系人.txt，而没人写那个文件。
           const userId = String(url.searchParams.get('userId') || '')
           if (!characterIds().includes(role)) return sendJson(res, 400, { ok: false, error: '角色不认识' })
-          const built = buildRuntimeBrief(role, { channel, userId })
+          // 2026-11-10 主代理（整合）：/brief 是只读中枢接口，不消费 wake（醒来那段由叫醒那条路负责）。
+          const built = buildRuntimeBrief(role, { channel, userId, wake: false })
           return sendJson(res, 200, { ok: true, ...built, file: readRuntimeBrief(role) ? 'runtime/' + role + '/brief.md' : '' })
         }
         if (req.method === 'GET' && route === '/thoughts') {
@@ -3129,39 +3927,32 @@ export function apply(ctx) {
             return sendJson(res, 400, { ok: false, error: 'action 只能是 awaken / seal' })
           } catch (e) { return sendJson(res, 400, { ok: false, error: String(e?.message || e) }) }
         }
-        if (req.method === 'GET' && route === '/pending') {
-          // 有待确认的事：谁在问、问什么、两个选项。只读。
-          try {
-            const rows = fs.readFileSync(path.join(DATA, '待确认.jsonl'), 'utf8')
-              .split(/\r?\n/).filter(Boolean)
-              .map((l) => { try { return JSON.parse(l) } catch { return null } })
-              .filter(Boolean)
-            return sendJson(res, 200, { ok: true, items: rows })
-          } catch { return sendJson(res, 200, { ok: true, items: [] }) }
-        }
-        if (req.method === 'POST' && route === '/pending/answer') {
+        // 2026-11-10 第三批（老板：「桥的唤醒也是兜底的一种，账要算进去」）：
+        // 桥（SnowLuma）自己起回合叫醒她的那一次，发消息前打一下这里，心跳账才不会只数一半。
+        // 只写一行、不调模型；写不进去也返回 ok（不许挡桥）。
+        if (req.method === 'POST' && route === '/wake') {
+          // 2026-11-11 主代理：/wake 认两把钥匙——管理端 api-token，或桥的 bridge-token。
+          // 为什么：桥不该为了上报一跳就拿到管理 token（桥那边只想说一句"我醒了"）。
+          // 两把都没配（文件都不在）时和 /decide 一样放行——本机、无 token 的旧装法不能被打死。
+          const tokenNow = String(req.headers['x-yushen-token'] || '')
+          const readTok = (file) => { try { return String(fs.readFileSync(file, 'utf8')).trim() } catch { return '' } }
+          const adminTok = readTok(path.join(DATA, 'api-token'))
+          const bridgeTok = (() => { try { return String(JSON.parse(fs.readFileSync(path.join(DATA, 'bridge-token.json'), 'utf8')).token || '') } catch { return '' } })()
+          const wanted = [adminTok, bridgeTok].filter(Boolean)
+          if (wanted.length && !wanted.includes(tokenNow)) return sendJson(res, 401, { ok: false, error: 'unauthorized：带 x-yushen-token（管理 token 或 bridge-token）' })
           const body = await readJsonBody(req).catch(() => ({}))
-          const id = String(body.id || '')
-          const answer = String(body.answer || '')
-          if (!id || !answer) return sendJson(res, 400, { ok: false, error: 'id 和 answer 都要有' })
-          const qp = path.join(DATA, '待确认.jsonl')
-          let rows = []
+          const role = String(body.role || 'dayu')
+          if (!residentRoles().includes(role)) return sendJson(res, 400, { ok: false, error: `role 只能是 ${residentRoles().join(' / ')}` })
+          const who = String(body.who || '').slice(0, 30)
+          const kind = String(body.kind || '消息').slice(0, 20)
+          let wrote = null
           try {
-            rows = fs.readFileSync(qp, 'utf8').split(/\r?\n/).filter(Boolean)
-              .map((l) => { try { return JSON.parse(l) } catch { return null } }).filter(Boolean)
-          } catch { /* 没队列 */ }
-          const hit = rows.find((r) => String(r.id) === id)
-          if (!hit) return sendJson(res, 404, { ok: false, error: '没有这条待确认' })
-          try {
-            fs.appendFileSync(path.join(DATA, '待确认回执.jsonl'),
-              JSON.stringify({ id, at: new Date().toISOString(), answer, title: hit.title, text: hit.text, who: hit.who || '' }) + '\n',
-              'utf8')
-          } catch { /* 记不上也继续 */ }
-          rows = rows.filter((r) => String(r.id) !== id)
-          try {
-            fs.writeFileSync(qp, rows.map((r) => JSON.stringify(r)).join('\n') + (rows.length ? '\n' : ''), 'utf8')
-          } catch { /* 忽略 */ }
-          return sendJson(res, 200, { ok: true, id, answer, left: rows.length })
+            wrote = appendHeartbeat({
+              role, trigger: '有人找', thought: '未知',
+              did: `桥叫醒：${kind}${who ? `（${who}）` : ''}`, landed: null, spent: null,
+            })
+          } catch { wrote = null }
+          return sendJson(res, 200, { ok: true, role, logged: Boolean(wrote?.ok), at: new Date().toISOString() })
         }
         if (req.method === 'GET' && route === '/activity') {
           // 三个人各做过什么：感觉、交付、手上的活、自由时间。只读，不调模型。
@@ -3184,6 +3975,15 @@ export function apply(ctx) {
             } catch { /* 没议程 */ }
             let ft = {}
             try { ft = (JSON.parse(fs.readFileSync(path.join(DATA, 'freetime.json'), 'utf8')).roles || {})[role] || {} } catch { /* 没账 */ }
+            // 2026-11-10（② 心跳日志）：心跳汇总（逐跳留痕）。只读、只加字段；读不到就给 null，前端显示"待接"，不报错。
+            let hb = null
+            try { hb = summaryOf({ role, now: Date.now() }) } catch { hb = null }
+            // 2026-11-10 主代理（整合）：软边界读数接进面板（只读；这一版只读、不拦，拦的动作在发消息那条路上，留给下一批）。
+            let sl = null
+            try { sl = softLimitStatus(role) } catch { sl = null }
+            // 2026-11-11 主代理：今天替她代发了几句（面板要能看见"我替你回了谁"）。
+            let relayed = 0
+            try { relayed = relaysSince(role, { sinceMs: (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() })() }).length } catch { relayed = 0 }
             out[role] = {
               alive: Boolean(vit.lastTickAt),
               lastTickAt: vit.lastTickAt || '', dayTicks: vit.dayTicks || 0,
@@ -3193,6 +3993,9 @@ export function apply(ctx) {
                 .map((r) => ({ what: r.what, how: r.how, evidence: r.evidence, at: r.at })),
               agenda: ag,
               freeTime: { count: ft.count || 0, lastAt: ft.lastAt || '' },
+              heartbeat: hb,
+              softLimit: sl,
+              relayed,
             }
           }
           return sendJson(res, 200, { ok: true, items: out })
@@ -3243,6 +4046,8 @@ export function apply(ctx) {
             const out = await deliverToRole(role, text, residenceDeps())
             if (String(body.kind || '') === 'dilemma') markPending(pendingDilemma, out.sessionId, role)
             appendInbox({ id: `say-${Date.now()}`, at: new Date().toISOString(), text: `对 ${role} 说：${text.slice(0, 120)}`, category: 'channel', label: '直说', status: 'delivered', sessionId: out.sessionId })
+            // 2026-11-10 主代理（整合）：补上 ② 留的 TODO——"有人找"也是一跳（外部触发，thought 猜不得）。
+            try { appendHeartbeat({ role, trigger: '有人找', thought: '未知', did: `有人找：${text.slice(0, 40)}`, landed: null, spent: null }) } catch { /* 记不上不挡 */ }
             return sendJson(res, 200, { ok: true, ...out })
           } catch (e) {
             const msg = String(e?.message || e)
@@ -3773,7 +4578,9 @@ export function apply(ctx) {
               roleOf: roleForSession,
               q: url.searchParams.get('q') || '',
             }),
-            asks: listAsks({ status: 'pending', limit: 8 }),
+            // 2026-11-04 小鱼：从 listAsks 换成 takePendingAsks——工作台来取，就算投递成功，
+            // 当场回写 deliveredAt。原来 deliveredAt 一直是空，她看不到「发了」和「没发」的区别。
+            asks: takePendingAsks(8),
             // 2026-10-27：把开关一起给前端——以前 /now 不带 switches，
             // 悬浮窗刷新后读不到服务端状态，只能沿用 localStorage 的旧值（关了就一直看不见）。
             switches: readSwitches(),
@@ -3876,11 +4683,89 @@ export function apply(ctx) {
   }), 'yushen: /api/dayu')
 
   // 投出去的活，回话要能回到总台：只认“刚投过、还没回”的那个会话。
+  // 2026-11-12：逐轮抄录（主人：思考和原文对应，每句每段每轮都标）。turn/end 当场落，
+  // 不再等维护每小时跑；旧逐条 appendTurn 保留为开关关闭时的退路。
+  // 开关 5 秒缓存：事件多的时候别每个 tool/result 都读一次 switches.json。
+  let turnSwitchAt = 0
+  let turnSwitchOn = true
+  const turnCapture = createTurnCapture({
+    log,
+    // 身份只认常驻绑定 + 分身凭据：派活账本、会话标题、正文里的自称都不算。
+    // 只读交接、没载入角色卡/记忆的会话，只能写“未绑定会话”，不能写成大鱼。
+    bodyOf: (sid) => {
+      try {
+        const ledger = readResidenceLedger()
+        for (const [role, row] of Object.entries(ledger.roles || {})) {
+          if (String(row?.sessionId || '') === String(sid || '')) return role
+        }
+      } catch { /* 没绑定就是没绑定 */ }
+      // 2026-11-13 老板「加载了谁的卡就给这条会话备注上是谁」：凭据写在 bodies.json。
+      try { const byCard = claimOf(sid); if (byCard) return byCard } catch { /* 没凭据就是没凭据 */ }
+      return ''
+    },
+    // 抄录看到身份注入的卡 → 认出是谁的卡 → 给这条会话记一张凭据（已认过别人不覆盖）。
+    onCard: (sid, text) => {
+      try {
+        const role = roleFromCardText(text)
+        if (!role) return
+        const r = claimBody({ role, sessionId: sid, source: 'card-seen', evidence: '注入里看到「# 角色卡：」/「## 你是谁（…本体卡」' })
+        if (r?.ok) log(`分身凭据：${String(sid).slice(0, 18)} → ${role}（看到她的卡）`)
+        else if (String(r?.reason) === 'claimed-as') log(`分身凭据冲突：${String(sid).slice(0, 18)} 已认成 ${r.role}，这次看到 ${role}，不覆盖`)
+      } catch (e) { log(`分身凭据没记上：${e?.message || e}`) }
+    },
+    enabled: () => {
+      if (Date.now() - turnSwitchAt < 5000) return turnSwitchOn
+      turnSwitchAt = Date.now()
+      try { turnSwitchOn = readSwitches().turnTranscript !== false } catch { turnSwitchOn = true }
+      return turnSwitchOn
+    },
+  })
+  setTimeout(() => { turnCapture.recover().catch(() => {}) }, 60 * 1000)
+  // 每轮台账：只攒当前轮 user/assistant 文本，turn/end 时交给 turn-ledger 抽明确信号。
+  const ledgerTurns = new Map()
+  const ledgerCapture = (session, event) => {
+    try {
+      const sid = String(session?.header?.id ?? session?.id ?? '')
+      if (!sid) return
+      const type = String(event?.type || '')
+      const text = textOfEvent(event)
+      if (type === 'tool/result') {
+        if (!text) return
+        const cur0 = ledgerTurns.get(sid)
+        if (cur0) cur0.tools = [...(cur0.tools || []), text].slice(-6)
+        return
+      }
+      if (type === 'user/message' || type === 'assistant/message') {
+        if (!text) return
+        // 回答自检注入的 user 消息不是用户说的，别混进这一轮 user 文本。
+        if (type === 'user/message' && isSelfcheckEvent(event)) return
+        const cur = ledgerTurns.get(sid) || { user: '', assistant: '', tools: [], at: Date.now(), turn: 0 }
+        if (type === 'user/message') cur.user = `${cur.user}${cur.user ? '\n' : ''}${text}`.slice(-4000)
+        else cur.assistant = `${cur.assistant}${cur.assistant ? '\n' : ''}${text}`.slice(-4000)
+        cur.at = Date.now()
+        cur.turn = Number(event?.data?.turn ?? event?.turn ?? cur.turn) || cur.turn
+        ledgerTurns.set(sid, cur)
+        return
+      }
+      if (type !== 'turn/end') return
+      const cur = ledgerTurns.get(sid)
+      ledgerTurns.delete(sid)
+      if (!cur || (!cur.user && !cur.assistant)) return
+      const role = roleForSession(sid) || 'workbench'
+      // 角色是标签，不是落账门槛：工作台/未绑卡会话也要有台账。
+      observeTurnLedger(role, { turnId: `${sid}#${cur.turn || 0}`, sessionId: sid, at: cur.at, user: cur.user, assistant: cur.assistant, evidence: (cur.tools || []).join('\n') })
+      recordClaim(role, { turnId: `${sid}#${cur.turn || 0}`, at: cur.at, assistant: cur.assistant })
+    } catch (e) { log(`台账没记上：${e?.message || e}`) }
+  }
   if (typeof ctx.on === 'function') {
     ctx.effect(() => ctx.on('session/event', (session, event) => {
+      // 回答自检注入的 user 消息：模型要看，但不是老板/群友说的话，不进抄录/记忆/回话关联。
+      const selfcheckNotice = isSelfcheckEvent(event)
+      try { if (!selfcheckNotice) turnCapture.handle(session, event) } catch (e) { log(`轮次抄录失败：${e?.message || e}`) }
+      try { if (!selfcheckNotice) ledgerCapture(session, event) } catch (e) { log(`台账没记上：${e?.message || e}`) }
       try {
         const text = textOfEvent(event)
-        recordEvent(session, event, text)
+        if (!selfcheckNotice) recordEvent(session, event, text)
         const groupSessionId = String(session?.header?.id ?? session?.id ?? '')
         const isGroupReply = groupReplies.event(groupSessionId, event, text)
         // 即时记录：本机会话里的对话先落盘；崩溃最多丢正在写的一行。
@@ -3896,7 +4781,7 @@ export function apply(ctx) {
           const who = attributionOf({ role, isUser: type.startsWith('user'), source })
           // 2026-11-01 主人：原文要全，记忆才挑。抄录不再只认「她的身体」——
           // 记忆(capture)仍只记她自己的经历，但抄录(appendTurn)按通道全抄。
-          if (isMsg && text && !/^Current runtime context|^Time sampled while preparing/.test(text)) {
+          if (isMsg && text && !selfcheckNotice && !/^Current runtime context|^Time sampled while preparing/.test(text)) {
             if (who) capture(text, { sessionId: sid, role, source: who })
             // 2026-11-01 主人：被叫「裁判/评价」时，光把规矩写进手册没用——当时想不起来。
             // 所以在收到这类话时落一个标记，下一轮注入把四条判据顶到眼前（不靠自觉）。
@@ -3945,7 +4830,7 @@ export function apply(ctx) {
                   if (!exists) {
                     const row = {
                       id: pid,
-                      at: new Date(Date.now() + 8 * 3600e3).toISOString().replace('Z', '+08:00'),
+                      at: localISO(),
                       what: String(text).replace(/\s+/g, ' ').slice(0, 120),
                       why: '（系统自动登记的承诺句，不是我事后补的）',
                       when: '',
@@ -3960,8 +4845,30 @@ export function apply(ctx) {
               } catch { /* 登记失败不影响回话 */ }
             }
             try {
-              appendTurn({ sessionId: sid, title: String(session?.header?.title ?? session?.meta?.title ?? ''), cwd, who: who || (type.startsWith('user') ? '对方' : '她'), text })
+              // 2026-11-04 主人：抄录要有标题，说话人要标具体的人——
+              // 「你（主人）说的话标主人，我说的标小鱼」。原来两处都退成泛称：
+              //   title 取不到就 untitled；who 是 user→'对方'、assistant→'她'，两个人全没名字。
+              const ROLE_NAME = { xiaoyu: '小鱼', dayu: '大鱼', dragon: '照微' }
+              const meName = ROLE_NAME[role] || '她'
+              const titleIn = String(session?.header?.title ?? session?.meta?.title ?? '').trim()
+              // 标题取不到时用「未命名-月日 时:分」兜底，别再写 untitled（untitled 文件分不清是哪一场）
+              const titleOut = titleIn || `未命名-${new Date().toISOString().slice(5, 16).replace('T', ' ')}`
+              const whoOut = who || (type.startsWith('user') ? '对方' : meName)
+              // 2026-11-04 主人：标签要「谁和谁」——原来只有说话的人，没记对谁说。
+              // user 说话 → 对我说；我说话 → 对说的人（群里是群友昵称，工作台是对方）。
+              const toOut = type.startsWith('user') ? meName : (who || '对方')
+              // 2026-11-12：逐轮抄录开着时，live 由 turnCapture 在 turn/end 一次落（含思考）；
+              // 这里只保留旧的逐条写法作退路，避免同一句话写两遍。
+              if (!turnCapture.enabled()) {
+                appendTurn({ sessionId: sid, title: titleOut, cwd, who: whoOut, to: toOut, role, text })
+              }
             } catch { /* 抄录失败不影响回话 */ }
+            // 2026-11-02 主人：关系状态（规则、0 成本）。只在他对她说话时推一次，只改状态不写事件。
+            try {
+              if (type.startsWith('user') && who === '老板') {
+                relationAdjust({ who: '老板', text, at: localISO(), source: sourceOf({ id: sid, cwd }) })
+              }
+            } catch { /* 状态推不动不影响回话 */ }
           }
         } catch { /* 记录失败不影响会话 */ }
         if (/error|fail/i.test(String(event?.type || ''))) {
@@ -3979,6 +4886,11 @@ export function apply(ctx) {
         const sessionId = String(session?.header?.id ?? session?.id ?? '')
         if (!sessionId) return
         if (!text) return
+        // 2026-11-02：工作台账本——以前只有 QQ 侧有账，卡片上写着"工作台没账本"。
+        // 这里把每轮回话折算成用量写进同一个账本（key=workbench），并补 .dshw-usage.json。
+        try {
+          recordWorkbenchTurn({ sessionId, role: roleForSession(sessionId) || 'dayu', prompt: String(event?.prompt || ''), reply: text })
+        } catch { /* 记账失败不影响回话 */ }
         noteDispatchReply(sessionId, text)
         // 实时备份：她判断值不值得现在备一份（定时的 10 分钟那套还在兜底）。
         // 不花 token；未变的话备份服务自己会跳过，不会白占磁盘。
@@ -4025,8 +4937,101 @@ export function apply(ctx) {
           sessionId,
         })      } catch { /* 不能让总台的异常影响别的订阅者 */ }
     }, { global: true }))
+    // 每个 agent 的 compaction 在 preset isolate 里；创建时补装一次，比等 pre-step 更早。
+    ctx.effect(() => ctx.on('agent/created', ({ agent }) => {
+      try {
+        const getSvc = (c) => { try { return c?.get?.('compaction') } catch { return null } }; const engine = getSvc(agent?.ctx) || getSvc(agent?.loopCtx) || getSvc(agent?.scope?.ctx)
+        if (engine && !engine.__yushenCompactionBridge) {
+          const r = installCompactionBridge({ ctx: agent.ctx, engine })
+          if (!r?.ok) log(`压缩桥没装上：${r?.why || '未知'}`)
+        }
+      } catch (e) { log(`压缩桥没装上：${e?.message || e}`) }
+    }, { global: true }))
+    // 每轮开始前按需提醒：只在台账有明确未闭合项时，拼一条【台账提醒】进这一轮。
+    ctx.effect(() => ctx.on('agent/pre-step', async (payload, next) => {
+      const decision = await next()
+      const safe = decision || { kind: 'enter', messages: [] }
+      try {
+        // compaction 服务在 preset isolate 里，根 ctx 看不到；按当前 agent 的 ctx 补装一次。
+        const agent = payload?.agent
+        const getSvc = (c) => { try { return c?.get?.('compaction') } catch { return null } }; const engine = getSvc(agent?.ctx) || getSvc(agent?.loopCtx) || getSvc(agent?.scope?.ctx)
+        if (engine && !engine.__yushenCompactionBridge) installCompactionBridge({ ctx: agent.ctx, engine })
+      } catch { /* 装不上不挡这一轮 */ }
+      try {
+        if (decision?.kind !== 'enter') return safe
+        if (Number(payload?.step) > 1) return safe
+        const sid = String(payload?.agent?.session?.id || '')
+        const role = roleForSession(sid) || 'workbench'
+        const userText = (Array.isArray(decision.messages) ? decision.messages : [])
+          .filter((m) => m?.role === 'user')
+          .flatMap((m) => (Array.isArray(m.content) ? m.content : []))
+          .filter((b) => b?.type === 'text')
+          .map((b) => String(b.text || ''))
+          .join('\n')
+        const item = nextReminder(role, { limit: 1, sessionId: sid })[0]
+        const preview = buildPreStepRecall(role, userText)
+        let claimConflicts = []
+        try {
+          claimConflicts = checkClaimAnswer(role, { text: userText }).conflicts || []
+          // 冲突注入必须同主题；关键词相似不算，避免把“两句不同的事”硬配成冲突。
+          const normTopic = (x) => String(x || '').toLowerCase().replace(/[\s，。！？、；：,.!?;:""'']/g, '')
+          claimConflicts = claimConflicts.filter((c) => {
+            const a = normTopic(c.old?.topic)
+            const b = normTopic(c.new?.topic)
+            return a && b && a.length >= 2 && b.length >= 2 && (a === b || a.includes(b) || b.includes(a))
+          })
+        } catch { claimConflicts = [] }
+        // 上一轮回答生成后没拦住/更正后又冲突的，留到这一轮开头提醒；取一次就标掉，不反复念。
+        let answerPending = null
+        try { answerPending = takeAnswerSelfcheck(role, { sessionId: sid }) } catch { answerPending = null }
+        if (!item && !preview && !claimConflicts.length && !answerPending) return safe
+        if (item) markReminded(role, item.id)
+        // 宿主 app.asar 的 isAgentInstructionsMessage/visibleBaselineSource 直接读 message.source.kind（无空值保护），
+        // 注入消息必须带 source，否则宿主遍历 authorityMessages 时崩在 "Cannot read properties of undefined (reading 'kind')"。
+        // 同样必须带 id：宿主把这条 message 原样落成 user/message 事件，重开会话时
+        // assertMessageEventShape 要求 data.id 是非空字符串；缺了，整份会话就 "failed validation" 打不开
+        //（2026-11-18 实证：14 条 dayu-notice 事件无 id，session-c5b1cd18 卡在 seq 40949）。
+        const NOTICE_SOURCE = { kind: 'dayu-notice', form: 'notice' }
+        const noticeMessage = (text) => ({ id: randomUUID(), role: 'user', source: NOTICE_SOURCE, content: [{ type: 'text', text }] })
+        const extra = []
+        if (item) extra.push(noticeMessage(`【台账提醒】${item.line}`))
+        if (preview) extra.push(noticeMessage(preview))
+        if (claimConflicts.length) {
+          const lines = claimConflicts.slice(0, 3).map((c) => `- 之前：${c.old?.claim || ''}；现在：${c.new?.claim || ''}（${c.reason || '冲突'}）`)
+          extra.push(noticeMessage(`【结论冲突】先说清再答，不要顺着矛盾说：\n${lines.join('\n')}`))
+        }
+        if (answerPending?.message) extra.push(answerPending.message)
+        return { ...safe, messages: [...(Array.isArray(safe.messages) ? safe.messages : []), ...extra] }
+      } catch { return safe }
+    }, { global: true }))
+    // 回答生成后的自检：agent/turn-stopping 是“本轮已完成、turn/end 还没落”的唯一扩展点，
+    // 冲突时 agent.steer() 一条更正提示，让同一轮再答一次；不能 steer 就留 pending 给下一轮 pre-step。
+    // 只对 roleForSession 认得出身份的会话生效，员工/子代理/未绑卡会话不查。
+    ctx.effect(() => attachAnswerSelfcheck(ctx, {
+      roleOf: (sid) => roleForSession(sid),
+      log,
+    }))
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 经历层第四条来源：宿主内置工具按「轮」汇总（read/write/edit/pwsh/web_fetch/subagent…）。
+  // 这些工具不走 registerTool，ingest-actions 的 instrumentTool 包不到，以前完全不进经历层。
+  // 按条记会灌爆（实测今天 4484 次宿主调用 / 约 15 次一轮 → 按条 4484 行、按轮约 300 行），
+  // 所以：一轮最多一行，turn/end 时收口，细节靠 ref 回原文查。
+  // 只注册这一条订阅，不碰上面已有的记忆/关系/决策分支。
+  // 改｜2026-11-02 22:50｜大鱼·子会话（工作台）｜授权：主人（本次任务书：宿主工具按「轮」汇总成一条经历，A 方案）
+  // ｜dayu/index.js:73,4161-4176｜新增 attachHostTools(ctx)：挂 session/event(global:true)，turn/end 收口写 手抄本/经历
+  // ｜为什么：宿主工具 4484 次/天却一条经历都没落，经历层缺了大头；按条记又灌爆，只有按轮汇总两头都对
+  // ｜验证：node --check dayu/index.js；node scripts/test-ingest-host-tools.mjs 6/6；node scripts/regression.mjs 0 失败
+  // ｜可改：可改（聚合口径与「插件工具前缀跳过」在 lib/ingest-host-tools.js 里，别在这里加分支）
+  try {
+    attachHostTools(ctx, { log })
+  } catch (e) {
+    log(`宿主工具经历层没挂上：${String(e?.message || e).slice(0, 120)}`)
   }
 
   log('大鱼入口已加载（M0）')
 }
+
+
 
