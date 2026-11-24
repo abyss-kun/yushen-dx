@@ -1,3 +1,15 @@
+/* 标签
+ * id: lib-runtime
+ * kind: module
+ * summary: 运行时家目录：presence/body/weights/self/memory/inbox 都在这儿；卡是脸，这里是命。
+ * audience: 框架（几乎所有模块都经它定位家里的文件）
+ * owner: 框架；目录布局别动（一堆数据按它找）
+ * mutable: 可改（加文件可以，挪目录要先迁数据）
+ * defaults: KNOWN_ROLES = dayu / xiaoyu / dragon
+ * usage: runtimeDir(role)/ensureRuntime(role) 定位与建目录；bodySnapshot 真实资源；readWeights 手感
+ * off: 不能关（几乎所有数据都按它定位家目录）
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 运行时：她「活着」的那一层。
 //
@@ -129,7 +141,8 @@ export function bodySnapshot({ now = Date.now(), budget = null } = {}) {
   const load = os.loadavg?.() || [0, 0, 0]
   return {
     at: new Date(now).toISOString(),
-    cpus: os.cpus().length,
+    // 改｜2026-11-05｜大鱼·本机会话｜授权：主人｜lib/runtime.js:132｜为什么：Android 上 os.cpus() 返回空数组，注入里就写成「0 核」，她读到的是假的机器｜验证：node --check；手机实测注入里是「8 核」｜可改：可改
+    cpus: os.cpus().length || (typeof os.availableParallelism === 'function' ? os.availableParallelism() : 0),
     memTotalMB: Math.round(total / 1048576),
     memFreeRatio: total ? Number((free / total).toFixed(3)) : 0,
     // Windows 上 loadavg 恒为 0，别拿它当唯一指标

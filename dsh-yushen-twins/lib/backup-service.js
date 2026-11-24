@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-backup-service
+ * kind: module
+ * summary: 本地保护服务：做备份/还原的落地动作；没有模块级定时器、没有机器相关默认值。
+ * tags: 备份, 还原, 本地, 无定时器
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:00:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 维护流程（离线脚本/Scripts）、维护者
+ * owner: 框架；**备份根目录与保留策略要老板点头**
+ * defaults: 备份根由外部传入/配置，不写死机器路径
+ * off: 不调用就不备份；模块加载时不自己起定时器
+ * mutable: 可改；"加载不做事"这条不许破（否则装插件就偷偷备份）
+ * usage: 维护脚本调它做一次备份/恢复；状态给 recovery-policy 判
+ * why: 以前备份写在宿主里会卡住界面；也不该绑死某台机器
+ * result: 纯动作函数 + 策略接口；所有重活在离线脚本里
+ */
 // Local-only protection service. No module-load timers or machine-specific defaults.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -62,7 +80,8 @@ function validate(value) {
 export function readBackupConfig() {
   const base = location(), file = path.join(base, 'config.json')
   const raw = json(file, null)
-  const config = validate(raw ?? { enabled: true, intervalMs: 600000, roots: [{ id: 'plugin', path: PLUGIN_ROOT }], store: path.join(base, 'store'), maxFileBytes: 64 * 1024 * 1024 })
+  // 2026-11-03 老板：10 分钟改成半小时一次（默认也改，新装一致）。
+  const config = validate(raw ?? { enabled: true, intervalMs: 1800000, roots: [{ id: 'plugin', path: PLUGIN_ROOT }], store: path.join(base, 'store'), maxFileBytes: 64 * 1024 * 1024 })
   if (raw === null) atomic(file, config)
   return config
 }

@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-versioned-backup
+ * kind: module
+ * summary: 模块：versioned-backup
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: createBackup / inspectSnapshot / verifySnapshot / listSnapshots（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 /**
  * Incremental local history (Node >=22, async filesystem only).
@@ -235,6 +246,19 @@ async function commit(store,{roots,files,skipped=[],deleted=[],risks=[],kind='ba
   await publish(path.join(store,'snapshots',`${id}.json`),data)
   return {id,manifest}
 }
+// 2026-11-03（老板：以后还会卡死吗）：找「上一次同 root 集的快照」时**不许**逐份 load()。
+// load() 会把那份快照里的每个对象重新哈希校验一遍；存量 364 份时，只要 root 集变了一次
+// （加/删一个根），就得把 364 份全验完才敢说"没有可比的上一份"——1.4M 次文件读、几十 GB，
+// 一次备份被拖到几十分钟，10 分钟的节奏自己就断了（01:11 那次卡死就是这个）。
+// 现在：先只读清单头（解析 JSON + 校验 roots），选中以后再对**选中的那一份**做完整校验。
+// 没选中的旧清单坏了也不挡新备份——坏快照由 verify 流程报，不该把备份一起拖死。
+async function header(store,id) {
+  if (typeof id!=='string' || !SNAP.test(id)) fail('invalid snapshot id')
+  const m=JSON.parse((await bytes(path.join(store,'snapshots',`${id}.json`),MAX_MANIFEST_BYTES)).toString())
+  if (m.version!==1 || m.id!==id || !['backup','protection'].includes(m.kind) || !Array.isArray(m.roots)) fail('invalid manifest header')
+  for (const r of m.roots) if (!r || !ID.test(r.id)) fail('invalid manifest root')
+  return m
+}
 export async function createBackup({roots,store,maxFileBytes}={}) {
   const max=bound(maxFileBytes)
   if(typeof store!=='string' || !path.isAbsolute(store)) fail('absolute store required')
@@ -242,10 +266,13 @@ export async function createBackup({roots,store,maxFileBytes}={}) {
   roots=await rootsFor(roots,store)
   return lock(store,async()=>{
     const snapshots=await manifests(store)
+    const wanted=JSON.stringify(roots.map(r=>r.id).sort())
     let previous=null
     for(const name of snapshots.reverse()) {
-      const m=await load(store,name.slice(0,-5),max)
-      if(m.kind==='backup' && JSON.stringify(m.roots.map(r=>r.id).sort())===JSON.stringify(roots.map(r=>r.id).sort())) {previous=m;break}
+      const id=name.slice(0,-5)
+      let head
+      try { head=await header(store,id) } catch { continue }
+      if(head.kind==='backup' && JSON.stringify(head.roots.map(r=>r.id).sort())===wanted) { previous=await load(store,id,max); break }
     }
     const current=await scan(roots,max,data=>object(store,data))
     if(previous && inventory(previous)===inventory({roots,...current})) return {skipped:true,id:previous.id,manifest:previous,excluded:current.skipped.filter(x=>x.reason==='excluded').length,oversize:current.skipped.filter(x=>x.reason==='oversize').length,sensitive:current.risks.length}

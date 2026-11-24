@@ -1,19 +1,141 @@
+/* 标签
+ * id: lib-cost
+ * kind: module
+ * summary: 账：今天花了多少、说几句、峰谷差价；只把数摆给她看，不当闸门。
+ * audience: 她（钱的事）、面板、软边界（读它算硬线）
+ * owner: 框架；数据源是桥的流水，别在这里写第二套价目表
+ * mutable: 可改（只读流水；价目表在 model-prices.js）
+ * defaults: 峰谷：工作日 9-12、14-18 为峰时（价格翻倍）
+ * usage: qqBudgetUsed 今天 QQ 花了多少；recentSaid 最近说了几句；spendTodayAll 全来源；bridgeBudget 本期预算
+ * off: 只读账；不看它的地方就等于不用（软边界/简报会读，去掉要改代码）
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 账：今天花了多少、云端一次大概多少、本地回是免费的。
 //
 // 用途只有一个：**把数摆给她看**——不是拿它当闸门，也不是替她决定花不花。
 // 数据源：桥的 token-usage.jsonl（三个桶）+ 官方价目表（model-prices.js 的口径）。
+//
+// 改｜2026-11-02 16:35｜大鱼·子会话（工作台）｜授权：主人（本次任务书：别拿硬闸，让她看得见钱自己决定）｜
+// lib/cost.js:1-60,260-340｜新增 bridgeBudget/qqBudgetUsed/recentSaid/recentSpends；「钱的事」补三样：
+// 最近 10 分钟说了几条、这小时花了多少／小时上限、现在峰时还是谷时差多少｜
+// 为什么：原来只有"今天一共"和"还剩多少"，她看不见自己说话的速度和现在的单价，也就判断不了值不值｜
+// 验证：node --check lib/cost.js；node scripts/measure-injection.mjs（24205 → 见收尾记录，基线 24629）；
+// node scripts/regression.mjs 0 失败｜可改：可改；只许报数，不许加"省着点/别说了"这类替她决定的话
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { qqBridgeRoot } from './paths.js'
+import { fmt } from './clock.js'
+import { isPeak } from './peak.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const QQ = qqBridgeRoot()
 const USAGE = path.join(QQ, 'state', 'token-usage.jsonl')
+const BRIDGE_CONFIG = path.join(QQ, 'config.json')
+// 桥自己记的发送流水：一次 qq_send_message / qq_reply 落一行 result。用它数"最近十分钟说了几条"。
+const TOOL_CALLS = path.join(QQ, 'state', 'tool-calls.jsonl')
+const SEND_TOOL = /^mcp__snowluma__qq_(send_message|reply|send_group_message|send_private_message)$/
 
 // 与 model-prices.js 的 flash 空闲价一致（元/百万）
 const PRICE = { hit: 0.02, miss: 1, write: 1, out: 4 }
+// 官方价：off-peak rates are half of the peak rates（2026-11-02 核
+// https://api-docs.deepseek.com/quick_start/pricing）。谷时价 = 上面那三档，峰时正好一倍。
+// 这里只用来说清"现在贵多少"，不参与计价（计价仍走 PRICE + 峰时按官方口径另算，见 docs/时间.md）。
+const PEAK_MULTIPLE = 2
+
+/** 一行流水该记多少钱（三个桶）。所有算账的地方共用这一份，别各写一遍。 */
+function rowCost(b = {}) {
+  return (Number(b.cacheHit) || 0) / 1e6 * PRICE.hit
+    + (Number(b.cacheMiss) || 0) / 1e6 * PRICE.miss
+    + (Number(b.cacheWrite) || 0) / 1e6 * PRICE.write
+    + (Number(b.output) || 0) / 1e6 * PRICE.out
+}
+
+/** 桥的预算设置（只读）：本小时上限、今天上限。读不到就 0（= 不写上限，不冒充有）。 */
+export function bridgeBudget() {
+  try {
+    const b = JSON.parse(fs.readFileSync(BRIDGE_CONFIG, 'utf8').replace(/^\uFEFF/, ''))?.budget || {}
+    return { enabled: b.enabled !== false, hourLimit: Number(b.hourLimit) || 0, dayLimit: Number(b.dayLimit) || 0 }
+  } catch { return { enabled: false, hourLimit: 0, dayLimit: 0 } }
+}
+
+/**
+ * 本地「这一天」和「最近一小时」从哪毫秒起。
+ * 时区走 lib/clock.js（系统时间），不自己加偏移——写死 +8 换个时区就全错。
+ * 小时用滚动 60 分钟：桥的 hourLimit 就是这么算的（now - t < 3600000），口径对齐才不会两边差一截。
+ */
+function windowStarts(now) {
+  const hh = Number(fmt(now, 'HH'))
+  const mi = Number(fmt(now, 'mm'))
+  const ss = Number(fmt(now, 'ss'))
+  const ms = new Date(now).getMilliseconds()
+  return { hourStart: now - 3600000, dayStart: now - ((hh * 3600 + mi * 60 + ss) * 1000 + ms) }
+}
+
+/**
+ * QQ 侧这个小时／今天各花了多少（元）。
+ * 只报事实：不设闸、不劝。峰谷差价由调用方按 lib/peak.js 判断。
+ */
+export function qqBudgetUsed({ now = Date.now() } = {}) {
+  const { hourStart, dayStart } = windowStarts(now)
+  let hour = 0
+  let day = 0
+  for (const r of readRows()) {
+    const t = Number(r.t) || 0
+    if (!t || t > now) continue
+    const c = rowCost(r.b)
+    if (t >= dayStart) day += c
+    if (t >= hourStart) hour += c
+  }
+  return { hour: Number(hour.toFixed(2)), day: Number(day.toFixed(2)) }
+}
+
+/**
+ * 最近 N 分钟她自己发了几条消息（QQ 侧）。
+ * 数的是桥的发送流水（tool-calls.jsonl 里成功的 send/reply），一个回合分几条发就算几条——
+ * "说了几条"问的是嘴，不是回合。会话→是谁 用 token-usage 的 author 认，认不出不算。
+ * 读不到流水就返回 null：让注入写"读不到"，不拿 0 冒充"没说话"。
+ */
+export function recentSaid(role, { now = Date.now(), minutes = 10 } = {}) {
+  if (!role) return null
+  let text = ''
+  try { text = fs.readFileSync(TOOL_CALLS, 'utf8') } catch { return null }
+  const own = new Map()
+  for (const r of readRows()) if (r.sid && r.author) own.set(String(r.sid), String(r.author))
+  const since = now - minutes * 60000
+  let n = 0
+  for (const line of text.split(/\r?\n/)) {
+    if (!line || line[0] !== '{') continue
+    let r
+    try { r = JSON.parse(line) } catch { continue }
+    if (r?.type !== 'result' || r.ok !== true) continue
+    if (!SEND_TOOL.test(String(r.tool || ''))) continue
+    const t = Date.parse(String(r.time || '')) || 0
+    if (!t || t < since || t > now + 60000) continue
+    if (own.get(String(r.sessionId || '')) !== String(role)) continue
+    n += 1
+  }
+  return n
+}
+
+/** 最近几笔（按回合合起来的 QQ 花费），给她自己查账用。 */
+export function recentSpends(role, { now = Date.now(), n = 5 } = {}) {
+  if (!role) return []
+  const map = new Map()
+  for (const r of readRows()) {
+    if (String(r.author || '') !== String(role)) continue
+    const t = Number(r.t) || 0
+    if (!t || t > now) continue
+    const k = `${r.sid || '?'}|${r.turn || 0}`
+    const cur = map.get(k) || { at: 0, yuan: 0, 在哪: String(r.key || '') }
+    cur.yuan += rowCost(r.b)
+    cur.at = Math.max(cur.at, t)
+    map.set(k, cur)
+  }
+  return [...map.values()].sort((a, b) => b.at - a.at).slice(0, n)
+    .map((x) => ({ 什么时候: fmt(x.at, 'MM-DD HH:mm'), 在哪: x.在哪, 多少: Number(x.yuan.toFixed(4)) }))
+}
 
 function pad(n) { return String(n).padStart(2, '0') }
 function dayKey(ms) { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
@@ -23,6 +145,25 @@ export function periodStartMs(b) {
   const m = String(b?.本期 || '').match(/(\d{4})-(\d{2})-(\d{2})/)
   if (!m) return 0
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime()
+}
+
+/**
+ * 今天一共花了多少——**所有来源**：不管 author、不管 QQ 还是工作台，全按流水折价。
+ * 2026-11-03（老板：怎么总是顶着 QQ，我要看总额）：以前只报 QQ 侧，工作台的回合
+ * 明明已经流进同一本 token-usage.jsonl（key=workbench），却没被算进「今天花了」。
+ * 只统计，不设限。
+ */
+export function spendTodayAll({ now = Date.now() } = {}) {
+  const start = new Date(now); start.setHours(0, 0, 0, 0)
+  let cost = 0
+  let turns = 0
+  for (const r of readRows()) {
+    const t = Number(r.t) || 0
+    if (!t || t < start.getTime() || t > now) continue
+    cost += rowCost(r.b)
+    turns += 1
+  }
+  return { turns, yuan: Number(cost.toFixed(3)) }
 }
 
 /**
@@ -36,13 +177,7 @@ export function spendForRole(role, { sinceMs = 0, now = Date.now() } = {}) {
     return t && t >= sinceMs && t <= now && String(r.author || '') === String(role)
   })
   let cost = 0
-  for (const r of rows) {
-    const b = r.b || {}
-    cost += (Number(b.cacheHit) || 0) / 1e6 * PRICE.hit
-      + (Number(b.cacheMiss) || 0) / 1e6 * PRICE.miss
-      + (Number(b.cacheWrite) || 0) / 1e6 * PRICE.write
-      + (Number(b.output) || 0) / 1e6 * PRICE.out
-  }
+  for (const r of rows) cost += rowCost(r.b)
   return { turns: rows.length, yuan: Number(cost.toFixed(3)) }
 }
 
@@ -82,8 +217,8 @@ function ownBudgetLine(role, now) {
         staleLine = `\n（工作台那边的账本停在 ${hours} 小时前，所以上面只有 QQ 侧的数；那边的花费看不见，不是没花。）`
       }
     } catch { /* 读不到就不说 */ }
-    return `\n**你的钱：还剩 ${rest.toFixed(2)} 元**（本期 ${total.toFixed(2)}${end ? `，到 ${end}` : ''}，已花 ${used.toFixed(2)}，实时）`
-      + `\n今天你名下 ${today.yuan.toFixed(2)} 元（${today.turns} 回合，QQ 侧）${limitLine}${staleLine}`
+    return `\n**你的钱：还剩 ${rest.toFixed(2)} 元**（本期 ${total.toFixed(2)}${end ? `，到 ${end}` : ''}，已花 ${used.toFixed(2)}，实时；今天名下 ${today.yuan.toFixed(2)}）`
+      + `${limitLine}${staleLine}`
   } catch { return '' }
 }
 
@@ -139,13 +274,7 @@ function writeTrack(doc) {
 /** 全量累计花费（所有行），给窗口差用。 */
 function totalCost() {
   let c = 0
-  for (const r of readRows()) {
-    const b = r.b || {}
-    c += (Number(b.cacheHit) || 0) / 1e6 * PRICE.hit
-      + (Number(b.cacheMiss) || 0) / 1e6 * PRICE.miss
-      + (Number(b.cacheWrite) || 0) / 1e6 * PRICE.write
-      + (Number(b.output) || 0) / 1e6 * PRICE.out
-  }
+  for (const r of readRows()) c += rowCost(r.b)
   return c
 }
 
@@ -248,12 +377,8 @@ export function spendToday({ now = Date.now() } = {}) {
   let cost = 0
   let last = null
   for (const r of rows) {
-    const b = r.b || {}
-    cost += (Number(b.cacheHit) || 0) / 1e6 * PRICE.hit
-      + (Number(b.cacheMiss) || 0) / 1e6 * PRICE.miss
-      + (Number(b.cacheWrite) || 0) / 1e6 * PRICE.write
-      + (Number(b.output) || 0) / 1e6 * PRICE.out
-    last = b
+    cost += rowCost(r.b)
+    last = r.b
   }
   return { day, turns: rows.length, yuan: Number(cost.toFixed(3)), last }
 }
@@ -269,7 +394,6 @@ export function perTurnEstimate({ now = Date.now() } = {}) {
 export function costLine({ now = Date.now(), cache = null, role = '' } = {}) {
   const key = dayKey(now)
   if (cache && cache.day === key && Date.now() - (cache.at || 0) < 5 * 60000) return cache.line
-  const s = spendToday({ now })
   const per = perTurnEstimate({ now })
   let alerts = ''
   try {
@@ -280,7 +404,26 @@ export function costLine({ now = Date.now(), cache = null, role = '' } = {}) {
     if (recent.length) alerts = `\n账上记着：${recent.slice(-2).map((r) => String(r.text).replace(/^【账】/, '')).join('；')}。要不要跟他说、怎么说，你自己定。`
   } catch { /* 没账就不写 */ }
   // 只报数。不劝、不催——花不花是她自己的事（老板 2026-10-30 的话：不要用代码去控制她做什么）。
-  const line = `## 钱的事\nQQ 那边今天一共 ${s.yuan} 元（${s.turns} 回合）；一次云端回合大约 ${per} 元；本地回 0 元，不回也 0 元。`
+  //
+  // 2026-11-02 老板：「我要的是她能自己判断、知道钱是什么概念，会自己克制，而不是花到限额就强行停。」
+  // 所以这里摆四样事实，不下结论：
+  //   ① 今天一共多少、上限多少；② 这小时多少、上限多少（桥的 rolling hour）；
+  //   ③ 最近 10 分钟说了几条（她自己的嘴速）；④ 现在峰时还是谷时、单价差多少。
+  // 最后一句只说"你自己判断"——说多说少是她的选择，不替她决定。
+  const used = qqBudgetUsed({ now })
+  const bb = bridgeBudget()
+  const said = recentSaid(role, { now })
+  const dayCap = bb.dayLimit > 0 ? `（上限 ${bb.dayLimit}）` : ''
+  const hourCap = bb.hourLimit > 0 ? `（上限 ${bb.hourLimit}）` : ''
+  const saidTxt = said === null ? '最近 10 分钟说了几条：读不到' : `最近 10 分钟你说了 ${said} 条`
+  // 峰谷只认 lib/peak.js 的口径（官方按北京时间）；现在几点必须走 lib/clock.js（系统时间），不自己加偏移。
+  const peakNow = isPeak(new Date(now))
+  const priceTxt = peakNow
+    ? `现在峰时，单价是谷时的 ${PEAK_MULTIPLE} 倍`
+    : '现在谷时，单价是峰时的一半'
+  const line = `## 钱的事\nQQ 那边今天一共 ${used.day.toFixed(2)} 元${dayCap}；这小时 ${used.hour.toFixed(2)} 元${hourCap}。`
+    + `\n${saidTxt}；${priceTxt}。说多说少你自己判断。`
+    + `\n一次云端回合大约 ${per} 元；本地回 0 元。`
     + ownBudgetLine(role, now) + failQuotaLine(role, now) + alerts
   return line
 }

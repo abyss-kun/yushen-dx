@@ -1,28 +1,37 @@
+/* 标签
+ * id: lib-sleep-mind
+ * kind: module
+ * summary: 状态灯：不调模型，用已知事实拼一句"屋里此刻"；不署名、不写记忆、不发通道。
+ * audience: 看屋子的人（简报里那一行）、面板
+ * owner: 框架；老板 2026-11-10 定：不再叫本地小模型
+ * mutable: 可改（只拼事实，不许猜她在想什么）
+ * defaults: 20 分钟内不重复亮；她刚醒（15 分钟内说过话）就不亮
+ * usage: sleepOnce(role) 亮一次；lastSleepText 给简报；sleepRecent 看最近几句
+ * off: switches.json 的 sleepLight=false（默认关）就不亮；代码留着
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 状态灯：不调大模型的时候，也有一点「什么」在。
 //
 // 为什么要有：她的「不调」不是睡觉，是暂停——中间那段时间对她不存在。
-// 这里放一盏灯：本地小模型写一句关于这个人和这间屋子的话，
-// 让看着的人知道她此刻在等什么，而不是一片空白。
+// 这里放一盏灯：把已知的几件事压成一句话，让看着的人知道她此刻在等什么，而不是一片空白。
+//
+// 2026-11-10 老板定：**不再叫本地小模型**。那盏灯每 20 分钟把 7.2 GB 的 llama-server
+// 拉起来写一句，写完还因为检查顺序的问题永远关不掉；规则拼出来的话没有一个字是猜的，
+// 模型那句话也不提供任何新信息。现在直接用事实拼，本模块不碰引擎。
 //
 // 它不是她的梦，也不是她想的事——它是屋里的一行字。所以四条边界划死：
 //   · **不署名**：这句话不是她说的，简报里会明确标「状态灯，不是你」。
 //   · **不写记忆**：只进 sleep.jsonl（灯下的记录），不进她的记忆、不改她的档。
 //   · **不判断**：不决定回不回、做不做——那是她醒了之后的事。
 //   · **不发通道**：不往 QQ / 工作台 说一个字。
-//   · 本地引擎起不来就如实说「没亮」，不编。
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { runtimeDir } from './runtime.js'
 import { readAgenda } from './agenda.js'
 import { listWaiting } from './waiting.js'
 import { unreadFor } from './inbox.js'
-import { getCharacter } from './characters.js'
-import { chatLocal, probeLocal } from './translator.js'
 
-const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
-const DATA = path.join(HOME, 'dayu')
 const MIN_GAP_MS = 20 * 60 * 1000 // 20 分钟内不重复想
 const QUIET_MS = 15 * 60 * 1000 // 她刚醒过（15 分钟内说过话）就不用点灯
 
@@ -60,25 +69,27 @@ function stateOf(role, now) {
     const n = unreadFor(role, { channel: 'qq', limit: 200 })
     out.unread = Number(n?.unread || n?.count || (Array.isArray(n) ? n.length : 0)) || 0
   } catch { /* 忽略 */ }
-  try {
-    const c = getCharacter(role)
-    const f = c?.memory
-    const mem = readJson(path.isAbsolute(f) ? f : path.join(DATA, 'soul', f), null)
-    const last = (mem?.events || [])[mem?.events?.length - 1]
-    if (last?.text) out.lastEvent = String(last.text).slice(0, 40)
-  } catch { /* 忽略 */ }
   return out
 }
 
+/** 规则版影子：把已知事实压成一句人话（不判断、不猜）。 */
+function ruleLine(s) {
+  const bits = []
+  if (s.awakeAgoMin != null) bits.push(`她 ${s.awakeAgoMin} 分钟前醒过`)
+  if (s.items?.length) bits.push(`手上：${s.items.slice(0, 2).join('、')}`)
+  if (s.due?.length) bits.push(`到点了：${s.due.slice(0, 2).join('、')}`)
+  if (s.unread) bits.push(`还有 ${s.unread} 条没看`)
+  if (!bits.length) bits.push('屋里安静')
+  return `${s.clock}｜${bits.join('；')}`.slice(0, 60)
+}
+
 /**
- * 亮一次灯：本地小模型写一句话。不署名、不写记忆、不发通道。
+ * 亮一次灯：用已知事实拼一句，不调模型。不署名、不写记忆、不发通道。
  * @returns {{ok:boolean, text?:string, skipped?:string, why?:string, ms?:number}}
  */
 export async function sleepOnce(role, { now = Date.now(), force = false } = {}) {
   const id = String(role || '').trim()
   if (!id) return { ok: false, why: '没有角色' }
-  const local = (() => { try { return probeLocal() } catch { return { ready: false, note: '探不到本地引擎' } } })()
-  if (!local.ready) return { ok: false, why: `本地引擎没装好：${local.note || ''}` }
 
   if (!force) {
     if (now - lastSleepAt(id) < MIN_GAP_MS) return { ok: false, skipped: '刚亮过' }
@@ -89,35 +100,24 @@ export async function sleepOnce(role, { now = Date.now(), force = false } = {}) 
     } catch { /* 忽略 */ }
   }
 
-  const s = stateOf(id, now)
-  const facts = [
-    `现在 ${s.clock}`,
-    s.awakeAgoMin != null ? `她 ${s.awakeAgoMin} 分钟前醒过` : '还没醒过',
-    s.items?.length ? `手上：${s.items.join('；')}` : '手上没有自己的事',
-    s.due?.length ? `到点了：${s.due.join('；')}` : '',
-    s.unread ? `还有 ${s.unread} 条没看` : '',
-    s.lastEvent ? `最后一件：${s.lastEvent}` : '',
-  ].filter(Boolean).join('。')
-
   const t0 = Date.now()
-  try {
-    const text = await chatLocal([
-      { role: 'system', content: '你是这间屋子的状态灯。只写一句话（不超过30字），描述此刻的情形：她在等什么、手上有没有到点的事、屋里安不安静。只描述眼前的状态，不猜她在想什么，不评判，不承诺，不给建议，不用"她"开头。' },
-      { role: 'user', content: facts },
-    ], { maxTokens: 80, temperature: 0.5, timeoutMs: 90000 })
-    const line = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 60)
-    if (!line) return { ok: false, why: '本地模型没写出东西' }
-    const row = { at: new Date(now).toISOString(), text: line, ms: Date.now() - t0, facts }
-    try { fs.appendFileSync(sleepFile(id), `${JSON.stringify(row)}\n`, 'utf8') } catch { /* 记不下不挡 */ }
-    try {
-      const v = readJson(vitalFile(id), {}) || {}
-      v.sleep = { at: row.at, text: line }
-      fs.writeFileSync(vitalFile(id), `${JSON.stringify(v, null, 2)}\n`, 'utf8')
-    } catch { /* 忽略 */ }
-    return { ok: true, text: line, ms: row.ms }
-  } catch (e) {
-    return { ok: false, why: String(e?.message || e).slice(0, 100), ms: Date.now() - t0 }
+  const s = stateOf(id, now)
+  const line = ruleLine(s)
+  if (!line) return { ok: false, why: '没有可写的东西' }
+  const row = {
+    at: new Date(now).toISOString(),
+    text: line,
+    by: 'rule',
+    ms: Date.now() - t0,
+    facts: { clock: s.clock, awakeAgoMin: s.awakeAgoMin, items: s.items || [], due: s.due || [], unread: s.unread || 0 },
   }
+  try { fs.appendFileSync(sleepFile(id), `${JSON.stringify(row)}\n`, 'utf8') } catch { /* 记不下不挡 */ }
+  try {
+    const v = readJson(vitalFile(id), {}) || {}
+    v.sleep = { at: row.at, text: line }
+    fs.writeFileSync(vitalFile(id), `${JSON.stringify(v, null, 2)}\n`, 'utf8')
+  } catch { /* 忽略 */ }
+  return { ok: true, text: line, by: 'rule', ms: row.ms }
 }
 
 /** 最近几次亮灯（给她自己看，或老板查）。 */

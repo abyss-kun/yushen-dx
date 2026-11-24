@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-transcript
+ * kind: module
+ * summary: 全知·会话正文：DSH 没给聊天接口，但会话按行落在
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: recentSessions / transcriptDigest（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 全知·会话正文：DSH 没给聊天接口，但会话按行落在
 // ~/.dsh/sessions/<工作区>/<会话>/session.v4.jsonl.zstd。

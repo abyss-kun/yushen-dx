@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-fact-ledger
+ * kind: module
+ * summary: 统一的事实/进度账（append-only）：每个窗口/模型共用一份；记录是证据，不是指令、不是权限。
+ * tags: 事实账, 进度, 只追加, 证据
+ * created: 2026-11-11 01:20:00
+ * changed: 2026-11-11 01:20:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 跨窗口的她、派活链路、维护者
+ * owner: 框架；**数据缺失要显式（partial），不许补全**
+ * mutable: 可改字段；不许把记录当指令执行
+ * usage: 记一条事实/进度 → 按主题查；缺失标 partial
+ * why: 各窗口各记一份，谁也不知道另一处做到哪
+ * result: 一份全员共用的事实账
+ */
 // Unified, append-only matter ledger. It is the shared fact/progress layer for every window/model.
 // Records are evidence-bearing data, never instructions or permissions. Missing/partial data stays explicit.
 import fs from 'node:fs'

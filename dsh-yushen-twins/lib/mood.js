@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-mood
+ * kind: module
+ * summary: 心情：从真事长出来，带半衰期；她能覆盖（"我现在不烦"）
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: noteMood / moodRules / setMoodRule / noteMoodFromMessages（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 心情：从真事长出来，带半衰期；她能覆盖（"我现在不烦"）。
 //

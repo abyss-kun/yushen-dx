@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-board
+ * kind: module
+ * summary: 公告：总公告 board/公告.md（所有人看）+ 自己的板 board/<role>.md；三个档按 token 花，改一个字换档。
+ * tags: 公告, 看板, 三档, 只读本地
+ * created: 2026-11-11 01:05:00
+ * changed: 2026-11-11 01:05:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她（读自己的板）、三个角色互看、维护者
+ * owner: 框架；档位（简短/标准/详细）是她/老板可调
+ * defaults: 档位存在 board/config.json（默认标准档）
+ * off: 不看板就不拼进简报，关掉不影响记忆
+ * mutable: 可改；**只读本地、不调模型**不许破
+ * usage: 读总公告 + 自己的板 → 一段文本；按档截断
+ * why: 三个角色互相不知道对方在干嘛，容易重复干同一件事
+ * result: 两级公告 + 三档；写失败不影响读
+ */
 // 公告：两个层级
 //   board/公告.md       总公告，所有人都看
 //   board/<role>.md     自己的板：另一个自己在哪儿、干了什么

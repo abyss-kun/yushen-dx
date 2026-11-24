@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-card-check
+ * kind: module
+ * summary: 角色卡体检：只读判断缺哪几节、能不能直接用；不改卡。
+ * tags: 角色卡, 体检, 只读
+ * created: 2026-11-11 01:10:00
+ * changed: 2026-11-11 01:10:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 老板（新建角色时）、她、新角色
+ * owner: 框架；**卡的内容归角色本人**，这里只体检
+ * mutable: 可改判据（只许更严）；不许在这里自动补卡
+ * usage: checkCard(text) → {ok, missing[], sections}；只读
+ * why: 接别人的卡时不知道能不能用；新卡又常缺节
+ * result: 一份只读体检结果
+ */
 // 角色卡体检：只读判断，不改卡。
 // 用途：新建角色后提示“还缺哪几节没填”；接入别人的卡时判断能不能直接用。
 import { CARD_SECTIONS } from './card-template.js'

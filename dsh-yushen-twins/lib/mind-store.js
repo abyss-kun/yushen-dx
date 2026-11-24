@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-mind-store
+ * kind: module
+ * summary: 鱼神双子星 · 心念本地存储（纯本地、无模型、无定时器、无网络）
+ * audience: 她 / 新角色
+ * owner: 框架；心念内容归角色本人
+ * mutable: 可改
+ * usage: mindRoles / MindStoreError / mindFile / mindLockFile（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 心念本地存储（纯本地、无模型、无定时器、无网络）
 //

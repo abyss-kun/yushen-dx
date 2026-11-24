@@ -1,4 +1,7 @@
+// 改｜2026-11-24 23:50｜大鱼·工作台｜授权：主人（2026-11-24：还有什么没做的一起）｜client.js:1｜本轮整理提交：该文件在本轮之前已有改动，补留痕｜为什么：改动要能查到谁/何时/怎么验｜验证：回归 325/0（整体）｜可改：可改
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
+// 改｜2026-11-03 16:52｜大鱼·子会话（文件编辑）｜授权：老板｜client.js:3192-3322,3621,3628,3637-3638,3669｜新增「文件编辑」页（读/改/存/重新读取/用编辑器打开）与鱼窝入口（齿轮菜单、首页按钮、角色页按钮）｜为什么：原生预览/对比只读，插件自己的面板要能改｜验证：node --check client.js；后端接口由 test-file-edit 真跑；界面待重载插件后复核｜可改：可改
+// 改｜2026-11-02 23:20｜大鱼·子会话（工作台；父会话 session-bef06908 委派）｜授权：老板（本次任务书：桌宠右键看后台任务）｜client.js:4037,4069-4250,4350-4362｜新增：右键菜单多一项「现在在忙什么」→ 贴在桌宠旁边的小面板（🔴/⚪/⚠️ 逐行 + 复制/刷新 + 底部结论），挂在 body 上、最高一层（不然会被小鱼报活那个浮层盖住）｜为什么：老板要"右键就能看出来该不该重启"，不是去翻日志｜验证：node scripts/busy-ui-probe.mjs 在 headless Edge 里右键→点菜单→读面板文字→截图（.state/busy-ui/busy-panel.png）｜可改：可改
 window.__ModuleLoader__.load({
   id: 'dsh-yushen-twins',
   factory: (require) => {
@@ -420,6 +423,147 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
       return data
     }
 
+    // ── 记忆设置（压缩模式 / 召回视图 / 每轮台账）─────────────────────────────
+    // 存储：和 yushen_compaction 共用 ~/.dsh/dayu/switches.json 的 compactionMode；
+    // 召回视图先存同文件的 recallView（lib/recall-view.js 的 thrifty/balanced/full）。
+    // 为什么走文件接口：/api/dayu/switches 目前只认固定白名单，未知键会被丢掉；
+    // 文件接口是插件已有的读写通道（带版本校验 + 写前备份），不另造服务。
+    const COMPACTION_CHOICES = Object.freeze([
+      { value: 'default', label: 'default（官方）', hint: '官方默认摘要' },
+      { value: 'memory', label: 'memory（工作生活）', hint: '工作/生活分开的记忆完整摘要' },
+      { value: 'off', label: 'off（关闭自动压缩）', hint: '只提醒，不自动压缩' },
+    ])
+    const RECALL_CHOICES = Object.freeze([
+      { value: 'thrifty', label: '省流', hint: '只给索引（≤600 字），最省上下文' },
+      { value: 'balanced', label: '平衡', hint: '给预览（≤2400 字），默认' },
+      { value: 'full', label: '完整', hint: '允许更全；仍不等于每轮全文' },
+    ])
+    const COMPACTION_VALUES = Object.freeze(COMPACTION_CHOICES.map((item) => item.value))
+    const RECALL_VALUES = Object.freeze(RECALL_CHOICES.map((item) => item.value))
+    const COMPACTION_ALIASES = new Map([
+      ['default', 'default'], ['official', 'default'], ['官方', 'default'], ['默认', 'default'],
+      ['memory', 'memory'], ['记忆', 'memory'], ['记忆完整', 'memory'],
+      ['off', 'off'], ['关闭', 'off'], ['关', 'off'],
+    ])
+    const RECALL_ALIASES = new Map([
+      ['thrifty', 'thrifty'], ['省流', 'thrifty'], ['省', 'thrifty'], ['摘要', 'thrifty'],
+      ['balanced', 'balanced'], ['balance', 'balanced'], ['平衡', 'balanced'], ['默认', 'balanced'],
+      ['full', 'full'], ['完整', 'full'], ['完整版', 'full'], ['全文', 'full'], ['详细', 'full'],
+    ])
+
+    function normalizeCompactionMode(value) {
+      const key = String(value ?? '').trim().toLowerCase()
+      const hit = COMPACTION_ALIASES.get(key) || key
+      return COMPACTION_VALUES.includes(hit) ? hit : 'default'
+    }
+
+    function normalizeRecallView(value) {
+      const key = String(value ?? '').trim().toLowerCase()
+      const hit = RECALL_ALIASES.get(key) || key
+      return RECALL_VALUES.includes(hit) ? hit : 'balanced'
+    }
+
+    function parseSwitchesText(text) {
+      let raw = String(text ?? '')
+      if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1)
+      const data = JSON.parse(raw)
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('顶层不是对象')
+      return data
+    }
+
+    function joinServerPath(root, rel) {
+      const base = String(root ?? '').replace(/[\\/]+$/, '')
+      const tail = String(rel ?? '').replace(/^[\\/]+/, '')
+      return base ? `${base}/${tail}` : tail
+    }
+
+    function pickChoice(choices, value) {
+      return choices.find((item) => item.value === value) || choices[0]
+    }
+
+    async function readSwitchesAt(path) {
+      const res = await fetch('/api/yushen/file-text?path=' + encodeURIComponent(path), { credentials: 'same-origin' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || !body.ok) {
+        const error = new Error(body?.error || `文件接口异常（HTTP ${res.status}）`)
+        error.code = body?.code || ''
+        throw error
+      }
+      let data
+      try {
+        data = parseSwitchesText(body.text)
+      } catch (e) {
+        const error = new Error(`switches.json 不是有效 JSON：${e?.message || e}`)
+        error.code = 'BAD_JSON'
+        throw error
+      }
+      return { path: body.path || path, text: body.text, hash: body.hash || '', data }
+    }
+
+    async function discoverSwitchesFile() {
+      const res = await fetch('/api/yushen/file-edit', { credentials: 'same-origin' })
+      const caps = await res.json().catch(() => ({}))
+      if (!res.ok || !caps.ok) throw new Error(caps?.error || `文件接口异常（HTTP ${res.status}）`)
+      const roots = Array.isArray(caps.roots) ? caps.roots.filter((item) => typeof item === 'string' && item.trim()) : []
+      if (!roots.length) throw new Error('文件接口没有返回可写的根目录')
+      // 优先 .dsh 家目录；DSH_HOME 自定义时名字可能不叫 .dsh，下面会逐个试。
+      const ordered = roots.slice().sort((a, b) => (/(^|[\\/])\.dsh$/i.test(b) ? 1 : 0) - (/(^|[\\/])\.dsh$/i.test(a) ? 1 : 0))
+      const failures = []
+      const tryAll = async () => {
+        for (const root of ordered) {
+          const path = joinServerPath(root, 'dayu/switches.json')
+          try {
+            return await readSwitchesAt(path)
+          } catch (e) {
+            failures.push({ path, code: e?.code || '', message: String(e?.message || e) })
+          }
+        }
+        return null
+      }
+      const found = await tryAll()
+      if (found) return found
+      // 文件还没生成时，用现有的 /switches 写一次默认文件再找；只要不是「不存在」就不动它。
+      if (failures.every((item) => item.code === 'NOT_FOUND')) {
+        try {
+          await postJson('/switches', {})
+        } catch (e) {
+          failures.push({ path: '(初始化 switches.json)', code: '', message: String(e?.message || e) })
+        }
+        const again = await tryAll()
+        if (again) return again
+      }
+      const detail = failures.slice(-3).map((item) => `${item.path}：${item.message}`).join('；')
+      throw new Error(`找不到 switches.json（试过 ${ordered.length} 个根）。${detail}`)
+    }
+
+    async function writeSwitchesPatch(path, patch) {
+      let stale = false
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const current = await readSwitchesAt(path)
+        const next = { ...current.data, ...patch }
+        const text = JSON.stringify(next, null, 2) + '\n'
+        const res = await fetch('/api/yushen/file-text', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ path: current.path, text, hash: current.hash }),
+        })
+        const body = await res.json().catch(() => ({}))
+        if (res.ok && body.ok) {
+          const after = await readSwitchesAt(current.path)
+          for (const [key, value] of Object.entries(patch)) {
+            if (String(after.data[key]) !== String(value)) {
+              throw new Error(`保存后回读不一致：${key}=${String(after.data[key])}`)
+            }
+          }
+          return after
+        }
+        if (body?.code === 'STALE') { stale = true; continue }
+        throw new Error(body?.error || `文件接口异常（HTTP ${res.status}）`)
+      }
+      throw new Error(stale ? '文件刚被别处改过（版本校验对不上），没有保存' : '没有保存')
+    }
+
     function Notice({ onClose }) {
       const [keep, setKeep] = React.useState(false)
       const close = () => {
@@ -479,6 +623,127 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
                 h('span', { style: p.installed ? { color: '#34d399' } : css.muted }, p.installed ? '在岗' : '缺席'))))))
     }
 
+    // 设置失败要说人话：带上 code 对应的下一步，不只甩一行异常。
+    function settingsFailure(action, error) {
+      const code = String(error?.code || '')
+      const reason = String(error?.message || error)
+      const hint = code === 'NOT_FOUND'
+        ? '文件或接口不在了：点「重新读取」会重新找一遍；文件还没生成时会先初始化。'
+        : code === 'STALE'
+          ? '文件刚被别处改过：点「重新读取」拿到最新值再改，别覆盖别人的改动。'
+          : code === 'OUTSIDE'
+            ? '路径不在允许的编辑根里：先确认 DSH_HOME 与工作区，再试。'
+            : code === 'BAD_JSON'
+              ? '文件内容不是合法 JSON：先修好文件，这里不会拿默认值覆盖。'
+              : '当前值没有改；可以点「重新读取」再试。'
+      return `${action}：${reason}。${hint}`
+    }
+
+    // 记忆设置：挂在「调试 / 记忆」页下面，不另开页面、不碰角色卡。
+    function MemorySettings() {
+      const [state, setState] = React.useState({ loading: true, saving: '', error: '', note: '', path: '', data: {} })
+
+      const load = React.useCallback(async () => {
+        setState((prev) => ({ ...prev, loading: true, error: '', note: '' }))
+        try {
+          const found = await discoverSwitchesFile()
+          setState({ loading: false, saving: '', error: '', note: '', path: found.path, data: found.data })
+        } catch (e) {
+          setState((prev) => ({ ...prev, loading: false, saving: '', error: settingsFailure('没读到设置', e) }))
+        }
+      }, [])
+
+      React.useEffect(() => { load() }, [load])
+
+      const save = async (key, value) => {
+        const isCompaction = key === 'compactionMode'
+        const choice = pickChoice(isCompaction ? COMPACTION_CHOICES : RECALL_CHOICES, value)
+        const label = isCompaction ? '压缩模式' : '召回视图'
+        if (!state.path) {
+          setState((prev) => ({ ...prev, error: '还没读到设置文件，先点「重新读取」；当前没有改动。', note: '' }))
+          return
+        }
+        setState((prev) => ({ ...prev, saving: key, error: '', note: `正在保存${label}…` }))
+        try {
+          const after = await writeSwitchesPatch(state.path, { [key]: value })
+          setState((prev) => ({
+            ...prev,
+            saving: '',
+            data: after.data,
+            note: isCompaction
+              ? `已保存：压缩模式 = ${choice.label}。compaction-bridge 会读 switches.json，下次压缩摘要 / 自动压缩按这个档位。`
+              : `已保存：召回视图 = ${choice.label}（只写进 switches.json；召回工具现在还没读这个值，实际召回行为不变）。`,
+          }))
+        } catch (e) {
+          setState((prev) => ({
+            ...prev,
+            saving: '',
+            note: '',
+            error: settingsFailure(`没存上${label}`, e),
+          }))
+        }
+      }
+
+      const data = state.data || {}
+      const compaction = normalizeCompactionMode(data.compactionMode)
+      const recall = normalizeRecallView(data.recallView)
+      const compactionSet = Object.prototype.hasOwnProperty.call(data, 'compactionMode')
+      const recallSet = Object.prototype.hasOwnProperty.call(data, 'recallView')
+      const compactionChoice = pickChoice(COMPACTION_CHOICES, compaction)
+      const recallChoice = pickChoice(RECALL_CHOICES, recall)
+      const busy = Boolean(state.saving)
+
+      const choices = (list, current, key) => h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' } },
+        list.map((item) => h('button', {
+          key: item.value,
+          type: 'button',
+          title: item.hint,
+          style: {
+            ...css.filterBtn,
+            ...(current === item.value ? css.filterActive : null),
+            opacity: busy || !state.path ? 0.55 : 1,
+            cursor: busy || !state.path ? 'default' : 'pointer',
+          },
+          'aria-pressed': current === item.value ? 'true' : 'false',
+          disabled: busy || !state.path,
+          onClick: () => { if (!busy) save(key, item.value) },
+        }, item.label)))
+
+      return h('div', { id: 'yushen-memory-settings', 'data-yushen-settings': 'memory', style: css.card },
+        h('div', { style: css.h }, '记忆设置'),
+        h('div', { style: { ...css.muted, marginBottom: '8px', lineHeight: 1.7 } },
+          '压缩模式读的是 switches.json 的 compactionMode，由 compaction-bridge 接到摘要 / 自动压缩；召回视图先存 recallView（thrifty / balanced / full），目前只保存、后端还没读；每轮台账始终开启。'),
+        state.loading
+          ? h('div', { style: css.muted, role: 'status' }, '读取当前设置…')
+          : h(React.Fragment, null,
+            h('div', { style: css.item },
+              h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
+                h('span', { style: { fontWeight: 600 } }, '压缩模式'),
+                choices(COMPACTION_CHOICES, compaction, 'compactionMode')),
+              h('div', { style: css.muted }, `当前：${compactionChoice.label}${compactionSet ? '' : '（还没设置过，按默认）'}。${compactionChoice.hint}。`)),
+            h('div', { style: css.item },
+              h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
+                h('span', { style: { fontWeight: 600 } }, '召回视图'),
+                h('span', { style: { ...css.chip, background: 'rgba(251,191,36,.16)' } }, '只保存 · 未生效'),
+                choices(RECALL_CHOICES, recall, 'recallView')),
+              h('div', { style: css.muted }, `当前：${recallChoice.label}${recallSet ? '' : '（还没设置过，按平衡）'}。${recallChoice.hint}。注意：这个值只写文件，召回工具现在还按调用参数里的 viewMode 选档，页面档位不会改变召回行为。`)),
+            h('div', { style: css.item },
+              h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
+                h('span', { style: { fontWeight: 600 } }, '每轮台账'),
+                h('span', { style: { ...css.chip, background: 'rgba(52,211,153,.16)' } }, '始终开启')),
+              h('div', { style: css.muted }, '每轮从原文抽要求 / 约束 / 承诺 / 完成 / 纠正（lib/turn-ledger.js），落到 ~/.dsh/dayu/runtime/<角色>/turn-ledger.jsonl；没有单独开关，这里只显示状态，不往文件里写开关。')),
+            state.path
+              ? h('div', { style: { ...css.muted, marginTop: '8px', fontSize: '12px', wordBreak: 'break-all' } }, `设置文件：${state.path}`)
+              : null,
+            h('div', { style: { ...css.muted, marginTop: '6px', fontSize: '12px', lineHeight: 1.7 } },
+              '已知限制：① 调试开关的 /switches 保存会重写整个文件，可能把 compactionMode / recallView 一起丢掉；切过调试开关后回来点「重新读取」核对。② 召回视图在页面能保存、能回读，但后端还没接线，实际召回不变（见上）。'),
+            state.note ? h('div', { style: { marginTop: '8px', fontSize: '12px', color: '#34d399' }, role: 'status' }, state.note) : null,
+            state.error ? h('div', { style: { ...css.err, marginTop: '8px' }, role: 'alert' }, state.error) : null,
+            h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap' } },
+              h('button', { type: 'button', style: css.smallBtn, onClick: load, disabled: state.loading || busy }, '重新读取'),
+              h('span', { style: { ...css.muted, fontSize: '12px' }, role: 'status', 'aria-live': 'polite' }, busy ? '保存中…' : '选中即保存'))))
+    }
+
     function SwitchPage({ status, setStatus }) {
       const [sw, setSw] = React.useState(status?.switches || { master: true, dayu: true, xiaoyu: true })
       const [note, setNote] = React.useState('')
@@ -504,13 +769,19 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         h('span', null, label),
         h('span', { style: css.switchHint }, hint))
 
-      return h('div', { style: css.card },
-        h('div', { style: css.h }, '调试开关（关掉 = 放假）'),
-        h('div', { style: { ...css.muted, marginBottom: '8px' } }, '平时两条鱼都在岗。只有排查 bug 时，才临时给谁放个假；放假期间不接活，重启 DSH 后生效。'),
-        Toggle({ k: 'master', label: '全体上岗（关掉 = 两条都放假）', hint: '紧急用：两条都休息' }),
-        Toggle({ k: 'dayu', label: '大鱼上岗（关掉 = 放假）', hint: '临时休息，排查用', disabled: sw.master === false }),
-        Toggle({ k: 'xiaoyu', label: '小鱼上岗（关掉 = 放假）', hint: '临时休息，排查用', disabled: sw.master === false }),
-        h('div', { style: css.muted }, note || '平时保持全开；放完假重启 DSH 回来上班。'))
+      return h(React.Fragment, null,
+        h('div', { style: css.card },
+          h('div', { style: css.h }, '调试 / 记忆'),
+          h('div', { style: { ...css.muted, lineHeight: 1.7 } },
+            '这一页两块：上面是调试开关（临时给谁放假），下面是记忆设置（压缩模式 / 召回视图 / 每轮台账）。下面的设置卡片也可以从鱼窝右上角 ⚙ →「调试 / 记忆」直接进来。')),
+        h('div', { style: css.card },
+          h('div', { style: css.h }, '调试开关（关掉 = 放假）'),
+          h('div', { style: { ...css.muted, marginBottom: '8px' } }, '平时两条鱼都在岗。只有排查 bug 时，才临时给谁放个假；放假期间不接活，重启 DSH 后生效。'),
+          Toggle({ k: 'master', label: '全体上岗（关掉 = 两条都放假）', hint: '紧急用：两条都休息' }),
+          Toggle({ k: 'dayu', label: '大鱼上岗（关掉 = 放假）', hint: '临时休息，排查用', disabled: sw.master === false }),
+          Toggle({ k: 'xiaoyu', label: '小鱼上岗（关掉 = 放假）', hint: '临时休息，排查用', disabled: sw.master === false }),
+          h('div', { style: css.muted }, note || '平时保持全开；放完假重启 DSH 回来上班。')),
+        h(MemorySettings))
     }
 
     // 照微：她有自己的本体卡和常驻会话（照微·顾问），不借两姐妹的会话，也不共用她们的记忆。
@@ -1078,8 +1349,8 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
                 type: 'button',
                 className: 'ysn-icon-btn',
                 onClick: onGear,
-                title: '设置',
-                'aria-label': '设置',
+                title: '设置（调试 / 记忆）',
+                'aria-label': '设置（调试 / 记忆）',
                 'aria-haspopup': 'menu',
                 'aria-expanded': gearOpen ? 'true' : 'false',
               }, '⚙'))),
@@ -1489,12 +1760,16 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         h('div', { style: { ...css.muted, marginTop: '8px' } }, '图只存在本机（~/.dsh/dayu/avatars），不进发布包。'))
     }
 
-    // 有事找你：长在页面顶部的一张卡，不是系统弹窗。
+    // 有事找你：面板里也留一块（主入口是那个全局大弹窗，这里不抢戏）。
+    // 2026-11-03：以前读的是已经没人写的 /pending（永远空），所以这块等于不存在；
+    // 现在读她们真正在用的 /asks —— 有资格"弹了就能处理"。
     function PendingBar() {
       const [items, setItems] = React.useState([])
+      const [draft, setDraft] = React.useState({})
       const [busy, setBusy] = React.useState('')
       const NAME = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
-      const load = () => getJson('/pending')
+      const load = () => fetch(`${API}/asks?status=pending&limit=20`, { credentials: 'same-origin' })
+        .then((r) => r.json())
         .then((r) => setItems(r.items || []))
         .catch(() => {})
       React.useEffect(() => {
@@ -1502,44 +1777,46 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         const t = setInterval(load, 20000)
         return () => clearInterval(t)
       }, [])
-      const answer = async (id, opt) => {
+      const answer = async (id) => {
+        const text = String(draft[id] || '').trim()
+        if (!text) return
         setBusy(id)
         try {
-          await postJson('/pending/answer', { id, answer: opt })
+          await fetch(`${API}/asks/answer`, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id, answer: text }),
+          })
+          setDraft((x) => ({ ...x, [id]: '' }))
           await load()
-        } catch (e) { /* 下次轮询再说 */ } finally { setBusy('') }
+        } catch { /* 下次轮询再说 */ } finally { setBusy('') }
       }
       if (!items.length) return null
-      const cards = items.map((it) => {
-        const head = h('div', { style: { fontSize: '13px', color: '#9fc4ff', fontWeight: 700, marginBottom: '6px' } },
-          (NAME[it.who] || '有人') + ' 有话问你')
-        const title = h('div', { style: { fontSize: '17px', fontWeight: 700, color: '#eef4fb', marginBottom: '6px' } },
-          it.title || '有事问你')
-        const text = h('div', { style: { fontSize: '14px', color: '#c3d3e5', lineHeight: 1.7, whiteSpace: 'pre-wrap' } },
-          it.text || '')
-        const opts = (it.options && it.options.length ? it.options : ['同意', '不同意'])
-        const btns = opts.map((opt, i) => h('button', {
-          key: opt,
-          disabled: busy === it.id,
-          onClick: () => answer(it.id, opt),
-          style: {
-            padding: '9px 20px', borderRadius: '9px', cursor: 'pointer',
-            border: i === 0 ? 'none' : '1px solid #33414f',
-            background: i === 0 ? '#3b82f6' : 'transparent',
-            color: i === 0 ? '#fff' : '#c3d3e5',
-            fontSize: '14px', fontWeight: 700,
-          },
-        }, opt))
-        const foot = h('div', { style: { display: 'flex', gap: '10px', marginTop: '12px', flexWrap: 'wrap' } }, btns)
-        return h('div', {
+      return h('div', { style: { display: 'grid', gap: '12px', marginBottom: '14px' } },
+        items.map((it) => h('div', {
           key: it.id,
           style: {
             background: 'linear-gradient(180deg,rgba(59,130,246,.16),rgba(19,28,41,.9))',
             border: '1px solid rgba(96,165,250,.45)', borderRadius: '12px', padding: '16px 18px',
           },
-        }, head, title, text, foot)
-      })
-      return h('div', { style: { display: 'grid', gap: '12px', marginBottom: '14px' } }, cards)
+        },
+          h('div', { style: { fontSize: '13px', color: '#9fc4ff', fontWeight: 700, marginBottom: '6px' } },
+            `${NAME[it.role] || '有人'} 有事问你`),
+          h('div', { style: { fontSize: '17px', fontWeight: 700, color: '#eef4fb', marginBottom: '8px', whiteSpace: 'pre-wrap' } },
+            it.text || ''),
+          h('div', { style: { display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' } },
+            h('input', {
+              value: draft[it.id] || '',
+              placeholder: '回一句（她下次醒来会看到）',
+              onChange: (e) => setDraft((x) => ({ ...x, [it.id]: e.target.value })),
+              onKeyDown: (e) => { if (e.key === 'Enter') answer(it.id) },
+              style: {
+                flex: 1, minWidth: '220px', padding: '10px 12px', fontSize: '14px', borderRadius: '9px',
+                border: '1px solid rgba(127,127,127,.35)', background: 'transparent', color: 'inherit',
+              },
+            }),
+            h('button', { disabled: busy === it.id, onClick: () => answer(it.id), style: css.btn },
+              busy === it.id ? '…' : '回答')))))
     }
 
     function ActivityPage() {
@@ -1556,6 +1833,7 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         const m = Math.round((Date.now() - t) / 60000)
         return m < 1 ? '刚刚' : m < 60 ? `${m} 分钟前` : `${Math.round(m / 60)} 小时前`
       }
+      // 改｜2026-11-10 19:52｜大鱼·子会话（② 心跳日志）｜授权：老板（本次任务书：面板显示最近一次/下次预计/今天几次/有产出N/空转M，活着判据 10 分钟→40 分钟）｜client.js:1567-1596｜改了：① 活着按 lastTickAt 现算、40 分钟以内算活着（原来只看 vital.json 有没有值，永远显示"活着"）；② 加"下次预计"（最近一次自省 + 30 分钟）；③ 有产出/空转读 /activity 的 heartbeat 字段（读不到显示"待接"，不报错）｜为什么：面板要把"她在活"和"她在空转"分开，判据要跟 30 分钟一跳对齐｜可改：可改（heartbeat 字段是可选；后端没接时这一行降级成"待接"）
       const col = (role) => {
         const d = (data && data[role]) || null
         if (!d) return h('div', { key: role, style: css.card }, h('div', { style: css.h }, LABEL[role]), h('div', { style: css.muted }, '读状态中…'))
@@ -1570,9 +1848,38 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
         const agenda = (d.agenda || []).length
           ? d.agenda.map((x, i) => h('div', { key: 'a' + i, style: { ...css.muted, margin: '4px 0' } }, `· ${x.what}`))
           : h('div', { style: css.muted }, '手上没有活')
+        // 活着：心跳是 30 分钟一跳，40 分钟以内都算活着；刚跑过一次之后永远不会变"没心跳"才是错的
+        const gapMin = (() => { const t = Date.parse(d.lastTickAt || ''); return Number.isFinite(t) ? Math.round((Date.now() - t) / 60000) : null })()
+        const alive = gapMin !== null && gapMin <= 40
+        const hb = d.heartbeat || null
+        const hhmm = (ms) => {
+          const t = Date.parse(ms || '')
+          if (!Number.isFinite(t)) return '—'
+          const x = new Date(t)
+          return `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`
+        }
+        const nextAt = hb && hb.nextAt ? hb.nextAt : (Number.isFinite(Date.parse(d.lastTickAt || '')) ? new Date(Date.parse(d.lastTickAt) + 30 * 60000).toISOString() : '')
+        const wakeLine = hb
+          ? `醒 ${hb.wakes} 次（有产出 ${hb.produced} / 空转 ${hb.idle}${hb.unknown ? ` / 待认定 ${hb.unknown}` : ''}）· 自由时间 ${d.freeTime?.count || 0} 次`
+          : `自由时间 ${d.freeTime?.count || 0} 次 · 有产出/空转 待接（/activity 还没给 heartbeat）`
+        // 2026-11-11 主代理：按类 + 额度 + 代发三行（数据 /activity 已给；缺就整行不画，不报错）
+        const by = (hb && hb.byClass) || null
+        const classLine = by
+          ? `按类：外部 ${by['外部事件'] || 0} / 节拍 ${by['节拍'] || 0} / 她选的 ${by['她选的'] || 0} / 边界 ${by['边界'] || 0}`
+          : ''
+        const sl = d.softLimit || null
+        const quotaLine = sl
+          ? `额度：${sl.speaks ?? '?'} / ${sl.limits?.speakPerDay ?? '?'} 句 · ¥${Number(sl.money || 0).toFixed(2)} / ¥${sl.limits?.moneyPerDay ?? '?'}` +
+            (sl.phase === 'normal' ? ' · 未到线' : (sl.canStepOut ? ' · 到线（今天还能交代一次）' : ' · 到线（出口已用）'))
+          : ''
+        const relayLine = Number(d.relayed) > 0 ? `代发：今天替你回了 ${d.relayed} 句` : ''
         return h('div', { key: role, style: css.card },
-          h('div', { style: css.h }, `${LABEL[role]} ${d.alive ? '· 活着' : '· 没心跳'}`),
-          h('div', { style: css.muted }, `心跳 ${ago(d.lastTickAt)} · 今天 ${d.dayTicks} 次 · 自由时间 ${d.freeTime?.count || 0} 次（${ago(d.freeTime?.lastAt)}）`),
+          h('div', { style: css.h }, `${LABEL[role]} ${alive ? '· 活着' : `· 没心跳（${gapMin == null ? '?' : gapMin} 分钟）`}`),
+          h('div', { style: css.muted }, `心跳 ${ago(d.lastTickAt)} · 今天 ${d.dayTicks} 次 · 下次预计 ${hhmm(nextAt)}`),
+          h('div', { style: css.muted }, wakeLine),
+          classLine ? h('div', { style: css.muted }, classLine) : null,
+          quotaLine ? h('div', { style: css.muted }, quotaLine) : null,
+          relayLine ? h('div', { style: css.muted }, relayLine) : null,
           h('div', { style: { ...css.muted, marginTop: '10px', fontWeight: 600 } }, '手上的活'),
           agenda,
           h('div', { style: { ...css.muted, marginTop: '10px', fontWeight: 600 } }, '最近交付的活'),
@@ -2644,27 +2951,30 @@ body:not([data-ds-dark-theme]) .ysc-bubble{background:rgba(15,23,42,.06);border-
           h('div', { style: { marginTop: '6px' } }, h('button', {
             style: css.tab,
             onClick: async () => {
-              // 不用 window.confirm：DSH 的 webview 里它会被挡掉，按钮就“点了没反应”。
-              if (!restartArmed) {
-                setRestartArmed(true)
-                setRestartMsg('再点一次确认重启（5 秒内）')
-                // 点一下就留痕：哪怕后面确认没点，也知道“她点过”。
-                fetch('/api/yushen/action', {
-                  method: 'POST', credentials: 'same-origin',
-                  headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ name: 'restart-click' }),
-                }).catch(() => {})
-                setTimeout(() => setRestartArmed(false), 5000)
-                return
-              }
-              setRestartArmed(false)
+              // 重要弹窗（卷轴框）：点一下弹窗，确认后才真的重启。
+              fetch('/api/yushen/action', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ name: 'restart-click' }),
+              }).catch(() => {})
+              const popup = typeof window !== 'undefined' ? window.__yshenImportantPopup : null
+              const ok = popup
+                ? await popup({
+                  badge: '重要提醒',
+                  title: '真的重启 DSH？',
+                  body: '重启会断开当前会话，正在跑的任务会停；重开即最新。',
+                  confirmText: '确认重启',
+                  cancelText: '取消',
+                })
+                : window.confirm('真的重启 DSH？重启会断开当前会话。')
+              if (!ok) return
               try {
                 const r = await fetch('/api/yushen/restart', { method: 'POST', credentials: 'same-origin' })
                 const d = await r.json()
                 setRestartMsg(d.ok ? '已安排重启：2 秒后断开，重开即最新' : '没重启：' + (d.error || '未知'))
               } catch (e) { setRestartMsg('请求发出去了，等它断开…') }
             },
-          }, restartArmed ? '再点一次确认' : '重启 DSH'), restartMsg ? h('span', { style: { ...css.muted, marginLeft: '8px' } }, restartMsg) : null,
+          }, '重启 DSH'), restartMsg ? h('span', { style: { ...css.muted, marginLeft: '8px' } }, restartMsg) : null,
           h('button', {
             style: { ...css.tab, marginLeft: '8px' },
             onClick: async () => {
@@ -3002,9 +3312,11 @@ function MoneyView() {
       const [alerts, setAlerts] = React.useState(0)
       const [alertData, setAlertData] = React.useState(null)
       const [alertOpen, setAlertOpen] = React.useState(false)
-      const [autoRepair, setAutoRepair] = React.useState(true)
+      const [autoRepair, setAutoRepair] = React.useState(false)
       const [selfApply, setSelfApply] = React.useState(false)
       const [allowDanger, setAllowDanger] = React.useState(false)
+      const [selfCheck, setSelfCheck] = React.useState(false)
+      const [pushOn, setPushOn] = React.useState(false)
       const [swMsg, setSwMsg] = React.useState('')
       const tabs = [['board', '任务总览'], ['asks', '她找你'], ['omni', '全知'], ['chat', '和她们说'], ['onboard', '就职'], ['tasks', '待办'], ['money', '账'], ['token', 'Token回'], ['treasure', '小鱼的宝藏'], ['reports', '报告'], ['archive', '档案'], ['move', '搬家']]
       React.useEffect(() => {
@@ -3014,7 +3326,7 @@ function MoneyView() {
           .catch(() => {})
         fetch('/api/dayu/switches', { credentials: 'same-origin' })
           .then((r) => r.json())
-          .then((d) => { if (d?.ok) { setAutoRepair(d.switches.autoRepair !== false); setSelfApply(d.switches.selfApply === true); setAllowDanger(d.switches.allowDanger === true) } })
+          .then((d) => { if (d?.ok) { setAutoRepair(d.switches.autoRepair === true); setSelfApply(d.switches.selfApply === true); setAllowDanger(d.switches.allowDanger === true); setSelfCheck(d.switches.selfCheck === true); setPushOn(d.switches.push === true) } })
           .catch(() => {})
       }, [])
       const saveAutoRepair = async (on) => {
@@ -3039,6 +3351,30 @@ function MoneyView() {
           })
           const d = await r.json()
           setSwMsg(d.ok ? (on ? '她自己修：开（会真改自己）' : '她自己修：关') : '没存上')
+        } catch { setSwMsg('没存上') }
+      }
+      const saveSelfCheck = async (on) => {
+        setSelfCheck(on)
+        try {
+          const r = await fetch('/api/dayu/switches', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ selfCheck: on }),
+          })
+          const d = await r.json()
+          setSwMsg(d.ok ? (on ? '后台自省：开（每 30 分钟）' : '后台自省：关') : '没存上')
+        } catch { setSwMsg('没存上') }
+      }
+      const savePush = async (on) => {
+        setPushOn(on)
+        try {
+          const r = await fetch('/api/dayu/switches', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ push: on }),
+          })
+          const d = await r.json()
+          setSwMsg(d.ok ? (on ? '主动推送：开（有攒话才推）' : '主动推送：关') : '没存上')
         } catch { setSwMsg('没存上') }
       }
       const saveAllowDanger = async (on) => {
@@ -3068,6 +3404,14 @@ function MoneyView() {
             h('input', { type: 'checkbox', checked: allowDanger, onChange: (e) => saveAllowDanger(e.target.checked) }),
             '危险命令（默认关）'),
           h('span', { style: { ...css.muted, fontSize: '12px' } }, '开了也要每次点头；删/装/改系统才走它'),
+          h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', marginLeft: '10px' } },
+            h('input', { type: 'checkbox', checked: selfCheck, onChange: (e) => saveSelfCheck(e.target.checked) }),
+            '后台自省（默认关）'),
+          h('span', { style: { ...css.muted, fontSize: '12px' } }, '每 30 分钟体检一次；关着就只在你说话时干活'),
+          h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', marginLeft: '10px' } },
+            h('input', { type: 'checkbox', checked: pushOn, onChange: (e) => savePush(e.target.checked) }),
+            '主动推送（默认关）'),
+          h('span', { style: { ...css.muted, fontSize: '12px' } }, '她有攒话才推一条到收件箱'),
           swMsg ? h('span', { style: { ...css.muted, fontSize: '12px' } }, swMsg) : null),
         alerts ? h('div', {
           style: { ...css.card, background: 'rgba(248,113,113,.08)', marginBottom: '8px', cursor: 'pointer' },
@@ -3188,6 +3532,139 @@ function MoneyView() {
         }, String(count)) : null))
     }
 
+    // ── 文件编辑（2026-11-03）──────────────────────────────────────────────
+    // 来由：DSH 右侧「文件」是文件树、「第 N 轮改动」是 diff 对比，点开文件是文档预览；
+    // 这三样都是 DSH 自带的只读组件（预览/对比定位），客户端 workspaceFiles 面也只有读。
+    // 不改 DSH 安装目录、也不往原生面板里塞按钮：在鱼窝面板里做一个自己的文件编辑页。
+    // 读 UTF-8 文本 → 改 → 带版本校验保存（服务端写前备份到 ~/.dsh/dayu/backups/file-edit/，写完回读）。
+    // 入口：鱼窝面板 → 齿轮菜单「文件编辑」，或角色页右上角「编辑文件」。
+    function FileEditor({ initialPath = '', minHeight = '320px' }) {
+      const [pathValue, setPathValue] = React.useState(String(initialPath || ''))
+      const [text, setText] = React.useState('')
+      const [opened, setOpened] = React.useState('')
+      const [hash, setHash] = React.useState('')
+      const [dirty, setDirty] = React.useState(false)
+      const [status, setStatus] = React.useState('')
+      const [error, setError] = React.useState('')
+      const [busy, setBusy] = React.useState(false)
+      const autoOpened = React.useRef('')
+
+      const open = React.useCallback(async (targetPath) => {
+        const target = String(targetPath || pathValue || '').trim()
+        if (!target) { setError('先填一个文件路径'); return }
+        setBusy(true); setError(''); setStatus('读取中…')
+        try {
+          const r = await fetch('/api/yushen/file-text?path=' + encodeURIComponent(target), { credentials: 'same-origin' })
+          const d = await r.json().catch(() => ({}))
+          if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
+          setPathValue(d.path); setOpened(d.path); setText(d.text)
+          setHash(d.hash); setDirty(false)
+          setStatus(`已打开 · ${d.size} 字节 · ${d.bom ? '带 BOM · ' : ''}${d.eol === 'crlf' ? 'CRLF' : 'LF'}`)
+        } catch (e) { setError(String(e?.message || e)); setStatus('') } finally { setBusy(false) }
+      }, [pathValue])
+
+      const save = React.useCallback(async () => {
+        if (!opened) { setError('还没打开文件'); return }
+        setBusy(true); setError(''); setStatus('保存中…')
+        try {
+          const r = await fetch('/api/yushen/file-text', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ path: opened, text, hash }),
+          })
+          const d = await r.json().catch(() => ({}))
+          if (!r.ok || !d.ok) {
+            if (d.code === 'STALE') {
+              setHash(d.hash || hash)
+              throw new Error('文件在别处被改过了（版本对不上）。你屏幕上的内容还在；先点「重新读取」核对，别直接覆盖别人的改动。')
+            }
+            throw new Error(d.error || ('HTTP ' + r.status))
+          }
+          setHash(d.hash); setDirty(false)
+          setStatus(d.unchanged ? '没有改动，未写盘' : `已保存 · ${d.size} 字节${d.backup ? ' · 改动前已备份' : ''}`)
+        } catch (e) { setError(String(e?.message || e)); setStatus('') } finally { setBusy(false) }
+      }, [opened, text, hash])
+
+      React.useEffect(() => {
+        const onKey = (e) => {
+          if ((e.ctrlKey || e.metaKey) && String(e.key || '').toLowerCase() === 's') {
+            e.preventDefault()
+            if (dirty && !busy) save()
+          }
+        }
+        document.addEventListener('keydown', onKey)
+        return () => document.removeEventListener('keydown', onKey)
+      }, [dirty, busy, save])
+
+      // 传了 initialPath 就自动读一次（给以后从别处打开留的口子；同一路径只读一次）。
+      React.useEffect(() => {
+        const target = String(initialPath || '').trim()
+        if (!target || autoOpened.current === target) return
+        autoOpened.current = target
+        open(target)
+      }, [initialPath, open])
+
+      const inputStyle = {
+        flex: '1 1 420px', minWidth: '260px', padding: '7px 10px', borderRadius: '8px',
+        border: '1px solid rgba(128,128,128,.35)', background: 'rgba(0,0,0,.18)', color: 'inherit', fontSize: '12.5px',
+      }
+
+      // 零门槛的那一条：不走浏览器编辑，直接让后端用本机编辑器（VS Code / 记事本）打开。
+      const openExternal = () => {
+        const target = String(opened || pathValue || '').trim()
+        if (!target) { setError('先填一个文件路径'); return }
+        fetch('/api/yushen/file-open', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ path: target }),
+        }).then((r) => r.json()).then((d) => {
+          if (!d?.ok) setError(d?.error || '打不开编辑器')
+          else setStatus(`已交给 ${d.editor} 打开`)
+        }).catch(() => setError('打不开编辑器：接口没响应'))
+      }
+
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minHeight: 0 } },
+        h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
+          h('input', {
+            value: pathValue, spellCheck: false,
+            onChange: (e) => setPathValue(e.target.value),
+            onKeyDown: (e) => { if (e.key === 'Enter' && !busy) open() },
+            placeholder: '粘贴完整路径，例如 D:\\DSH\\大小鱼\\鱼神常驻\\员工手册.md',
+            style: inputStyle,
+          }),
+          h('button', { type: 'button', style: css.smallBtn, onClick: () => open(), disabled: busy }, '打开'),
+          h('button', { type: 'button', style: css.smallBtn, onClick: () => open(opened), disabled: busy || !opened }, '重新读取'),
+          h('button', { type: 'button', style: css.smallBtn, onClick: openExternal, disabled: busy || (!opened && !pathValue) }, '用编辑器打开'),
+          h('button', {
+            type: 'button',
+            style: { ...css.smallBtn, borderColor: dirty ? 'rgba(96,165,250,.65)' : undefined },
+            onClick: save, disabled: busy || !opened || !dirty,
+          }, dirty ? '保存 *' : '保存')),
+        error ? h('div', { style: { color: '#f87171', fontSize: '12.5px', whiteSpace: 'pre-wrap', lineHeight: 1.6 } }, error) : null,
+        h('div', { style: { ...css.muted, minHeight: '18px', fontSize: '12px' } }, status),
+        h('textarea', {
+          value: text, spellCheck: false, wrap: 'off',
+          onChange: (e) => { setText(e.target.value); setDirty(true) },
+          style: {
+            flex: '1 1 auto', minHeight, width: '100%', boxSizing: 'border-box', resize: 'vertical',
+            padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(128,128,128,.3)',
+            background: 'rgba(0,0,0,.18)', color: 'inherit',
+            fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
+            fontSize: '12.5px', lineHeight: 1.55, whiteSpace: 'pre', overflow: 'auto',
+          },
+        }),
+        h('div', { style: { ...css.muted, fontSize: '11.5px' } },
+          'Ctrl+S 保存。保存带版本校验：文件被别人改过会拒存（409），不会静默覆盖。'))
+    }
+
+    function FileEditPage() {
+      return h('div', { style: { ...css.page, display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: 'none' } },
+        h('div', { style: { ...css.h, margin: 0 } }, '文件编辑'),
+        h('div', { style: { ...css.muted, fontSize: '12px', lineHeight: 1.7 } },
+          '右侧「文件 / 第 N 轮改动」是文件树、diff 与预览，天生只读；这里补一条能改的路。只能改工作区、.dsh、D:\\deepseekTools 下的 UTF-8 文本（单文件 2MB 内），保存前自动备份原文件。'),
+        h(FileEditor, {}))
+    }
+
     function Root({ hostKit, sessions }) {
       const [view, setView] = React.useState('home')
       const [menu, setMenu] = React.useState(false)
@@ -3272,7 +3749,7 @@ function MoneyView() {
       }, [reloadTick])
 
       const master = status?.switches?.master !== false
-      const off = h('div', { style: css.card }, h('div', { style: css.h }, '全体休假中'), h('div', { style: css.muted }, '去「调试」页叫她们回来，重启 DSH 后生效。'))
+      const off = h('div', { style: css.card }, h('div', { style: css.h }, '全体休假中'), h('div', { style: css.muted }, '去「调试 / 记忆」页叫她们回来，重启 DSH 后生效。'))
 
       // 2026-10-29：还没立约就在顶上提示一句。陌生人装完看到的是运维台，不知道该去哪。
       const onboardHint = onboarded === false
@@ -3435,6 +3912,7 @@ function MoneyView() {
               h('div', null, '③ 回主界面点她一下，说第一句话')),
             h('div', { className: 'ysn-w-list', style: { fontSize: '12.5px' } },
               h('div', null, h('b', null, '点了没反应：'), '界面改过要重启一次 DSH。'),
+              h('div', null, h('b', null, '设置在哪：'), '鱼窝右上角 ⚙ →「调试 / 记忆」；里面有调试开关和记忆设置（压缩 / 召回 / 台账）。'),
               h('div', null, h('b', null, '桌宠不见了：'), '你在鱼窝页，那边她隐身；回主聊天页就出来。'),
               h('div', null, h('b', null, '其它问题：'), '把报错原文发给 DSH——它能读代码、能自己改。')),
             h('button', { type: 'button', className: 'ysn-fr-cancel ysn-w-start', onClick: () => setHelp(false) }, '知道了')))
@@ -3484,13 +3962,14 @@ function MoneyView() {
               ? h(React.Fragment, null,
                 h('div', { className: 'ysn-backdrop', onClick: () => setMenu(false) }),
                 h('div', { className: 'ysn-gear', role: 'menu', 'aria-label': '鱼窝设置' },
-                  [['group', '框架群聊'], ['look', '形象'], ['jobs', '单子'], ['base', '家底'], ['switch', '调试']].map(([id, label]) =>
+                  [['group', '框架群聊'], ['look', '形象'], ['jobs', '单子'], ['base', '家底'], ['switch', '调试 / 记忆'], ['fileedit', '文件编辑']].map(([id, label]) =>
                     h('button', {
                       key: id, type: 'button', role: 'menuitem',
                       onClick: () => { setView(id); setMenu(false) },
                     }, label))))
               : null),
           h('button', { type: 'button', className: 'ysn-add-role', title: '添加角色', onClick: () => setCreatePicker(true) }, '＋ 添加角色'),
+          h('button', { type: 'button', className: 'ysn-add-role', title: '打开并编辑文本文件', style: { bottom: '52px' }, onClick: () => setView('fileedit') }, '✎ 编辑文件'),
           h('button', { type: 'button', className: 'ysn-help-btn', title: '怎么用', onClick: () => setHelp(true) }, '？'),
           notice ? h(Notice, { onClose: () => setNotice(false) }) : null,
           dialogEl,
@@ -3499,10 +3978,10 @@ function MoneyView() {
           helpEl)
       }
 
-      const title = view === 'group' ? '框架群聊' : NEST_LABELS[view] || (view === 'base' ? '家底' : view === 'look' ? '形象' : view === 'jobs' ? '单子' : view === 'activity' ? '做过什么' : '调试')
-      const body = view === 'group' ? h(GroupChat) : view === 'dayu'
+      const title = view === 'group' ? '框架群聊' : NEST_LABELS[view] || (view === 'base' ? '家底' : view === 'look' ? '形象' : view === 'jobs' ? '单子' : view === 'activity' ? '做过什么' : view === 'fileedit' ? '文件编辑' : '调试 / 记忆')
+      const body = view === 'fileedit' ? h(FileEditPage) : view === 'group' ? h(GroupChat) : view === 'dayu'
         ? (!master ? off : status?.switches?.dayu === false
-          ? h('div', { style: css.card }, h('div', { style: css.h }, '大鱼休假中'), h('div', { style: css.muted }, '去「调试」页叫她回来。'))
+          ? h('div', { style: css.card }, h('div', { style: css.h }, '大鱼休假中'), h('div', { style: css.muted }, '去「调试 / 记忆」页叫她回来。'))
           : h(DayuChat))
         : view === 'xiaoyu' ? h(XiaoyuPage, { initialTab: onboarded === false ? 'onboard' : 'board' })
            : view === 'dragon' ? h(DragonPage, { nest, onAdopt: openAdopt, onRename: openRename, onRestore: doRestore })
@@ -3531,6 +4010,7 @@ function MoneyView() {
             h('button', { style: css.backBtn, onClick: () => setView('home') }, '←'),
             h('button', { style: { ...css.smallBtn, marginLeft: 'auto' }, onClick: () => setView('activity') }, '做过什么'),
             h('button', { style: css.smallBtn, onClick: () => setView('group') }, '群聊'),
+            h('button', { style: css.smallBtn, onClick: () => setView('fileedit') }, '编辑文件'),
             pair,
             h('span', { style: css.subTitle }, title),
             orgOf(view).post
@@ -3565,9 +4045,178 @@ function MoneyView() {
       }, pending > 9 ? '9+' : String(pending)) : null)
     }
 
+    // ── 大事弹窗（2026-11-03 老板：原来那张卡「弹了和没弹一样」）─────────────
+    // 要求：界面窗口一样、大的、醒目的；直接说「什么事」；「现在处理 / 稍后」；
+    //       点「现在处理」就地把回答框弹出来（这就是"直接弹"），答完自动收起。
+    // 挂在 body 上（和「现在在忙什么」同一个做法），不受侧栏滚动/裁剪影响。
+
+    // 重要弹窗由独立插件 dsh-yushen-popup 提供：window.__yshenImportantPopup（这里不再自带实现）
+    function mountAskPopups() {
+      if (window.__ysnAskPop || typeof document === 'undefined') return
+      window.__ysnAskPop = true
+      const POLL_MS = 15000
+      const SNOOZE_MS = 30 * 60 * 1000
+      const WHO = { dayu: '大鱼', xiaoyu: '小鱼', dragon: '照微' }
+      const snoozed = new Map()   // id → 该重新弹的时间
+      const seen = new Set()      // 已经答过的 id
+      let box = null
+      let current = null
+      let queue = []
+
+      const el = (tag, style, text) => {
+        const n = document.createElement(tag)
+        if (style) Object.assign(n.style, style)
+        if (text != null) n.textContent = text
+        return n
+      }
+      const close = () => { try { if (box) box.remove() } catch { /* 已经没了 */ } box = null; current = null }
+      const chime = () => {
+        try {
+          ysnTone({ f0: 880, f1: 1320, dur: 0.1, gain: 0.12 })
+          setTimeout(() => ysnTone({ f0: 1320, f1: 990, dur: 0.12, gain: 0.1 }), 120)
+        } catch { /* 没声音不影响 */ }
+      }
+      const post = (path, body) => fetch(`${API}${path}`, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      }).then((r) => r.json()).catch(() => ({ ok: false }))
+
+      function paint() {
+        try { if (box) box.remove() } catch { /* 已经没了 */ }
+        box = null
+        if (!current) return
+        const a = current
+        const who = WHO[a.role] || '有人'
+        const overlay = el('div', {
+          position: 'fixed', inset: '0', zIndex: '2147483600',
+          background: 'rgba(3,7,12,.78)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px',
+        })
+        overlay.setAttribute('role', 'dialog')
+        overlay.setAttribute('aria-modal', 'true')
+        const card = el('div', {
+          width: 'min(760px,100%)', maxHeight: '86vh', overflow: 'auto', boxSizing: 'border-box',
+          padding: '32px 36px 28px', borderRadius: '22px',
+          background: 'linear-gradient(180deg,#1c2942 0%,#121b2a 100%)',
+          border: '1px solid rgba(96,165,250,.55)',
+          boxShadow: '0 40px 120px rgba(0,0,0,.65)', color: '#eef4fb',
+          font: '16px/1.75 "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif',
+        })
+        const head = el('div', { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', letterSpacing: '.08em', color: '#8fb6ff', fontWeight: '700' })
+        head.appendChild(el('span', { width: '9px', height: '9px', borderRadius: '999px', background: '#3b82f6', boxShadow: '0 0 12px #3b82f6' }))
+        head.appendChild(el('span', null, `${who} 有事找你`))
+        const when = String(a.at || '').replace('T', ' ').slice(5, 16)
+        head.appendChild(el('span', { marginLeft: 'auto', color: '#7f8fa6', fontWeight: '400', letterSpacing: '0' },
+          `${when ? when + ' · ' : ''}${a.urgency === 'high' ? '急' : '等你一句话'}`))
+        const title = el('div', { margin: '16px 0 6px', fontSize: '26px', lineHeight: '1.55', fontWeight: '700', color: '#f5f9ff' }, a.text || '有事问你')
+        const row = el('div', { display: 'flex', gap: '12px', marginTop: '26px', flexWrap: 'wrap' })
+        const go = el('button', {
+          minWidth: '168px', height: '52px', borderRadius: '13px', border: 'none', cursor: 'pointer',
+          background: 'linear-gradient(180deg,#3b82f6,#2563eb)', color: '#fff', fontSize: '17px', fontWeight: '700',
+          boxShadow: '0 10px 26px rgba(37,99,235,.45)',
+        }, '现在处理')
+        const later = el('button', {
+          minWidth: '120px', height: '52px', borderRadius: '13px', cursor: 'pointer',
+          border: '1px solid rgba(255,255,255,.2)', background: 'transparent', color: '#c7d4e4', fontSize: '16px',
+        }, '稍后')
+        row.appendChild(go); row.appendChild(later)
+        card.appendChild(head); card.appendChild(title); card.appendChild(row)
+        overlay.appendChild(card)
+
+        later.onclick = () => { snoozed.set(a.id, Date.now() + SNOOZE_MS); close(); next() }
+        go.onclick = () => {
+          row.remove(); title.remove()
+          const label = el('div', { marginTop: '14px', fontSize: '14px', color: '#9fb0c6' }, '回她一句（她下次醒来会看到）：')
+          const ta = el('textarea', {
+            width: '100%', minHeight: '110px', marginTop: '10px', padding: '12px 14px', boxSizing: 'border-box',
+            borderRadius: '12px', border: '1px solid rgba(96,165,250,.45)', background: 'rgba(255,255,255,.04)',
+            color: '#eef4fb', fontSize: '16px', lineHeight: '1.6', resize: 'vertical', outline: 'none',
+          })
+          ta.placeholder = '比如：可以，按你说的办；或者：先别动，等我回来'
+          const act = el('div', { display: 'flex', gap: '12px', marginTop: '14px', flexWrap: 'wrap' })
+          const send = el('button', {
+            minWidth: '140px', height: '50px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(180deg,#3b82f6,#2563eb)', color: '#fff', fontSize: '16px', fontWeight: '700',
+          }, '发出去')
+          const cancel = el('button', {
+            minWidth: '110px', height: '50px', borderRadius: '12px', cursor: 'pointer',
+            border: '1px solid rgba(255,255,255,.2)', background: 'transparent', color: '#c7d4e4', fontSize: '15px',
+          }, '稍后再说')
+          act.appendChild(send); act.appendChild(cancel)
+          card.appendChild(label); card.appendChild(ta); card.appendChild(act)
+          setTimeout(() => { try { ta.focus() } catch { /* 忽略 */ } }, 30)
+          send.onclick = async () => {
+            const text = String(ta.value || '').trim()
+            if (!text) { try { ta.focus() } catch { /* 忽略 */ } return }
+            send.disabled = true; send.textContent = '发…'
+            const r = await post('/asks/answer', { id: a.id, answer: text })
+            if (r?.ok) {
+              seen.add(a.id)
+              queue = queue.filter((x) => x.id !== a.id)
+              close()
+              next()
+            } else {
+              send.disabled = false; send.textContent = '发出去'
+              label.textContent = '没发出去，再说一次：'
+            }
+          }
+          cancel.onclick = () => { snoozed.set(a.id, Date.now() + SNOOZE_MS); close(); next() }
+        }
+        document.body.appendChild(overlay)
+        box = overlay
+        chime()
+      }
+
+      function next() {
+        const now = Date.now()
+        const item = queue.find((x) => !seen.has(x.id) && (!snoozed.has(x.id) || snoozed.get(x.id) < now))
+        if (!item) { close(); return }
+        current = item
+        paint()
+      }
+
+      async function poll() {
+        if (document.visibilityState === 'hidden') return
+        try {
+          const r = await fetch(`${API}/asks?status=pending&limit=20`, { credentials: 'same-origin' })
+          const d = await r.json().catch(() => ({}))
+          queue = Array.isArray(d?.items) ? d.items : []
+        } catch { return }
+        const now = Date.now()
+        const fresh = queue.filter((x) => !seen.has(x.id) && !snoozed.has(x.id))
+        if (!box && fresh.length) next()
+      }
+
+      const kick = () => { poll(); setInterval(poll, POLL_MS) }
+      if (document.readyState === 'complete') kick()
+      else window.addEventListener('load', kick, { once: true })
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && box && current) {
+          snoozed.set(current.id, Date.now() + SNOOZE_MS)
+          close(); next()
+        }
+      })
+    }
+
     return {
       inject: ['slots', 'sessions'],
+      // 只给 scripts/test-client-settings.mjs 用；宿主不读这个字段。
+      __test: {
+        COMPACTION_CHOICES,
+        RECALL_CHOICES,
+        normalizeCompactionMode,
+        normalizeRecallView,
+        parseSwitchesText,
+        joinServerPath,
+        pickChoice,
+        settingsFailure,
+        readSwitchesAt,
+        discoverSwitchesFile,
+        writeSwitchesPatch,
+      },
       apply(ctx) {
+        try { mountAskPopups() } catch { /* 弹窗坏了不影响面板 */ }
         const style = document.createElement('style')
         style.setAttribute('data-plugin-css', 'dsh-yushen-twins')
         style.textContent = '[data-ys-composer] textarea::placeholder{color:rgba(255,255,255,.32)}[data-ys-composer] select{appearance:none;background:transparent;border:0;color:inherit;cursor:pointer}[data-ys-composer] select option{color:#111;background:#fff}' + NEST_STYLE
@@ -3595,6 +4244,22 @@ function MoneyView() {
             sessions: ctx.sessions || (typeof ctx.get === 'function' ? ctx.get('sessions') : undefined),
           }),
         ))
+        // 独立记忆后台：侧栏单独一项，不再藏进鱼神侧栏/调试卡片。
+        const MemoryAdmin = () => h('div', {
+          style: { height: '100%', minHeight: '70vh', background: 'var(--bg, #111)' },
+        }, h('iframe', {
+          src: '/yushen-memory',
+          title: '记忆后台',
+          style: { width: '100%', height: '100%', minHeight: '70vh', border: '0', display: 'block' },
+        }))
+        wrap('sidebar.panellist', () => slots.register(
+          { name: 'sidebar.panellist', id: 'dsh-yushen-memory', order: 22, label: '记忆后台' },
+          Glyph,
+        ))
+        wrap('main', () => slots.register(
+          { name: 'main', key: 'dsh-yushen-memory', id: 'dsh-yushen-memory', label: '记忆后台' },
+          MemoryAdmin,
+        ))
       },
     }
   },
@@ -3618,18 +4283,24 @@ if (typeof document !== 'undefined') {
     btn.onmouseenter = () => { btn.style.background = 'rgba(60,60,60,.9)' }
     btn.onmouseleave = () => { btn.style.background = 'rgba(30,30,30,.65)' }
     btn.onclick = async () => {
-      if (!btn.dataset.armed) {
-        btn.dataset.armed = '1'
-        btn.textContent = '再点一次确认'
-        fetch('/api/yushen/action', {
-          method: 'POST', credentials: 'same-origin',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ name: 'restart-click-fab' }),
-        }).catch(() => {})
-        setTimeout(() => { delete btn.dataset.armed; btn.textContent = '重启 DSH' }, 5000)
-        return
-      }
-      delete btn.dataset.armed
+      // 重要弹窗（卷轴框）：点一下弹窗，确认后才真的重启。
+      fetch('/api/yushen/action', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'restart-click-fab' }),
+      }).catch(() => {})
+      const popup = typeof window !== 'undefined' ? window.__yshenImportantPopup : null
+      const ok = popup
+        ? await popup({
+          theme: 'blue',
+          badge: '重要提醒',
+          title: '真的重启 DSH？',
+          body: '重启会断开当前会话，正在跑的任务会停；重开即最新。',
+          confirmText: '确认重启',
+          cancelText: '取消',
+        })
+        : window.confirm('真的重启 DSH？重启会断开当前会话。')
+      if (!ok) return
       btn.textContent = '重启中…'
       btn.disabled = true
       try {
@@ -3641,6 +4312,128 @@ if (typeof document !== 'undefined') {
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(mount, 1200))
   else setTimeout(mount, 1200)
+}
+
+// 2026-11-03（老板：想改个文件还要去鱼窝里找？）——右上角常驻一个「✎ 编辑文件」，
+// 点开就是编辑器（原生 DOM，不依赖 React 面板在哪）。按「微服私访」的走法：用户站在任何页面，
+// 想改文件，眼前就该有入口；不该被赶去某个面板里翻。
+if (typeof document !== 'undefined') {
+  const mountEditFab = () => {
+    if (document.getElementById('yushen-edit-fab')) return
+    const btn = document.createElement('button')
+    btn.id = 'yushen-edit-fab'
+    btn.textContent = '✎ 编辑文件'
+    btn.title = '打开编辑器：读写工作区 / ~/.dsh / D:\\deepseekTools 下的文本文件（保存前自动备份）'
+    Object.assign(btn.style, {
+      position: 'fixed', top: '6px', right: '250px', zIndex: '1050',
+      padding: '3px 10px', fontSize: '12px', borderRadius: '8px',
+      border: '1px solid rgba(127,127,127,.35)', background: 'rgba(30,30,30,.65)',
+      color: '#ddd', cursor: 'pointer',
+    })
+    btn.onmouseenter = () => { btn.style.background = 'rgba(60,60,60,.9)' }
+    btn.onmouseleave = () => { btn.style.background = 'rgba(30,30,30,.65)' }
+    btn.onclick = () => openMiniEditor()
+    document.body.appendChild(btn)
+  }
+
+  // 轻量编辑器：一个全屏浮层，跟后端 /api/yushen/file-text 打交道；Esc 关，Ctrl+S 存。
+  const openMiniEditor = (initial = '') => {
+    if (document.getElementById('yushen-mini-editor')) { document.getElementById('yushen-mini-editor').focus(); return }
+    const last = initial || localStorage.getItem('yushen.edit.last') || ''
+    const wrap = document.createElement('div')
+    wrap.id = 'yushen-mini-editor'
+    wrap.tabIndex = -1
+    Object.assign(wrap.style, {
+      position: 'fixed', inset: '0', zIndex: '2147483000', background: 'rgba(0,0,0,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px',
+    })
+    const box = document.createElement('div')
+    Object.assign(box.style, {
+      width: 'min(1000px, 96vw)', height: 'min(80vh, 900px)', background: '#1b1d21', color: '#e6e6e6',
+      borderRadius: '12px', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      boxShadow: '0 20px 60px rgba(0,0,0,.5)', border: '1px solid rgba(255,255,255,.12)',
+    })
+    const bar = document.createElement('div')
+    Object.assign(bar.style, { display: 'flex', gap: '8px', padding: '8px 10px', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,.1)' })
+    const pathInput = document.createElement('input')
+    pathInput.value = last
+    pathInput.placeholder = '完整路径，例如 D:\\DSH\\大小鱼\\档案\\x.md'
+    Object.assign(pathInput.style, { flex: '1', padding: '6px 8px', borderRadius: '7px', border: '1px solid rgba(255,255,255,.18)', background: '#121417', color: '#e6e6e6', fontSize: '12px' })
+    const mkBtn = (text, fn, tip) => {
+      const b = document.createElement('button')
+      b.textContent = text
+      if (tip) b.title = tip
+      Object.assign(b.style, { padding: '5px 10px', borderRadius: '7px', border: '1px solid rgba(255,255,255,.18)', background: '#262a30', color: '#e6e6e6', cursor: 'pointer', fontSize: '12px' })
+      b.onclick = fn
+      return b
+    }
+    const status = document.createElement('div')
+    Object.assign(status.style, { padding: '4px 10px', fontSize: '11px', color: '#9aa4b2', borderBottom: '1px solid rgba(255,255,255,.08)' })
+    const area = document.createElement('textarea')
+    Object.assign(area.style, { flex: '1', width: '100%', resize: 'none', border: '0', outline: 'none', padding: '10px 12px', background: '#15171a', color: '#e6e6e6', fontSize: '13px', lineHeight: '1.55', fontFamily: 'ui-monospace, Consolas, monospace' })
+    area.spellcheck = false
+    let hash = ''
+    const setStatus = (t, bad) => { status.textContent = t; status.style.color = bad ? '#f59e0b' : '#9aa4b2' }
+    const token = new URLSearchParams(location.search).get('token') || ''
+    const api = (p) => p + (token ? (p.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token) : '')
+    const doOpen = async () => {
+      const p = pathInput.value.trim()
+      if (!p) return setStatus('先填路径', true)
+      setStatus('读取中…')
+      try {
+        const r = await fetch(api('/api/yushen/file-text?path=' + encodeURIComponent(p)), { credentials: 'same-origin' })
+        const j = await r.json()
+        if (!j.ok) return setStatus('打不开：' + (j.error || r.status), true)
+        area.value = j.text
+        hash = j.hash
+        localStorage.setItem('yushen.edit.last', p)
+        setStatus(`${j.size} 字节 · ${j.bom ? 'BOM ' : ''}${j.eol === 'crlf' ? 'CRLF' : 'LF'} · ${p}`)
+      } catch (e) { setStatus('打不开：' + e.message, true) }
+    }
+    const doSave = async () => {
+      const p = pathInput.value.trim()
+      if (!p) return setStatus('先填路径', true)
+      setStatus('保存中…')
+      try {
+        const r = await fetch(api('/api/yushen/file-text'), {
+          method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ path: p, text: area.value, hash }),
+        })
+        const j = await r.json()
+        if (r.status === 409) return setStatus('文件在别处被改过，请先“重新读取”再存', true)
+        if (!j.ok) return setStatus('保存失败：' + (j.error || r.status), true)
+        hash = j.hash
+        setStatus(`已保存 ${j.size} 字节${j.backup ? ' · 备份 ' + String(j.backup).split(/[\\/]/).pop() : ''}`)
+      } catch (e) { setStatus('保存失败：' + e.message, true) }
+    }
+    const close = () => wrap.remove()
+    bar.append(pathInput, mkBtn('打开', doOpen, '读取这个文件'), mkBtn('重新读取', doOpen), mkBtn('保存', doSave, 'Ctrl+S'), mkBtn('用编辑器打开', async () => {
+      const p = pathInput.value.trim()
+      if (!p) return setStatus('先填路径', true)
+      // 2026-11-03：这里原来 .catch(()=>{})，回归的「静默缺席不许变多」当场抓到——
+      // 拉不起来编辑器就等于什么也没发生。改成把失败摊开说。
+      try {
+        const r = await fetch(api('/api/yushen/file-open'), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: p }) })
+        const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }))
+        if (!j.ok) setStatus('没能拉起编辑器：' + (j.error || r.status), true)
+        else setStatus('已用 ' + (j.editor || '系统默认程序') + ' 打开')
+      } catch (e) { setStatus('没能拉起编辑器：' + e.message, true) }
+    }), mkBtn('关闭', close))
+    box.append(bar, status, area)
+    wrap.appendChild(box)
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) close() })
+    wrap.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') close()
+      if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 's') { e.preventDefault(); doSave() }
+    })
+    document.body.appendChild(wrap)
+    wrap.focus()
+    if (pathInput.value) doOpen()
+  }
+  window.__yushenOpenEditor = openMiniEditor
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(mountEditFab, 1200))
+  else setTimeout(mountEditFab, 1200)
 }
 
 // 开机就出来的桌面小桌宠：不只站在鱼窝里，主界面右下角也有一个（像小鲸鱼那样跟着软件一起出来）。
@@ -4034,6 +4827,7 @@ if (typeof document !== 'undefined') {
       b.addEventListener('click', (e) => { e.stopPropagation(); picker.style.display = 'none'; fn() })
       picker.appendChild(b)
     }
+    item('现在在忙什么', () => { try { openBusy() } catch { /* 面板还没好就算了 */ } })
     item('说一句…', () => { try { openCard() } catch { /* 面板还没好就算了 */ } })
     item('打开鱼窝', () => {
       const nodes = [...document.querySelectorAll('button, a, [role="button"], li, div')]
@@ -4064,6 +4858,189 @@ if (typeof document !== 'undefined') {
     }
     window.addEventListener('pointerdown', closePicker)
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape') picker.style.display = 'none' })
+
+    // —— 右键 →「现在在忙什么」：一张贴在桌宠身上的小面板 ——
+    // 2026-11-02 老板：「右键点击能看到所有后台运行的任务，方便我知道应不应该重启，要显示大白话。」
+    // 规矩：一行一件事，前面一个点（🔴 忙 / ⚪ 闲 / ⚠️ 看不到），最后一行直接回答"该不该重启"。
+    // 技术细节（几点起的、账上几个）只许放第二行小灰字；面板里不出现 sessionId / jobId / 毫秒数。
+    const busyBox = document.createElement('div')
+    // 挂到 body 上、用最高一层：它比桌宠宽，塞在桌宠盒子里会被别的浮层盖住
+    // （2026-11-02 实测：小鱼报活那个浮层正好在旁边，把面板整块挡没了）。
+    Object.assign(busyBox.style, {
+      position: 'fixed', zIndex: '2147483647', display: 'none', boxSizing: 'border-box',
+      width: '282px', maxHeight: '64vh', overflowY: 'auto',
+      background: 'rgba(255,255,255,.985)', color: '#12395c',
+      border: '1px solid rgba(40,100,160,.45)', borderRadius: '14px',
+      boxShadow: '0 18px 40px rgba(0,0,0,.5)', fontSize: '12.5px', lineHeight: '1.55',
+      padding: '10px 12px 9px', pointerEvents: 'auto', cursor: 'default', textAlign: 'left',
+    })
+    const busyHead = document.createElement('div')
+    busyHead.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:2px'
+    const busyTitle = document.createElement('div')
+    busyTitle.textContent = '现在在忙什么'
+    busyTitle.style.cssText = 'font-weight:700;font-size:13px;color:#0f3d63;flex:1 1 auto'
+    const busyBtn = (label, title) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = label
+      b.title = title || label
+      b.style.cssText = 'border:1px solid rgba(40,100,160,.35);background:#fff;color:#15578f;border-radius:8px;padding:2px 8px;font:inherit;font-size:11.5px;cursor:pointer;line-height:1.6'
+      b.addEventListener('mouseenter', () => { b.style.background = '#eaf4ff' })
+      b.addEventListener('mouseleave', () => { b.style.background = '#fff' })
+      return b
+    }
+    const busyRefresh = busyBtn('刷新', '重新看一眼')
+    const busyCopy = busyBtn('复制', '把这段拷走')
+    const busyStamp = document.createElement('div')
+    busyStamp.style.cssText = 'font-size:11px;color:#7b8fa3;margin-bottom:6px'
+    const busyBody = document.createElement('div')
+    const busyFoot = document.createElement('div')
+    busyFoot.style.cssText = 'margin-top:8px;padding-top:7px;border-top:1px solid rgba(40,100,160,.18);font-weight:700;font-size:12.5px'
+    busyHead.append(busyTitle, busyRefresh, busyCopy)
+    busyBox.append(busyHead, busyStamp, busyBody, busyFoot)
+    document.body.appendChild(busyBox)
+
+    let busyTimer = 0
+    let busyTextCache = ''
+    // 跟「说一句」那个面板互斥（两个都贴在她身上，同时开就叠在一起了）。
+    // openCard 在那个面板里才定义，所以这里先留个空钩子，定义好再挂上。
+    let closeCardRef = () => {}
+    const busyDot = (it) => ((it && it.known === false) ? '⚠️' : ((it && it.busy) ? '🔴' : '⚪'))
+    const closeBusy = () => {
+      if (busyBox.style.display !== 'block') return
+      busyBox.style.display = 'none'
+      if (busyTimer) { clearTimeout(busyTimer); busyTimer = 0 }
+    }
+    // 报错也要说人话：404/unknown 不是"出错"，是"这一版宿主还没有这个接口"
+    const busyFriendly = (err) => {
+      const s = String(err || '')
+      if (/unknown|404/i.test(s)) return '这个接口还没上（宿主重启一次就有了）'
+      if (/Failed to fetch|NetworkError/i.test(s)) return '连不上宿主'
+      return s
+    }
+    const paintBusy = (snap) => {
+      const items = Array.isArray(snap && snap.items) ? snap.items : []
+      const rows = items.filter((it) => it && it.kind && it.kind !== '建议')
+      busyBody.innerHTML = ''
+      if (!rows.length) {
+        const empty = document.createElement('div')
+        empty.style.cssText = 'color:#64748b;padding:4px 0'
+        empty.textContent = snap && snap.error ? `没读到：${busyFriendly(snap.error)}` : '什么都没读到（宿主没回话）'
+        busyBody.appendChild(empty)
+      }
+      for (const it of rows) {
+        const row = document.createElement('div')
+        row.style.cssText = 'margin:5px 0'
+        const line = document.createElement('div')
+        line.style.cssText = 'display:flex;gap:5px;align-items:flex-start'
+        const dot = document.createElement('span')
+        dot.textContent = busyDot(it)
+        dot.style.cssText = 'flex:0 0 auto'
+        const text = document.createElement('span')
+        const kind = document.createElement('b')
+        kind.textContent = it.kind + '：'
+        const what = document.createElement('span')
+        what.textContent = String(it.what || '')
+        what.style.color = (it.known === false) ? '#7b8fa3' : ((it.busy) ? '#b42318' : '#33566f')
+        text.append(kind, what)
+        line.append(dot, text)
+        row.appendChild(line)
+        // 第二行小灰字：细节只放这儿（几点起的 / 账上多少 / 提示）
+        // 「本会话」那条不带行内提示：结论只有一条，统一放底部，行内再挂一句方向性的话
+        // 就会跟底部打架（旧版后端那句「不用重启」和底部「先别重启」就是这么撞上的）。
+        const hint = it.kind === '本会话' ? '' : (it.hint || '')
+        const sub = [it.since ? `${it.since} 起的` : '', it.detail || '', hint].filter(Boolean).join(' · ')
+        if (sub) {
+          const small = document.createElement('div')
+          small.style.cssText = 'font-size:11px;color:#8a9bab;margin-left:18px'
+          small.textContent = sub
+          row.appendChild(small)
+        }
+        busyBody.appendChild(row)
+      }
+      const v = snap && snap.verdict ? snap.verdict : null
+      busyFoot.textContent = v && v.text ? v.text : '没读到结论'
+      busyFoot.style.color = v && v.canRestart === false ? '#b42318' : '#1a7f4b'
+      const at = snap && snap.at ? new Date(snap.at) : null
+      busyStamp.textContent = at && !Number.isNaN(at.getTime())
+        ? `看的是 ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')} 这一刻`
+        : ''
+      busyTextCache = typeof snap?.text === 'string' ? snap.text : ''
+    }
+    const loadBusy = async () => {
+      busyRefresh.disabled = true
+      busyRefresh.textContent = '…'
+      try {
+        const r = await fetch('/api/yushen/busy', { credentials: 'same-origin' })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        const d = await r.json()
+        paintBusy(d && d.ok !== false ? d : { error: (d && d.error) || '宿主没回话' })
+      } catch (e) {
+        // 拉不到也要说出来：面板上写「没读到：…」，不许装作一切正常
+        paintBusy({ error: String(e?.message || e) })
+      } finally {
+        busyRefresh.disabled = false
+        busyRefresh.textContent = '刷新'
+      }
+    }
+    const openBusy = () => {
+      const on = busyBox.style.display === 'block'
+      if (on) { closeBusy(); return }
+      try { closeCardRef() } catch { /* 那个面板还没定义就算了 */ }
+      busyBox.style.display = 'block'
+      // 贴着她上方；上面放不下就翻到下面；左右都收进屏幕里（面板比桌宠宽）
+      busyBody.textContent = '看一眼…'
+      busyFoot.textContent = ''
+      const r = box.getBoundingClientRect()
+      const w = busyBox.offsetWidth || 282
+      const half = w / 2
+      const center = r.left + r.width / 2
+      const left = Math.min(Math.max(center - half, 8), Math.max(8, window.innerWidth - w - 8))
+      busyBox.style.left = Math.round(left) + 'px'
+      // 上面放得下就从她头顶往上长（用 bottom 锚住，内容多了往上顶，不会掉出屏幕）
+      if (r.top > 220) {
+        busyBox.style.top = 'auto'
+        busyBox.style.bottom = Math.round(window.innerHeight - r.top + 8) + 'px'
+      } else {
+        busyBox.style.bottom = 'auto'
+        busyBox.style.top = Math.round(r.bottom + 8) + 'px'
+      }
+      void loadBusy()
+      if (busyTimer) clearTimeout(busyTimer)
+      // 面板开着就自己刷，别让老板看完还得手点一下
+      busyTimer = setTimeout(function tick() {
+        if (busyBox.style.display !== 'block') { busyTimer = 0; return }
+        void loadBusy()
+        busyTimer = setTimeout(tick, 20000)
+      }, 20000)
+    }
+    busyCopy.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const text = busyTextCache || busyFoot.textContent || ''
+      try {
+        await navigator.clipboard.writeText(text)
+        busyCopy.textContent = '已复制'
+      } catch {
+        // 剪贴板被拦（不是 https、或者没给权限）就退回老办法
+        const ta2 = document.createElement('textarea')
+        ta2.value = text
+        ta2.style.cssText = 'position:fixed;left:-9999px'
+        document.body.appendChild(ta2)
+        ta2.select()
+        try { document.execCommand('copy'); busyCopy.textContent = '已复制' } catch { busyCopy.textContent = '复制失败' }
+        ta2.remove()
+      }
+      setTimeout(() => { busyCopy.textContent = '复制' }, 1600)
+    })
+    busyRefresh.addEventListener('click', (e) => { e.stopPropagation(); void loadBusy() })
+    busyBox.addEventListener('pointerdown', (e) => e.stopPropagation())
+    busyBox.addEventListener('click', (e) => e.stopPropagation())
+    window.addEventListener('pointerdown', (e) => {
+      if (busyBox.style.display !== 'block') return
+      if (busyBox.contains(e.target) || box.contains(e.target)) return
+      closeBusy()
+    })
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeBusy() })
 
     // —— 快捷面板：常用的东西直接放桌宠身上（说一句 / 今天花了多少 / 她在忙什么） ——
     // 设置那些不常用的仍然在鱼窝里点进去改，这只身上只放“抬手就能用”的。
@@ -4187,10 +5164,12 @@ if (typeof document !== 'undefined') {
       }).catch(() => { info.textContent = '' })
     }
     const openCard = () => {
+      if (busyBox.style.display === 'block') closeBusy() // 跟「现在在忙什么」互斥
       cardOn = !cardOn
       card.style.display = cardOn ? 'block' : 'none'
       if (cardOn) { refreshInfo(); setTimeout(() => ta.focus(), 30) }
     }
+    closeCardRef = () => { cardOn = false; card.style.display = 'none' }
     chip.addEventListener('pointerdown', (e) => e.stopPropagation())
     chip.addEventListener('click', (e) => { e.stopPropagation(); openCard() })
     card.addEventListener('pointerdown', (e) => e.stopPropagation())
@@ -4307,7 +5286,23 @@ if (typeof document !== 'undefined') {
       box.style.left = Math.min(box.offsetLeft, window.innerWidth - box.offsetWidth - 6) + 'px'
       box.style.top = Math.min(box.offsetTop, window.innerHeight - box.offsetHeight - 6) + 'px'
     })
-  }
+  
+    // 改｜2026-11-11 01:00｜大鱼·工作台｜授权：老板｜client.js mountFloatPet｜浮宠接外部提醒（备份完成说一句）｜为什么：老板要备份完成时桌宠提醒｜验证：node --check + 回归｜可改：需老板点头
+    // 外部提醒（备份完成等）：弹窗插件写 localStorage ysp.pet.say，这里读到就说一句
+    const watchExternal = () => {
+      try {
+        const raw = localStorage.getItem('ysp.pet.say')
+        if (!raw) return
+        const j = JSON.parse(raw)
+        if (!j || !j.text) { localStorage.removeItem('ysp.pet.say'); return }
+        if (Date.now() - (Number(j.at) || 0) > 10 * 60 * 1000) { localStorage.removeItem('ysp.pet.say'); return }
+        localStorage.removeItem('ysp.pet.say')
+        say(String(j.text).slice(0, 80), 9000)
+      } catch { /* 忽略 */ }
+    }
+    setInterval(watchExternal, 5000)
+    setTimeout(watchExternal, 3000)
+}
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(mountFloatPet, 1600))
   else setTimeout(mountFloatPet, 1600)

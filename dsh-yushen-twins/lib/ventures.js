@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-ventures
+ * kind: module
+ * summary: 越线权：规矩是边界不是路线。线外值得做的事，她判断后可以跳出去——
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: recordVenture / listVentures / ventureLine（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 越线权：规矩是边界不是路线。线外值得做的事，她判断后可以跳出去——
 // 但必须说清为什么、留证据、能回退；"不为祸"的契约不动，跳过之后要让老板知道。

@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-authority
+ * kind: module
+ * summary: 权限按"人离电脑多远"分：远程（QQ/B站）再确认也只能办可逆的；钱/密钥/删数据必须本机。
+ * tags: 权限, 本机, 远程, 不可逆, 安全
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:00:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 工具层、桥、她
+ * owner: 框架；**这是安全边界，只能更严**
+ * mutable: 可改；IRREVERSIBLE 名单只许加
+ * usage: needsOwner(action) / IRREVERSIBLE → 判这个动作要不要本机解锁
+ * why: 远程号也可能是别人在发；不可逆的事不能在手机上点头
+ * result: 一份不可逆变名单 + 本机判定；不可逆一律要老板本机
+ */
 // 权限按"人离电脑多远"分：远程（QQ/B站）再确认也只能办可逆的；
 // 不可逆的（钱、密钥、删数据）必须在电脑前——本机解锁，或者你自己动手。
 import fs from 'node:fs'

@@ -1,6 +1,6 @@
 {
   "name": "dsh-yushen-twins",
-  "version": "0.2.4",
+  "version": "0.2.23",
   "description": "鱼神双子星 · 大鱼（阿鲲）与小鱼（阿鲤）",
   "author": "从零开始",
   "type": "module",
@@ -10,14 +10,18 @@
     "./dayu": "./dayu/index.js",
     "./xiaoyu": "./xiaoyu/index.js",
     "./client": "./client.js",
+    "./preset/compaction-memory": "./preset/compaction-memory.js",
     "./package.json": "./package.json"
   },
   "files": [
     "index.js",
     "assets/",
+    "pages/",
     "dayu/",
     "xiaoyu/",
     "lib/",
+    "dsh-memory/",
+    "memory-core/",
     "core/",
     "adapters/",
     "kernel/",
@@ -35,7 +39,8 @@
     "README.md",
     "!**/*.bak-*",
     "!**/*.tmp",
-    "!**/*.orig"
+    "!**/*.orig",
+    "docs/记忆系统-架构.md"
   ],
   "dsh": {
     "client": {
@@ -61,3 +66,5 @@
   },
   "license": "AGPL-3.0-or-later"
 }
+
+

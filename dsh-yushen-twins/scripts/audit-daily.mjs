@@ -1,4 +1,5 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 16:12｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜scripts/audit-daily.mjs:67｜每日审计的日期与时间戳改走 clock｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
 // 每日自审计：讨好数 + 空话数，写进 runtime/审计-<日期>.json
 // 用法：node scripts/audit-daily.mjs [--days 1]
 // 目的：这两个数不用我报、也不靠我记，每小时 tick 会刷一次。
@@ -7,6 +8,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { localISO, today as localDay } from '../lib/clock.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const LIVE = path.join(HOME, 'dayu', 'live')
@@ -48,7 +50,7 @@ try {
   const rows = fs.readFileSync(pf, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l) } catch { return null } }).filter(Boolean)
   const open = rows.filter((r) => r.status === 'open')
   openPromises = open.length
-  const today = date
+  const today = localDay()   // 2026-11-02 修：原来用后面才声明的 date（TDZ），被 try/catch 吞掉，逾期永远算不出来
   overdue = open.filter((r) => r.when && /^\d{4}-\d{2}-\d{2}/.test(r.when) && r.when < today).length
 } catch { /* 没有诺言本 */ }
 
@@ -62,13 +64,13 @@ try {
 } catch { /* 读不到发放记录就留 0 */ }
 
 fs.mkdirSync(OUT_DIR, { recursive: true })
-const date = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)
+const date = localDay()
 const file = path.join(OUT_DIR, `审计-${date}.json`)
 let prev = {}
 try { prev = JSON.parse(fs.readFileSync(file, 'utf8')) } catch { /* 首次 */ }
 const row = {
   date,
-  at: new Date(Date.now() + 8 * 3600e3).toISOString().replace('Z', '+08:00'),
+  at: localISO(),
   days,
   sycophancy: syc,
   emptyPromises: promises,

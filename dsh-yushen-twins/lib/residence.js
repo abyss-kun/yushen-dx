@@ -1,3 +1,13 @@
+/* 标签
+ * id: lib-residence
+ * kind: module
+ * summary: 常驻身体：一条角色 = 一条固定会话（有 id/models/卡）；建/找回/叫醒的通用件。
+ * audience: 框架（入口把 deps 传进来）、她（她的身体）
+ * owner: 框架；账本写入要过锁（withLedgerLock）
+ * mutable: 可改（不绑死宿主 API；换宿主只换 deps）
+ * usage: ensureRole 建/找回；deliverToRole 投一段话给她；residenceStatus 看谁在；markBody 记状态
+ */
+
 // 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 常驻身体：一条角色 = 一条固定的 DSH 会话（有 id、有模型、有本体卡），不是每条消息现拼一个临时实例。

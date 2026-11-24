@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-oversight
+ * kind: module
+ * summary: 维护与监督：被点化的角色，要主动看着"下面的人有没有落实鱼神的规则"
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: scanCompliance / complianceLine / summarizeCompliance（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 维护与监督：被点化的角色，要主动看着"下面的人有没有落实鱼神的规则"。
 //

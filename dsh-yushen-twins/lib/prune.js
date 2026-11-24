@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-prune
+ * kind: module
+ * summary: 备份清理（库）：旧的不用的删掉，别让盘越滚越大
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: defaultDrive / buildRules / planPrune / pruneBackups（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 备份清理（库）：旧的不用的删掉，别让盘越滚越大。
 // 只删这几类有规律的目录；别的一律不碰。legacy（十几天前的旧全盘）默认不动。

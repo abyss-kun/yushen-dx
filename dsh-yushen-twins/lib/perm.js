@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-perm
+ * kind: module
+ * summary: 权限分层：软件内部随便动；动到系统（可能让电脑不好用）要先申请
+ * audience: 老板 / 维护者
+ * owner: 老板点头才能改
+ * mutable: 只许改严
+ * usage: tierOf / listApprovals / requestApproval / decideApproval（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 权限分层：软件内部随便动；动到系统（可能让电脑不好用）要先申请。
 // 申请单：~/.dsh/dayu/approvals.json；老板同意才放行，执行后记账。

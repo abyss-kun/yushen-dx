@@ -1,4 +1,23 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: core-jobs
+ * kind: module
+ * summary: 派活单存储与取证（宿主无关）：只读写 dispatch.json、做审计与路径校验，不投消息、不碰 ctx。
+ * tags: 派活单, 取证, 路径校验, 审计, 核心
+ * created: 2026-11-11 00:45:00
+ * changed: 2026-11-11 00:50:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: core/dispatch、宿主适配器、文件编辑类工具（复用 safePath）、维护者
+ * owner: 框架；**允许根/安全路径**是安全边界，改要老板点头
+ * defaults: 单条 result 最多 4000 字；读文件上限 120KB；扫描最多 400 文件/2MB
+ * off: 没有开关；不想派单就别建单（删了等于派活单不存在）
+ * mutable: 可改；safeRoots/safePath 只许收窄放宽要理由（放宽=能删到外面去）
+ * usage: readAll/writeAll/audit/newId/clip/safeRoots/safePath/noteReply；写前 ensureDir
+ * why: 单子曾经散在宿主里、路径校验各写一套；一次越界删文件就够呛
+ * result: 一处存储 + 一处路径校验（Windows 大小写不敏感）+ 审计流水
+ */
+// 改｜2026-11-03 16:52｜大鱼·子会话（文件编辑）｜授权：老板｜core/jobs.js:56-75｜把三个允许根抽成 safeRoots() 供文件编辑复用；safePath 的比较在 Windows 上改为大小写不敏感｜为什么：新编辑器不能另写一套根；也不能因为盘符小写就误拦｜验证：node --check core/jobs.js；node scripts/test-dispatch-reply.mjs 过；node scripts/test-file-edit.mjs 12/0（含大小写用例）｜可改：可改
 // core · 派活单（宿主无关）
 // 只做存储与取证：不碰 ctx、不投消息；投递由宿主适配器负责。
 
@@ -53,12 +72,20 @@ export function clip(text, max = MAX_RESULT) {
   return s.length > max ? `${s.slice(0, max)}\n…（截断，共 ${s.length} 字）` : s
 }
 
+/** 允许读写的三个根（safePath 与文件编辑共用，别处不许另开一套）。 */
+export function safeRoots() {
+  return [path.resolve(WORKSPACE), path.resolve(HOME), path.resolve('D:\\deepseekTools')]
+}
+
 export function safePath(input) {
   const raw = String(input || '').trim()
   if (!raw) throw new Error('path 不能为空')
   const full = path.resolve(raw)
-  const bases = [path.resolve(WORKSPACE), path.resolve(HOME), path.resolve('D:\\deepseekTools')]
-  if (!bases.some((base) => full === base || full.startsWith(base + path.sep))) {
+  // Windows 路径不区分大小写：d:\dsh 和 D:\DSH 是同一个地方，别在这里把人拦回去。
+  const norm = (p) => (process.platform === 'win32' ? p.toLowerCase() : p)
+  const bases = safeRoots().map(norm)
+  const probe = norm(full)
+  if (!bases.some((base) => probe === base || probe.startsWith(base + path.sep))) {
     throw new Error(`只能看工作区、.dsh 和 D:\\deepseekTools 下的文件：${full}`)
   }
   return full

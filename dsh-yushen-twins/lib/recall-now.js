@@ -1,3 +1,16 @@
+// 改｜2026-11-24 23:50｜大鱼·工作台｜授权：主人（2026-11-24：还有什么没做的一起）｜lib/recall-now.js:1｜本轮整理提交：该文件在本轮之前已有改动，补留痕｜为什么：改动要能查到谁/何时/怎么验｜验证：回归 325/0（整体）｜可改：可改
+/* 标签
+ * id: lib-recall-now
+ * kind: module
+ * summary: 触发词回忆（第 4 层）：听到"还记得/上次/那次/之前/好像"这类话，
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；记忆内容归角色本人
+ * mutable: 可改
+ * usage: looksLikeRecall / meaningful / keywords / expandAliases（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-21 23:10:06
+ */
+// 改｜2026-11-11 02:08｜大鱼·记忆会话（图书馆定稿）｜授权：主人（2026-11-11：图书馆权重 = 初始(tier/pinned) + 次数 − 周龄；时间桶按 今天>本周>本月>更早）｜lib/recall-now.js:286-300｜时间衰减的 HALF_LIFE 从 21 天改成 7 天｜为什么：半衰期 21 天时"上周想起的事"和"上个月"几乎一样重，时间桶就分不出档；改成按周减，一周掉一档才对得上"本周/上周/更早"的口径｜验证：node scripts/test-memory-search.mjs 三组全过（检索走 recall-now）；node scripts/regression.mjs 293 通过 / 0 失败｜可改：可改；半衰期只能按"周"调，改成别的量级要同时改时间桶
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 触发词回忆（第 4 层）：听到"还记得/上次/那次/之前/好像"这类话，
 // 自动去 记忆 + 冷档 + 原文 + 链条 里找几条相关的，而不是每轮都翻。
@@ -32,8 +45,16 @@ const readJson = (f) => {
 }
 
 /** 关键词：ASCII 词转小写 + 中文二元组（token 规则和倒排索引同源，见 lib/inverted.js）。 */
+// 2026-11-05：二元组里常混着虚字凑的词（「天聊」「么吃」「布前」），当关键词会带偏排序。
+const STOP_CHARS = /[的了么哪什怎她他它们吗呢吧啊就都也很还又是在有和与或把被给对从到说]/g
+export function meaningful(k = '') {
+  const s = String(k || '')
+  if (s.length <= 1) return false
+  return !STOP_CHARS.test(s)
+}
+
 export function keywords(text) {
-  return tokenize(text).slice(0, 12)
+  return tokenize(text).filter((k) => meaningful(k)).slice(0, 12)
 }
 
 // 触发词本身不算关键词（不然每一句『还记得』都会命中所有带『记得』的）
@@ -43,6 +64,15 @@ const score = (text, kws) => {
   const s = String(text || '')
   let n = 0
   for (const k of kws) if (!TRIGGER_WORDS.has(k) && s.includes(k)) n += k.length > 2 ? 2 : 1
+  // 2026-11-21 磨 hit@1：关键词挨在一起（80 字窗口里命中两个以上）比散落全文更像答案。
+  let best = 0
+  for (let i = 0; i < s.length; i += 40) {
+    const win = s.slice(i, i + 80)
+    let c = 0
+    for (const k of kws) if (!TRIGGER_WORDS.has(k) && win.includes(k)) c += 1
+    if (c > best) best = c
+  }
+  if (best >= 2) n += 0.5 * (best - 1)
   return n
 }
 
@@ -64,7 +94,7 @@ function loadAliases() {
       if (!key || key.startsWith('_') || !Array.isArray(list)) continue
       const words = [key, ...list]
         .map((x) => String(x || '').trim().toLowerCase())
-        .filter((x) => x.length >= 2)
+        .filter((x) => x === String(key).trim().toLowerCase() || x.length >= 2)   // 允许单字键（「吃」是一个概念）；成员仍要 ≥2 字
       if (words.length >= 2) groups.push([...new Set(words)])
     }
     aliasCache = { mtimeMs: st.mtimeMs, groups }
@@ -103,6 +133,22 @@ function isExpiredRow(row, now = Date.now()) {
   return Number.isFinite(t) && t <= now
 }
 
+/** 2026-11-21：命中片段要围着关键词截，别永远取开头 160 字（答案常在后面，hit@1 会假红）。 */
+function snippetAround(text, kws, width = 160) {
+  const s = String(text || '')
+  if (!s) return ''
+  let pos = -1
+  for (const k of kws) {
+    const key = String(k || '').toLowerCase()
+    if (!key) continue
+    const i = s.toLowerCase().indexOf(key)
+    if (i >= 0 && (pos < 0 || i < pos)) pos = i
+  }
+  if (pos < 0) return s.slice(0, width)
+  const start = Math.max(0, pos - 40)
+  return (start > 0 ? '…' : '') + s.slice(start, start + width) + (start + width < s.length ? '…' : '')
+}
+
 /** 在四个地方找相关旧事：热记忆、冷档、链条、原文 */
 export function recallNow(text, { limit = 3, role = '', home = '', includeExpired = false, useIndex = true } = {}) {
   const H = home || homeDir()
@@ -120,12 +166,50 @@ export function recallNow(text, { limit = 3, role = '', home = '', includeExpire
       const expired = isExpiredRow(ev)
       if (expired && !includeExpired) continue
       hits.push({
-        kind: '记忆', role: r, at: ev.at, text: String(ev.text).slice(0, 160), s,
+        kind: '记忆', role: r, at: ev.at, text: snippetAround(ev.text, kws), s,
         id: ev.id, times: Number(ev.recallCount || 0),
         ...(expired ? { expired: true, validUntil: ev.validUntil } : {}),
       })
     }
   }
+
+  // ①b 在用卡片：经验/知识/错题这些以前搜不到——只搜事件和原文，等于把提炼过的东西藏起来。
+  // 2026-11-21：把卡片正文也纳入检索（head+detail+tags），按同一套关键词打分。
+  try {
+    const libRoot = path.join(H, 'dayu', 'library', '在用')
+    const walkCards = (dir, out = []) => {
+      let list = []
+      try { list = fs.readdirSync(dir, { withFileTypes: true }) } catch { return out }
+      for (const ent of list) {
+        const p = path.join(dir, ent.name)
+        if (ent.isDirectory()) walkCards(p, out)
+        else if (ent.name.endsWith('.jsonl')) out.push(p)
+      }
+      return out
+    }
+    for (const file of walkCards(libRoot)) {
+      let lines = []
+      try { lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean) } catch { continue }
+      for (const line of lines) {
+        let row = null
+        try { row = JSON.parse(line) } catch { continue }
+        if (!row || String(row.status || 'active') === 'superseded') continue
+        const rrole = String(row.role || 'workbench')
+        if (role && rrole !== role) continue
+        const text = `${row.head || row.text || ''} ${row.detail || ''} ${(row.tags || []).join(' ')}`
+        let s = score(text, kws)
+        if (s <= 0) continue
+        // 卡的标题就是一句话答案：标题里命中的，排前面（2026-11-21 磨 hit@1）。
+        const head = String(row.head || row.text || '')
+        if (head && kws.some((k) => head.includes(k))) s += 0.8
+        hits.push({
+          kind: '卡片', role: rrole, at: row.at || row.createdAt || '', s,
+          text: snippetAround(`${row.head || ''}：${row.detail || ''}`, kws),
+          id: row.id, tier: row.tier || '', file,
+        })
+      }
+    }
+  } catch { /* 卡片读不到不挡别的检索 */ }
 
   // ② 冷档 + ③ 原文：有倒排就先查索引（只给候选行打分），没有就退回旧扫描。
   const idx = useIndex ? loadIndex(H) : null
@@ -138,7 +222,7 @@ export function recallNow(text, { limit = 3, role = '', home = '', includeExpire
       if (d.src === 'live') {
         // 原文沿用旧规矩：至少命中两分（一个词）才算，避免一行里碰巧有个字就被翻出来
         if (s < 2) continue
-        hits.push({ kind: '原文', at: '', text: d.text.trim().slice(0, 160), s, file: path.basename(String(d.file || '')), line: d.line })
+        hits.push({ kind: '原文', at: '', text: snippetAround(d.text, kws), s, file: path.basename(String(d.file || '')), line: d.line })
         continue
       }
       const expired = isExpiredRow(d)
@@ -161,7 +245,7 @@ export function recallNow(text, { limit = 3, role = '', home = '', includeExpire
             const expired = isExpiredRow(ev)
             if (expired && !includeExpired) continue
             hits.push({
-              kind: '冷档', role: f.replace('.jsonl', ''), at: ev.at, text: String(ev.text).slice(0, 160), s,
+              kind: '冷档', role: f.replace('.jsonl', ''), at: ev.at, text: snippetAround(ev.text, kws), s,
               ...(expired ? { expired: true, validUntil: ev.validUntil } : {}),
             })
           }
@@ -185,7 +269,7 @@ export function recallNow(text, { limit = 3, role = '', home = '', includeExpire
         const lines = fs.readFileSync(f, 'utf8').split('\n')
         for (let i = 0; i < lines.length; i++) {
           const s = score(lines[i], kws)
-          if (s >= 2) hits.push({ kind: '原文', at: '', text: lines[i].trim().slice(0, 160), s, file: path.basename(f), line: i + 1 })
+          if (s >= 2) hits.push({ kind: '原文', at: '', text: snippetAround(lines[i], kws), s, file: path.basename(f), line: i + 1 })
         }
       }
     } catch { /* 没有原文 */ }
@@ -215,8 +299,61 @@ export function recallNow(text, { limit = 3, role = '', home = '', includeExpire
 
   uniq.sort((a, b) => b.s - a.s)
 
-  // 第 3 层：想起过的事更重（21 天半衰期 + 被想起次数），并且故意留一条“意外的回忆”。
-  const HALF_LIFE = 21
+  // 2026-11-08 吸收（别人的事件图思路）：关键词只能捞到「字面像」的；
+  // 这条按 about/who 沿边一跳，把「字面不重合、但同一件事」的记忆带出来。
+  // 只带 1 跳、最多 3 条，并且打 via 标记——不许冒充关键词直接命中。
+  function expandByEdges(baseHits, { role = '', H } = {}) {
+    if (String(process.env.YUSHEN_RECALL_GRAPH || '') === '0') return baseHits
+    const byId = new Set(baseHits.map((h) => h.id).filter(Boolean))
+    const abouts = new Set()
+    const whos = new Set()
+    const sessions = new Set()
+    const sources = new Set()
+    const allRows = []
+    for (const r of ROLES) {
+      if (role && r !== role) continue
+      const doc = readJson(path.join(H, 'dayu', 'soul', 'memory', `${r}.json`))
+      for (const ev of (doc?.events || [])) {
+        allRows.push({ role: r, ev })
+        if (!byId.has(ev.id)) continue
+        if (ev.about) abouts.add(String(ev.about))
+        if (ev.who) whos.add(String(ev.who))
+        if (ev.session) sessions.add(String(ev.session))
+        if (ev.source) sources.add(String(ev.source))
+      }
+    }
+    if (!abouts.size && !whos.size && !sessions.size && !sources.size) return baseHits
+    const extra = []
+    for (const { role: r, ev } of allRows) {
+      if (byId.has(ev.id)) continue
+      if (isExpiredRow(ev)) continue
+      let via = ''
+      if (ev.about && abouts.has(String(ev.about))) via = `about:${ev.about}`
+      else if (ev.who && whos.has(String(ev.who))) via = `who:${ev.who}`
+      else if (ev.session && sessions.has(String(ev.session))) via = 'session'
+      else if (ev.source && sources.has(String(ev.source))) via = 'source'
+      if (!via) continue
+      extra.push({
+        kind: '记忆',
+        role: r,
+        at: ev.at,
+        text: String(ev.text).slice(0, 160),
+        s: via === 'source' ? 0.5 : 1,
+        id: ev.id,
+        times: Number(ev.recallCount || 0),
+        via,
+      })
+    }
+    if (!extra.length) return baseHits
+    extra.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+    const take = extra.slice(0, 3)
+    for (const h of take) h.reason = { type: 'related', word: h.via }
+    return baseHits.concat(take)
+  }
+
+  // 第 3 层：想起过的事更重（半衰期 + 被想起次数），并且故意留一条“意外的回忆”。
+  // 2026-11-11 老板：时间减法按星期算——每过一周明显掉一档（半衰期 7 天，原来 21 天）。
+  const HALF_LIFE = 7
   const weightOf = (h) => {
     const at = h.at ? new Date(h.at).getTime() : 0
     const days = at ? Math.max(0, (Date.now() - at) / 86400e3) : 60
@@ -224,8 +361,25 @@ export function recallNow(text, { limit = 3, role = '', home = '', includeExpire
     const times = Number(h.times || 0)
     return (h.s || 0) * (0.35 + decay) * (1 + Math.log1p(times))
   }
-  for (const h of uniq) h.w = weightOf(h)
-  uniq.sort((a, b) => b.w - a.w)
+  // 原句词 vs 别名词：原句命中的排前面（别名词只兜底）
+  const ownWords = keywords(text).map((k) => String(k || '').toLowerCase()).filter((k) => k.length >= 2)
+  const reasonOf = (h) => {
+    const body = String(h.text || '').toLowerCase()
+    const ownHit = ownWords.find((k) => body.includes(k))
+    if (ownHit) return { type: 'own', word: ownHit }
+    const aliasHit = (kws || []).find((k) => !ownWords.includes(k) && body.includes(k))
+    return aliasHit ? { type: 'alias', word: aliasHit } : { type: 'none', word: '' }
+  }
+  uniq.splice(0, uniq.length, ...expandByEdges(uniq, { role, H }))
+
+  for (const h of uniq) {
+    h.w = weightOf(h)
+    h.reason = reasonOf(h)
+  }
+  uniq.sort((a, b) => {
+    const rank = (x) => (x.reason?.type === 'own' ? 0 : x.reason?.type === 'alias' ? 1 : x.reason?.type === 'related' ? 2 : 3)
+    return rank(a) - rank(b) || b.w - a.w
+  })
 
   const chosen = []
   const used = new Set()

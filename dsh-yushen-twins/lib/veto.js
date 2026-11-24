@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-veto
+ * kind: module
+ * summary: 主人裁定：三层，别混
+ * audience: 老板 / 维护者
+ * owner: 老板点头才能改
+ * mutable: 只许改严
+ * usage: listHardNo / recordVeto / revokeVeto / listVetoes（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 主人裁定：三层，别混。
 //
@@ -106,7 +117,7 @@ export function vetoLine(role) {
   if (hard.length) {
     // 2026-10-31 去重：宪章原文已经在规则块「### 不能做的（违反即失败）」里了（边界 + 绝对不行 四条），
     // 这里再抄一遍是同一件事说两次，而且这段 339 字。只留一句指路。
-    parts.push('## 宪章（不可越）\n不伤害自己 / 不伤害他人 / 不被他人伤害——原文在 ~/.dsh/dayu/charter.json；改了就是改版本，不是"这次通融一下"。')
+    parts.push('## 宪章（不可越）\n改了就是改版本，不是"这次通融一下"（原文 ~/.dsh/dayu/charter.json；判据见规则块「不能做的」）。')
   }
   if (owner.length) {
     parts.push([

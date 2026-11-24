@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-manners
+ * kind: module
+ * summary: 社交分寸：上次因为这个被纠正过，这次同类消息进来，先提醒她一声
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: similarCorrection / noteManners / mannersLine（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 社交分寸：上次因为这个被纠正过，这次同类消息进来，先提醒她一声。
 //

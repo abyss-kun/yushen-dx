@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-pool
+ * kind: module
+ * summary: 分身池：提前养几条待命的员工会话，派活时直接取，不用每次现开
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: listWorkers / addWorker / liveWorkers（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 分身池：提前养几条待命的员工会话，派活时直接取，不用每次现开。
 // 只记“谁待命”；会话本身归 DSH，宿主重启后按 id 对不上就丢弃。

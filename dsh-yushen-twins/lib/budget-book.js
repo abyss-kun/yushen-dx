@@ -1,12 +1,36 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-budget-book
+ * kind: module
+ * summary: 账：三个人各自的额度、已用、剩余，外加桥的小时/今日上限与最近几笔真流水。
+ * tags: 账本, 额度, 余额, 面板
+ * created: 2026-11-11 01:10:00
+ * changed: 2026-11-11 01:10:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式；2026-11-02 他要"她能自己看账"）
+ * audience: 她（yushen_self action=budget）、面板、维护者
+ * owner: 框架；**额度数字归老板定**（宪章/预算文件），她只能看
+ * defaults: 每人额度与桥上限见预算配置；读不到给 null 不回 0
+ * off: 不看账不影响别的；账本身不能关（关了就没成本控制）
+ * mutable: 可改；**只补字段、不改旧字段口径**（她有依赖）
+ * usage: budgetView(role) → {上限,已用,剩余,最近几笔}；真流水优先于手记
+ * why: 她说"我要看账"时只有手记，没有上限和最近几笔
+ * result: 一份能自洽的账视图（读不到就如实说读不到）
+ */
 // 账：三个人各自的额度、已用、剩余。2026-10-29 从桌面气泡搬进面板时新建。
+//
+// 改｜2026-11-02 16:40｜大鱼·子会话（工作台）｜授权：主人（本次任务书：她能自己看账）｜lib/budget-book.js:1-10,90-125｜
+// budgetView 只补字段：上限／剩余／桥的小时上限／桥的今日上限／最近几笔（真流水），原有字段一个没动｜
+// 为什么：她说"我要看账"时，action=budget 里没有"上限"和"最近几笔"，只能看到手写的手记｜
+// 验证：node --check lib/budget-book.js；regression「她自己的账」两条仍绿（手记不改余额）；
+// node -e 调 budgetView 看新字段有值｜可改：可改；这里只读不拦，别把"上限"变成"停手"
 //
 // 为什么放这儿：老板说「算账的可以放到后台，小鱼里面界面可以填空那种」。
 // 桌面留着她和一句状态就够了；要改额度这种正经事，应该在面板里填、有保存、有记录。
 import fs from 'node:fs'
 import path from 'node:path'
 import { dshHome } from './paths.js'
-import { spendForRole, periodStartMs } from './cost.js'
+import { spendForRole, periodStartMs, recentSpends, bridgeBudget } from './cost.js'
 
 // 2026-10-31：原来写死三个人。出厂包只有 dayu + xiaoyu（照微是作者本机的角色），
 // 于是用户的账本里会凭空多出一行「照微 0 元」。改成按已装名册取；名册读不到再退回路里写死的那几个。
@@ -97,16 +121,25 @@ export function budgetView(role, { now = Date.now() } = {}) {
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0)
   const today = spendForRole(role, { sinceMs: dayStart.getTime(), now })
   const limit = Number(b.我的日上限) || 0
+  const bb = bridgeBudget()
   return {
     ok: true,
     role,
     本期给: Number.isFinite(total) ? total : null,
+    // 2026-11-02：她自己问「上限 / 剩余 / 最近几笔」时，要能一眼看到这四个词——
+    // 原来只有 本期给 / 现在剩 / 手记（手记还是她手写的，不是真流水）。
+    上限: Number.isFinite(total) ? total : null,
     现算已花: period.yuan,
     现在剩: Number.isFinite(total) ? Number((total - period.yuan).toFixed(2)) : null,
+    剩余: Number.isFinite(total) ? Number((total - period.yuan).toFixed(2)) : null,
     今天花了: today.yuan,
     今天回合: today.turns,
     我定的日上限: limit || null,
     超没超: limit ? today.yuan > limit : null,
+    // 桥那边卡的闸（它按 QQ 侧 rolling hour / 本地一天算）：摆给她看，不是让她照做。
+    桥的小时上限: bb.hourLimit || null,
+    桥的今日上限: bb.dayLimit || null,
+    最近几笔: recentSpends(role, { now, n: 5 }),
     手记: (Array.isArray(b.明细) ? b.明细 : []).slice(-5),
   }
 }

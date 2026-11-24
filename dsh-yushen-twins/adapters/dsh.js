@@ -15,9 +15,16 @@ export function createDshAdapter(ctx, { log } = {}) {
     name: 'dsh',
     /** 往某条会话投一句话：先走内存句柄，够不着再走 HTTP。 */
     async send(sessionId, text) {
-      const handle = agents?.get?.(sessionId)
-      if (handle?.agent?.followup) {
-        await handle.agent.followup({ content: [{ type: 'text', text: String(text) }], source: { kind: 'user' } })
+      // 改｜2026-11-05 16:10｜大鱼·本机会话｜授权：老板（"让 dsh 适应你"）｜adapters/dsh.js:18-22｜
+      // 为什么：宿主的 agents.get() 返回的是 **Agent 本身**（dsh-agent/lib/index.js:596 `get(id){ return store.get(id)?.agent }`），
+      //   不是 { agent }。原写法 handle.agent.followup 对活会话恒为假，于是永远掉到 HTTP；手机没有 HTTP → 派活结构性不通。
+      //   两种形状都认：handle.agent ?? handle。agents.create() 给的才是 { agent }。
+      // 验证：node --check；重启后 dayu_dispatch 往活会话投递应返回 via:'agent'（不再报"够不到 HTTP"）。
+      // 可改：可改；不要退回只看 handle.agent。
+      const got = agents?.get?.(sessionId)
+      const agent = got?.agent ?? got
+      if (agent?.followup) {
+        await agent.followup({ content: [{ type: 'text', text: String(text) }], source: { kind: 'user' } })
         return { ok: true, via: 'agent' }
       }
       if (dshBaseUrl()) {

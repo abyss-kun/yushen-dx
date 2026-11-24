@@ -1,0 +1,45 @@
+{
+    "name":  "dsh-memory",
+    "version":  "0.1.2",
+    "description":  "通用记忆插件壳：记一条 / 按线索想 / 看家底；和鱼神双子星同格式，不含人格。",
+    "type":  "module",
+    "main":  "./index.js",
+    "exports":  {
+                    ".":  "./index.js",
+                    "./client":  "./client.js",
+                    "./package.json":  "./package.json",
+                    "./locale/*.json":  "./locale/*.json",
+                    "./icon":  "./icon.svg"
+                },
+    "files":  [
+                  "root-config.js",
+                  "index.js",
+                  "client.js",
+                  "control.js",
+                  "cordis.patch.yml",
+                  "locale/*.json",
+                  "icon.svg",
+                  "memory-core/",
+                  "lib/",
+                  "README.md"
+              ],
+    "dsh":  {
+                "manifestVersion":  1,
+                "bundle":  {
+                               "patch":  "./cordis.patch.yml"
+                           },
+                "client":  {
+                               "platform":  "web"
+                           }
+            },
+    "scripts":  {
+                    "pack":  "node pack.mjs"
+                },
+    "dependencies":  {
+
+                     },
+    "engines":  {
+                    "node":  "\u003e=22.19"
+                },
+    "license":  "AGPL-3.0-or-later"
+}

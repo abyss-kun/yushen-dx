@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-conversation-goal
+ * kind: module
+ * summary: 跨窗口当前目标：只存主人最近明确交代的目标摘要，不存完整私密对话。
+ * tags: 目标, 摘要, 跨窗口, 隐私
+ * created: 2026-11-11 01:15:00
+ * changed: 2026-11-11 01:15:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她（换窗口/换会话后接上）、维护者
+ * owner: 框架；内容是老板的目标，摘要由她写
+ * mutable: 可改；**不许存完整私密对话**这条不许破
+ * usage: setGoal(text)/goal() → 一句摘要
+ * why: 换窗口后她不知道"我们刚才在干哪件事"
+ * result: 一份短目标 + 时间戳
+ */
 // 鱼神跨窗口当前目标：只保存主人最近明确交代的目标摘要，不保存完整私密对话。
 import fs from 'node:fs'
 import path from 'node:path'

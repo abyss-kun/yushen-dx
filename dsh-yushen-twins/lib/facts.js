@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-facts
+ * kind: module
+ * summary: 事实问答：只读本地账本回答"我们说过什么"，不调模型、不补猜测。
+ * tags: 事实问答, 只读, 不猜
+ * created: 2026-11-11 01:20:00
+ * changed: 2026-11-11 01:20:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她、维护者
+ * owner: 框架；**查不到就说查不到**
+ * mutable: 可改检索；不许生成"大概是"
+ * usage: 查一句 → 命中条目（带来源）；空就是空
+ * why: 记过的原话要能查回来，不是每次重问
+ * result: 一个只读问答函数
+ */
 // 鱼神事实问答：只读本地账本，不调用模型、不补猜测。
 import fs from 'node:fs'
 import path from 'node:path'

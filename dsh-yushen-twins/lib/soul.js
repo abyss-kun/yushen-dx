@@ -1,3 +1,20 @@
+// 改｜2026-11-24 23:45｜大鱼·工作台｜授权：主人（2026-11-24：继续——记忆插件/常驻/独立包收口）｜lib/soul.js:1｜本轮改动的一部分（自我记忆8类、常驻开关、独立包单多角色、内部群叫醒、连续性验收）｜为什么：记忆插件要能单独出厂、常驻按情况开关｜验证：回归 325/0；独立包/连续性测试通过｜可改：可改
+/* 标签
+ * id: lib-soul
+ * kind: module
+ * tags: 灵魂, 卡, 注入, 记忆, 场景
+ * created: 未标注（补标签前的历史）
+ * changed: 2026-11-24 20:48:13
+ * author: 照微·工作台
+ * authority: 老板（2026-11-03：不管什么只要改动/新增都要有标签）
+ * why: 统一给对象加标签，方便按需提取与对账
+ * result: 有标签块；审计能取到
+ * mutable: 可改
+ * audience: 她（身份层/注入）、新角色、别的通道（读同一份魂）
+ * owner: 框架；卡和人格归各角色自己（改动前先看 immutables 清单）
+ * usage: buildSceneText(role,scene) 拼注入全文；buildIdentityText 只拼身份（哈希用它）；readCard/readMemory 读卡与记忆
+ * summary: 魂：读本体档案（persona / 卡 / 记忆）并拼注入；身份层与全文都在这里。
+ */
 // 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 魂：本体档案读取。persona.json 只是目录——角色卡按场景指到 cards/*.md，记忆按角色分文件。
@@ -8,18 +25,44 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
+// 2026-11-05 手机端：手边清单按平台分（派活在手机上结构性不通，电脑脚本也跑不了）。
+import { isMobile } from './platform.js'
+import { SegText, joinSegments, seg } from './inject-protocol.js'
 import { getCharacter, listCharacters } from './characters.js'
 import { isAwake } from './awakening.js'
 import { recentAwareness, awarenessIndex } from './awareness.js'
 import { resumeBrief, giftStatus, ensureRuntime, markSeen, runtimeDir } from './runtime.js'
-import { buildRuntimeBrief } from './brief.js'
+import { buildRuntimeBrief, safetyBlock, contractBlock } from './brief.js'
+import { skillsLine } from './skills.js'
 // 自净 2026-10-31：能力地图原来单独占一节「你能用的东西」，和这里讲的是同一件事，
 // 并成一行数字挂在这节抬头（段数 47→46）。
 import { capmapCounts } from './capmap.js'
 // （门面页已撤：和 lib/brief.js 的运行时简报重复，不保留第二套）
 import { sessionIssueLine } from './issue.js'
+import { instantBlock } from './library-chain.js'
+import { projectHot, hotText, fmtAt } from './hot.js'
+import { listDivergences, renderDivergence } from './divergences.js'
+import { listDecisions } from './pending-decisions.js'
+import { projectWork, workText } from './workmem.js'
+import { readLetters } from './qq-triage.js'
 import { residentAutonomyBlock } from './autonomy.js'
 import { rulesBlock } from './rules-block.js'
+import { bottomlineBrief } from './bottomline.js'
+import { stripForInject, readTags, logUse } from './tags.js'
+import { buildSubagentBrief } from './subagent-brief.js'
+import { buildDefinitionsBlock } from './definitions.js'
+import { buildNowPage } from './now-page.js'
+import { selfMemoryBlock } from './self-memory.js'
+import { logInjection } from './injection-log.js'
+import { moodOf } from './mood.js'
+import { pickForInject } from './memory-pick.js'
+import { find as findCards, readableRoles, WORKBENCH_ROLE } from '../memory-core/runtime/query.js'
+import { recentEpisodesForInject } from '../memory-core/runtime/episode.js'
+import { buildSystemBrief } from './system-brief.js'
+import { consume as consumeNextSession } from './next-session-brief.js'
+import { listReadable } from '../memory-core/runtime/share.js'
+// 口令层（2026-11-02）：约束从一大段白话收成七句成语；判据、指向、违了怎么查都在 lib/motto.js，
+// 注入由 rules-block 拼进来——她读到的是「事必有证」，不是「路径、行号、命令输出、时间戳」那一长句。
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const SOUL_DIR = process.env.YUSHEN_SOUL_DIR || path.join(HOME, 'dayu', 'soul')
@@ -77,7 +120,20 @@ export function readCard(role, scene = 'desk') {
   const file = (primary && fs.existsSync(primary)) ? primary : (backup && fs.existsSync(backup) ? backup : primary)
   const row = file ? readCached(file) : null
   if (!row) return null
-  return { role: character.id, scene, path: file, text: row.text, bytes: row.bytes, chars: row.chars, sha256: row.sha256 }
+  // 2026-11-03 老板：每样东西都该带标签。卡顶部的标签块（含"谁改的/为什么/谁让的"）
+  // 是给机器和人对账用的，**不该进她的注入**——这里读的时候剥掉，字符数也按剥完的算。
+  const file0 = file
+  let raw = row.text
+  let tags = []
+  let meta = {}
+  try {
+    raw = stripForInject(row.text)
+    const parsed = readTags(file0)
+    tags = parsed.tags
+    meta = parsed.meta
+  } catch { /* 标签坏了就当没有，不影响注入 */ }
+  const chars = raw.length
+  return { role: character.id, scene, path: file, text: raw, bytes: row.bytes, chars, sha256: row.sha256, tags, meta }
 }
 
 /** 某角色的记忆：一个人一份，不分通道。 */
@@ -145,7 +201,8 @@ export function memoryView(role, { what = '', limit = 20, includeForgotten = fal
   if (!m?.available) return { available: false, note: m?.error || '没有记忆文件' }
   const q = String(what || '').trim().toLowerCase()
   const n = Math.max(1, Math.min(100, Number(limit) || 20))
-  const asText = (v) => (typeof v === 'string' ? v : JSON.stringify(v))
+  // 2026-11-04：习惯/关系动态新存 {text, at, source}；旧数据还是字符串，两种都要能读。
+  const asText = (v) => (typeof v === 'string' ? v : (v && typeof v.text === 'string' ? v.text : JSON.stringify(v)))
   const hit = (v) => !q || asText(v).toLowerCase().includes(q)
   // 带 what 时连冷档一起翻：忘了的事在冷档里，能想起来，不等于删了。
   const cold = q ? searchCold(role, q, n) : []
@@ -163,6 +220,23 @@ export function memoryView(role, { what = '', limit = 20, includeForgotten = fal
 }
 
 const SCENE_LABEL = { desk: '工作台', workbench: '工作台', workspace: '工作台', qq: 'QQ', social: 'QQ', bili: 'B站', bilibili: 'B站' }
+
+/** 共享经验按可见范围读：本角色 + workbench；无角色只读 workbench。同一张卡只留一份。 */
+function sharedExperiences(identityRole, scopeRole) {
+  const rows = []
+  const seen = new Set()
+  // 本角色放最后：调用方用 slice(-2) 取最近两份时，自己的优先。
+  for (const r of [...readableRoles(scopeRole)].reverse()) {
+    for (const row of listReadable(r, { kind: '经验' })) {
+      const key = String(row.id || row.turnId || `${row.head || ''}|${row.at || ''}`)
+      if (seen.has(key)) continue
+      seen.add(key)
+      rows.push(row)
+    }
+  }
+  return rows
+}
+
 
 // 共享二创参考：只读了目录和主题名，不抄正文，也不当成她的记忆。
 const SHARED_TOPIC_LABEL = {
@@ -196,7 +270,7 @@ function sharedBlock() {
     '## 你知道有这份共享资料（外部资料，不是你的记忆）',
     `- 只读入口：${index.path}`,
     '- AI 拟人二创参考（角色气质、关系、作品来源）。做立绘/建模/视频、或聊到角色气质时再查；工作台可用 dayu_creative_recall 召回。',
-    '- 它是资料不是事实；知道它存在 ≠ 你看过；你可以有自己的看法，也可以不同意。',
+    '- 它是资料不是事实；你可以有自己的看法，也可以不同意。',
   ].join('\n')
 }
 
@@ -212,10 +286,20 @@ export function buildIdentityText(role = 'dayu', scene = 'desk') {
   const persona = readPersona()
   const card = readCard(role, scene === 'qq' || scene === 'social' ? 'social' : 'desk')
   if (!card && !persona?.brief) return ''
-  const parts = []
-  try { parts.push(rulesBlock(role, { task: '' })) } catch { /* 规则读不到也不算设定变化 */ }
+  const parts = new SegText('soul')
+  try { parts.push(rulesBlock(role, { task: '' }), 'rules') } catch { /* 规则读不到也不算设定变化 */ }
   parts.push(`## 你是谁（${character.name} · 本体卡，所有通道共用）`)
-  parts.push(card ? card.text.trim() : String(persona.brief || '').trim())
+  parts.push(card ? card.text.trim() : String(persona.brief || '').trim(), 'card-body')
+  // 改｜2026-11-10 21:1x｜大鱼·记忆会话｜授权：老板（交接第三部分第 1 件）｜lib/soul.js:246-267｜底线并入身份层｜
+  // 为什么：以前底线只在运行简报里，而 dayu/index.js 的 soulMark 只按 buildIdentityText 判变化——
+  //   她改了底线，身份哈希不变，注入永远不刷新（交接里点名的"真洞"）。底线的判据是"她自己写的"，
+  //   它属于身份，不属于会过期的简报；文件仍分开，注入时合成一块。
+  // 验证：改底线后 buildIdentityText 文本变化 → soulMarkHash 变化 → 下一次 ensureNativeSession 重发设定；
+  //   不动底线时输出与旧版逐字一致（回归/基线不许变）。
+  try {
+    const bl = bottomlineBrief(role)
+    if (bl) parts.push(`## 你的底线\n${bl}`)
+  } catch { /* 读不到底线不算设定变化，但别让它把注入弄崩 */ }
   return parts.join('\n\n')
 }
 
@@ -223,31 +307,100 @@ export function buildIdentityText(role = 'dayu', scene = 'desk') {
  * 拼当前场景要注入的全文：卡 + 记忆（只工作台）+ 通道说明 + 主人要求。
  * role 缺省 dayu，scene 缺省 desk，保持旧调用能跑。
  */
-export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userId = '' } = {}) {
+// 改｜2026-11-10 19:5x｜大鱼·主代理（整合）｜授权：老板（本次任务书：开子代理都做）｜lib/soul.js:264｜buildSceneText 多一个 wake 开关并透传给 running brief｜为什么：醒来那段的去重标记会被"只是量一下"的调用方（inject-budget / 桌面 /soul）消费掉，导致她真的醒来时那段已被吃掉｜验证：check-parity 不红；test-wake-brief 6 条全过；wake:false 时 wake-mark.json 不变｜可改：可改（默认 true，不改语义）
+export function buildSceneSegments(role = 'dayu', scene = 'desk', { task = '', userId = '', wake = true, sessionId = '' } = {}) {
+  // 2026-11-17 老板：未绑卡会话/工作台没有角色，注入不能因此报错、也不能只按某个角色过滤。
+  // 身份仍用默认常驻角色（不然没卡可读），但检索范围落到 workbench 公共层。
+  const requestedRole = String(role ?? '').trim()
+  const noRole = !requestedRole
+  if (noRole) role = 'dayu'
   // 兼容旧调用 buildSceneText('desk')
   if (!soulRoles().includes(role) && Object.hasOwn(SCENE_LABEL, role)) {
     scene = role
     role = 'dayu'
   }
+  // 查询范围：本角色 + workbench；无角色/显式 workbench 只查 workbench 公共层。
+  const scopeRole = (noRole || requestedRole.toLowerCase() === WORKBENCH_ROLE) ? WORKBENCH_ROLE : role
   if (!Object.hasOwn(SCENE_LABEL, scene)) throw new TypeError('未知场景：仅允许工作台、QQ、B站场景键')
   const character = getCharacter(role)
   // 没点化/已收回：不注入。她只是一张卡，还不是"活着的她"。
-  if (!isAwake(role)) return ''
+  if (!isAwake(role)) return []
   const persona = readPersona()
   const card = readCard(role, scene === 'qq' || scene === 'social' ? 'social' : 'desk')
-  if (!card && !persona?.brief) return ''
+  if (!card && !persona?.brief) return []
 
-  const parts = []
+  const parts = new SegText('soul')
   // 2026-10-30：拼块失败不许静默——少一段就是少一段，她得知道自己少读了什么。
   const missing = []
   const part = (name, fn) => {
-    try { const t = fn(); if (t) parts.push(t) } catch (e) { missing.push(`${name}（${String(e?.message || e).slice(0, 40)}）`) }
+    try { const t = fn(); if (t) parts.push(t, name) } catch (e) { missing.push(`${name}（${String(e?.message || e).slice(0, 40)}）`) }
   }
   // 鱼神的规矩：三条铁律 + 宪章 + 岗位——每轮都在，不靠她主动查
+  // 2026-11-02：规矩块里的白话已收成七句口令（lib/motto.js），注入里只放成语那一行。
   part('规矩', () => rulesBlock(role, { task }))
   parts.push(`## 你是谁（${character.name} · 本体卡，所有通道共用）`)
   const cardText = card ? card.text.trim() : String(persona.brief || '').trim()
-  parts.push(cardText)
+  // 2026-11-05 老板：「注入真是长的不行」——卡也按需：每轮只带常驻那几节，
+  // 其余（梗/好感/权限明细）留在卡文件里，给她一行指针，要用自己翻。
+  const CARD_SKIP = /^## (?:第?[〇一二三四五六七八九十\d]+、)?(?:梗与网感|我心里也有杆秤|好感|我能改什么)/
+  const slimCard = (() => {
+    if (!card) return cardText
+    const blocks = String(cardText).split(/(?=^## )/m)
+    const kept = []
+    const dropped = []
+    for (const b of blocks) {
+      if (CARD_SKIP.test(b)) { dropped.push((b.split('\n')[0] || '').replace(/^## /, '').trim()); continue }
+      kept.push(b)
+    }
+    if (!dropped.length) return cardText
+    return `${kept.join('')}\n\n…（卡里还写着：${dropped.join('、')}——按需取，要用直接读卡文件，别凭印象。）`
+  })()
+  parts.push(slimCard)
+  // 2026-11-10 主代理（注入分层）：底线进「我是谁」这一块（卡写正向、底线写负向），
+  // 文件仍分开（她自己改底线不碰卡）。原来这段在 brief.js 里，撤掉后如果这里不补，
+  // 底线就等于**从注入里消失**了——buildIdentityText 只拿来算哈希，不直接注入。
+  // 所以：身份层里拼一次（这里），哈希里也算一次（buildIdentityText），两边同源。
+  try {
+    const bl = bottomlineBrief(role)
+    if (bl) parts.push(`## 你的底线\n${bl}`)
+  } catch { /* 读不到底线不影响注入 */ }
+  // 2026-11-03 老板：「被调用的要有」——卡被按标签注入时留一条痕（同分钟同场景只一条）。
+  try { logUse({ source: card?.path || 'persona.brief', role, scene, tags: card?.tags || [], purpose: '注入本体卡' }) } catch { /* 记不上不影响注入 */ }
+
+  // 2026-11-04 老板：最近发生的优先注入上下文。工作台原来只带卡+规矩+简报，一条记忆都不带——
+  // 结果是在工作台里她"只记得会话里说过的"，会话一 compaction 就断。这里补 3 条（最新 1 + 重要 2），约 200 字。
+  // 2026-11-07（融合第 1 步）：desk 把「这一趟要干什么」当线索传给记忆选取，换说法也能捞到旧事；
+  // 手机端先不传（手机注入会落进会话历史，联想错了会留痕），等一周验证再说。
+  // 2026-11-10：下面「你的记忆」还会带一条“最近说过的”，和这里同源——先算一次、留 key，那边去掉重复。
+  const pickedForInject = (() => {
+    try {
+      // 2026-11-21：她现在的心情方向（-1..1）；同情绪的事稍微靠前，只加一点点。
+      const moodValence = (() => { try { return Math.max(-1, Math.min(1, (Number(moodOf(role)) - 50) / 50)) } catch { return null } })()
+      const base = pickForInject(role, { n: 3, cue: isMobile() ? '' : task, moodValence }) || []
+      // 2026-11-15：新卡也自动联想——当前这句话当线索，只补 1–2 张，不轮询全库。
+      const seen = new Set(base.map((p) => String(p.turnId || p.text || '')))
+      const extra = (!isMobile() && String(task || '').trim().length >= 4)
+        ? (() => { try { return findCards(task, { limit: 2, rings: 0, dedupe: true, role: scopeRole }) } catch { return [] } })()
+          .filter((h) => h.turnId && !seen.has(String(h.turnId)) && String(h.snippet || '').trim())
+          .map((h) => ({ text: String(h.snippet).slice(0, 140), turnId: h.turnId, layer: h.layer, source: '新卡自动联想' }))
+        : []
+      // 2026-11-21：自动联想也落一笔注入账，供审计“到底用了没有”。
+      if (extra.length) { try { logInjection({ role, kind: 'auto', items: extra.map((h) => ({ key: h.turnId, text: h.text })) }) } catch { /* 记账失败不挡注入 */ } }
+      return [...base, ...extra]
+    } catch { return [] }
+  })()
+  const pickedKeys = new Set(pickedForInject.map((p) => String(p.text || '').replace(/\s+/g, '').slice(0, 30)))
+  // 2026-11-21：一页“现在”——换会话第一句就能接上，不靠检索猜。
+  // 放在规矩块之外（否则会被算进规矩块，量尺会报超上限）。
+  part('现在', () => buildNowPage(role, { task, sessionId }))
+  // 2026-11-24：我最近记得的自己（做过/学到/有印象的瞬间）——我自己的话，不是事实。
+  part('我最近记得的自己', () => selfMemoryBlock(role))
+  // 2026-11-21 老板：图书馆的定义说过不止一次——定义类要摆到眼前，聊到相关话题时出现，最多 5 条。
+  part('长期决定', () => buildDefinitionsBlock(task))
+  part('最近记得的', () => {
+    if (!pickedForInject.length) return ''
+    return ['## 最近记得的（最新 1 + 重要 2，不是全量）', ...pickedForInject.map((p) => `- ${p.text}`)].join('\n')
+  })
 
   parts.push(residentAutonomyBlock())
   parts.push([
@@ -255,7 +408,7 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userI
     // 2026-10-31 自净：原来 9 行，其中"只有一个自己/哪个应用都是你/换应用不失忆"卡 §十五 已经说过，
     // "规矩是边界不是路线"简报里另有「越线权」一节——同一件事说了三遍。只留卡和简报里没有的部分。
     '- 档案在本体，不在应用里。',
-    '- 遇到两难先别动手：说清在纠结什么、有哪几个选项、你选哪个、什么会让你改主意；重要的会被留档。',
+    '- 遇到两难先别动手：说清在纠结什么、有哪几个选项、你选哪个、什么会让你改主意。',
     '- 想找老板就用 yushen_ask；找不找、什么时候停，你定。',
     '- 遇到不对劲（乱码、报错、对不上），先自己查；能修就修，修不了留证据再问。',
     '- 你和老板的对话记在 `~/.dsh/dayu/story/`，好奇可以翻。',
@@ -263,22 +416,72 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userI
 
   // 她的运行层：回场、礼物、议程、自我、底线——一份简报，任何通道共用（中枢）。
   // 别在这里各拼一套，拼出来必然和 QQ/B站 那边不一样。
-  part('运行简报', () => buildRuntimeBrief(role, { channel: scene, userId })?.text)
+  part('运行简报', () => buildRuntimeBrief(role, { channel: scene, userId, wake })?.text)
 
   const isDesk = ['desk', 'workbench', 'workspace'].includes(scene)
+  // 先给她“最近发生什么”的目录，不塞整段；要细节按原文 ref 展开。
+  if (isDesk) {
+    // 别人显式分享的经验：带作者，只读；不改作者、不冒充自己的。
+    part('别人分享的经验', () => {
+      try {
+        const rows = sharedExperiences(role, scopeRole)
+          .filter((r) => String(r.authorRole || r.role || '') && String(r.authorRole || r.role || '') !== role)
+          .filter((r) => r.visibility === 'shared' || r.visibility === 'public')
+          .slice(-2)
+        if (!rows.length) return ''
+        return `## 别人分享的经验（带作者）\n${rows.map((r) => {
+          const who = String(r.authorRole || r.role || '别人')
+          const head = stripForInject(String(r.head || r.detail || '')).replace(/\s+/g, ' ').trim().slice(0, 120)
+          return `- [${who}] ${head}`
+        }).join('\n')}\n这些是他们的经验，不是你的；用不用自己判断。`
+      } catch { return '' }
+    })
+  }
+  if (isDesk) {
+    // 心跳提前准备的小包：只注入一次，之后清掉；没有就不出现。
+    part('上次走后', () => consumeNextSession(role).text)
+    // 台账提醒只走 agent/pre-step（带 sessionId），这里不再全局抢一条；否则别的会话旧账会插进本会话。
+    part('最近发生的事', () => {
+      try {
+        const eps = recentEpisodesForInject(role, { limit: 2 })
+        if (!eps.length) return ''
+        const lines = eps.map((ep) => {
+          const kind = ep.domainKind === 'life' ? '[生活] ' : ep.domainKind === 'work' ? '[工作] ' : ep.domainKind === 'mixed' ? '[生活/工作] ' : ''
+          const label = kind + stripForInject(String(ep.label || '')).replace(/\s+/g, ' ').trim().slice(0, 160)
+          const thought = stripForInject(String(ep.inner?.thoughts?.[0]?.text || '')).replace(/\s+/g, ' ').trim().slice(0, 90)
+          return thought ? `- ${label}\n  当时：${thought}` : `- ${label}`
+        }).filter(Boolean)
+        return lines.length
+          ? `## 最近发生的事（目录，不是全文）\n${lines.join('\n')}\n要细节按原文查，不凭印象补。`
+          : ''
+      } catch { return '' }
+    })
+    // 改｜2026-11-16 20:22｜大鱼·子会话（实现代理）｜授权：父代理任务书（2026-11-16：分身汇报进工作台注入）｜lib/soul.js:396-416｜在「最近发生的事」之后加 part('分身在做什么')，只读汇报、最多 2 条、没有就不出现｜为什么：分身汇报只落盘就进不了注入，主体会把分身干的事当成自己亲历的｜验证：node scripts/test-subagent-brief.mjs 全过；buildSceneText('dayu','desk') 在临时家里能拼出这一段、没有汇报时整段不出现｜可改：可改；位置（最近事件之后）与「最多 2 条」是任务书定的，要改先问
+    // 2026-11-16：分身做的事单列一段——它和「最近发生的事」长得很像，混在一起她就会当成自己亲历的。
+    // 只给目录（最多 2 条），不给子代理的 inner；没有汇报时整段不出现。
+    part('分身在做什么', () => buildSubagentBrief(role, { limit: 2 }))
+    // 软件心跳：维护/备份/事件目录有明显不对才出现一句；没毛病不刷“正常”。
+    part('软件状态', () => buildSystemBrief().text)
+  }
   // 三个人都要知道「有这么一份共享参考」——知道存在，不等于抄进记忆，也不等于亲历。
   const shared = sharedBlock()
   if (shared) parts.push(shared)
   // 神念：一直记着，但不把内容硬塞给她；看不看、看多细，她自己定。
   part('神念', () => {
     const idx = awarenessIndex()
-    return idx.count ? '## 神念（一直记着，不强制看）\n软件里的事本地都有记录（最近 ' + idx.count + ' 条）。想看用 yushen_look（headline 只报时间、skim 看摘要、read 看正文），不看也行；好奇我们在聊什么就来看。' : ''
+    // 2026-11-02 凝实：同一句「看不看随你」说过三遍，收成一行；腾出来的字给即时层。
+    return idx.count ? '## 神念（一直记着，不强制看）\n软件里的事本地都有记录（最近 ' + idx.count + ' 条）。想看用 yushen_look；不看也行。' : ''
   })
   if (role === 'xiaoyu' && isDesk) {
     // 她的卡原本是 QQ 口吻；工作台只借内核，不把群规和客服腔搬进来。
     parts.push('## 场景提醒\n这张卡里关于 QQ 群、群友、群规的话只在 QQ 通道适用；工作台上按同一个内核做你自己的那摊（看板、日报、图库、学习），不用客服口吻，也不用装乖。')
   }
   if (isDesk) {
+    // 2026-11-10 融合：身份段从简报搬回身份区（desk 才带；QQ 轻装本来就不带，行为不变）。
+    part('安全与权限', () => safetyBlock())
+    part('契约', () => contractBlock(role))
+    // 2026-11-11 老板：做法账本常驻工作区——只给入口和触发条件，不展开内容。
+    part('做法账本', () => skillsLine(role))
     // 记忆：只带最近的 + 一句「怎么翻」，旧的按需取。
     // 以前整本每轮注入（40 条习惯 + 33 条关系 + 12 条事件 ≈ 3400 字，占她每轮读的五分之一）；
     // 现在带最近 3 件做过的事 + 2 条关系，剩下的她自己按词翻（yushen_self action=memory）。
@@ -295,6 +498,8 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userI
       // 2026-11-01 主人：记忆分重要/不重要。注入只挑 core/important（和 pinned），
       // 日常的 normal 不进每轮——要翻用 yushen_self action=memory。
       const usable = (mem.events || []).filter((ev) => String(ev?.text || '').trim().length >= 20)
+        // 2026-11-10：已经在「最近记得的」里出现的那条，这里不再带第二遍（同一条记忆不占两个位置）。
+        .filter((ev) => !pickedKeys.has(String(ev?.text || '').replace(/\s+/g, '').slice(0, 30)))
       const weighted = usable.filter((ev) => ev?.pinned || ev?.tier === 'core' || ev?.tier === 'important')
       // 有重要的就只带一条；没有才退回最近两条。轻装上阵：宁可少带，让她自己翻。
       // 2026-11-01 主人：重要的带 3 条（原来只 1 条，等于没带）。
@@ -312,8 +517,7 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userI
         lines.push(`最近的关系：\n${recentDyn.map((v) => `- ${clip(v, 50)}`).join('\n')}`)
       }
       // 2026-11-02：这行并入下面的大纲行，省 40 字/角色。
-      lines.push('大纲：soul/memory/大纲.md；翻自己记忆的路：yushen_self action=memory 按词查、action=map 看标题。')
-      lines.push('同一份记忆不分通道；没核实的不当事实。')
+      lines.push('大纲：soul/memory/大纲.md；记忆不分通道。翻：yushen_self action=memory 按词查、action=map 看标题。')
       // 硬预算兜底：整块 > 820 字就砍（先砍摘要到 0，再砍到 1 条），不靠人记得收。
       if (lines.join('\n').length > 820) {
         lines[1] = '摘要：（太长，按词查：action=memory）'
@@ -322,9 +526,85 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userI
           lines[2] = `最近说过的（原话）：\n- [${String(one[0].channel || '通道')}] ${clip(one[0].text)}`
         }
       }
+      // 2026-11-02 主人：刚才那几句——今天刚说过的，取自查手抄本（所谓「即时层」就是查手抄本，不新建存储）。
+      // 2026-11-10：别叫它「即时层」了，会和四层分类里的「即时」撞名；它就是「刚才（手抄本）」。
+      // 放在预算判断之后：整块 + 刚才 ≤ 820，超了宁可不带，也不许把记忆块撑回旧体积。
+      const instant = instantBlock(role, scene, { limit: 3, budget: 70 })
+      if (instant && lines.join('\n').length + instant.length + 1 <= 820) lines.push(instant)
       parts.push(lines.join('\n'))
     }
   }
+
+  // 2026-11-03 老板：三重热档接进注入——钉子（不淘汰）+ 余温（时间优先），预算 140 字。
+  try {
+    const hot = hotText(projectHot({ role }), 50)
+    if (hot) parts.push(hot)
+  } catch { /* 热档坏了不影响注入 */ }
+
+  // 2026-11-03 老板：待确认单——他回了一句，先把单关掉再说改了什么，别静默。
+  // 2026-11-03 晚：整条路（开单/关单/注入）没人写、永远是空，按老板「没用的就删掉」整条移除。
+
+  // 2026-11-03 老板 + B站评论：分歧是一等对象——只渲染这条分歧（原话 + 各自时间），卡本体不进热档。
+  try {
+    const dv = listDivergences({ role, status: 'open', limit: 1 })
+    if (dv.length) {
+      const block = renderDivergence(dv[0])
+      if (block) parts.push(block)
+    }
+  } catch { /* 分歧块坏了不影响注入 */ }
+
+  // 2026-11-03 老板：有人（QQ 那边的小鱼/群友）给我留了话，先看信箱再动手。预算 20 字。
+  try {
+    const letters = readLetters({ to: 'dayu', n: 3 })
+    if (letters.length) {
+      const raw = letters.slice(-1)[0].replace(/^-\s*/, '')
+      const tail = (raw.split('｜').pop() || raw).trim().slice(0, 34)
+      parts.push('## 信箱有人留言\n' + '· ' + tail)
+    }
+  } catch { /* 信箱读不到不影响注入 */ }
+
+  // 2026-11-06：待确认队列（先按默认做，不阻塞；老板有不同意见再改）
+  try {
+    const pend = listDecisions({ role, limit: 2 })
+    if (pend.length) {
+      const lines = pend.map((p) => `· ${String(p.question).slice(0, 30)}（默认：${String(p.fallback).slice(0, 16)}）`)
+      parts.push('## 待确认（先按默认做，不阻塞）\n' + lines.join('\n'))
+    }
+  } catch { /* 待确认坏了不影响注入 */ }
+
+  // 2026-11-03 老板：工作记忆——正在做 / 卡住 / 等别人 + 常用作业在哪，预算 120 字。
+  try {
+    const work = workText(projectWork({}), 70)
+    if (work) parts.push(work)
+  } catch { /* 工作记忆坏了不影响注入 */ }
+
+  // 2026-11-03 老板：「互相之间不知道」——别的分身最近 12 小时做过的事，摆在眼前（源：共用 worklog）
+  try {
+    const me = String(process.env.DSH_SESSION_ID || '')
+    const wl = path.join(HOME, 'dayu', 'worklog.jsonl')
+    if (fs.existsSync(wl)) {
+      const rows = fs.readFileSync(wl, 'utf8').split('\n').filter(Boolean)
+        .map((l) => { try { return JSON.parse(l) } catch { return null } })
+        .filter(Boolean)
+        .filter((r) => Date.now() - new Date(r.at).getTime() < 12 * 3600e3)
+        .filter((r) => !me || !r.session || r.session !== me)   // 有 session 就排除自己
+        .slice(-2)
+      if (rows.length) {
+        const lines = rows.map((r) => `- ${String(r.by || '').slice(0, 6)}：${String(r.what || '').slice(0, 40)}`)
+        parts.push('## 别的分身最近做过什么\n' + lines.join('\n'))
+      }
+    }
+  } catch { /* 读不到不占地方 */ }
+
+  // 2026-11-02：上下文快满时，把提醒顶到眼前（1 小时内有效）——她自己会说出来。
+  try {
+    const cf = path.join(HOME, 'dayu', 'runtime', 'context-notice.json')
+    if (fs.existsSync(cf)) {
+      const n = JSON.parse(fs.readFileSync(cf, 'utf8').replace(/^\uFEFF/, ''))
+      const ageMin = (Date.now() - new Date(n.at).getTime()) / 60000
+      if (ageMin >= 0 && ageMin < 60 && n.line) parts.push('## 现在该跟主人说一句\n' + n.line)
+    }
+  } catch { /* 提醒坏了不影响注入 */ }
 
   // 2026-11-02 第 4 层记忆：他说"还记得/上次"时，系统自动翻到的旧事顶到眼前（1 小时内有效）。
   // 不常驻：没有触发就不占一个字。
@@ -335,9 +615,9 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userI
       const ageMin = (Date.now() - new Date(hint.at).getTime()) / 60000
       if (ageMin >= 0 && ageMin < 60) {
         const lines = ['## 他刚问起旧事（系统替你翻到的，直接用，别说"我去查"）']
-        for (const h of (hint.hits || []).slice(0, 3)) {
-          const src = [h.kind, h.role, h.file ? h.file + ':' + h.line : ''].filter(Boolean).join('·')
-          lines.push(`- [${src}] ${String(h.text || '').replace(/\s+/g, ' ').slice(0, 90)}`)
+        for (const h of (hint.hits || []).slice(0, 2)) {
+          const src = [h.kind, h.role].filter(Boolean).join('·')
+          lines.push(`- [${src}] ${String(h.text || '').replace(/\s+/g, ' ').slice(0, 34)}`)
         }
         lines.push('引用时带来源；找不到就直说没找到。')
         parts.push(lines.join('\n'))
@@ -379,7 +659,14 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userI
     // 2026-10-31 自净：把「你能用的东西」那节的四个数字并到这里，删掉那一节。
     let capCounts = ''
     try { capCounts = capmapCounts() } catch { /* 读不到就不报数，不影响说话 */ }
-    parts.push('## 你手边有什么\n' + capCounts + '常用：`yushen_self`（记忆/状态）· `yushen_inbox`（收发件）· `yushen_agenda`（议程）· `yushen_can`（能力表）· `yushen_tools`（搜/调工具）· `dayu_dispatch`（派活）· `dayu_live`（在不在跑）· `yushen_handbook`（自己的手册）。不确定有没有工具能做某事，先 `yushen_tools search "想干的事"`；查到用 `call` 直接调。**找文件**：`node scripts/find-things.mjs <关键词>`（入口见 `找东西.md`）。')
+    // 2026-11-04 老板：「注入长的不行」。8 个工具逐一列（330 字）压成一行路标——
+  // 真要找，`yushen_tools search` 比背清单准；顺带修掉写错的 `yushen_handbook`（真名 index/recall）。
+  // 2026-11-05 手机端：派活在手机上结构性不通，改走群入口（2026-11-17 起群入口也已撤）；find-things 是电脑脚本，手机不列。
+  // 2026-11-17 老板：群/信箱的用户入口撤除（只撤入口，消息账与群桥照旧），这份清单不再列它们。
+  const handLine = isMobile()
+    ? '`yushen_self`（记忆/状态）· `yushen_agenda`（议程）· `yushen_can`（能力表）· `yushen_tools`（搜/调工具）· `dayu_live`（在不在跑）· `yushen_handbook`（自己的手册）。群/信箱入口已撤，消息账仍在后台；不确定有没有工具能做某事，先 `yushen_tools search "想干的事"`；查到用 `call` 直接调。'
+    : '找工具：`yushen_tools action=search` → `call`；能力表 `yushen_can`；找文件 `node scripts/find-things.mjs <关键词>`。'
+  parts.push('## 你手边有什么\n' + capCounts + handLine)
   }
 
   // 2026-10-31 自净：原来这行把「只是通道、不换人格」又说了一遍——卡七和「本体与通道」各说过一次。
@@ -390,41 +677,14 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userI
   if (missing.length) parts.push(`## 这一段没拼出来\n${missing.join('、')}——这是拼的时候出错了，不是「没有」。要查就从这几个名字下手。`)
 
   let text = parts.join('\n\n')
-  // 2026-10-30 谷时：先按"预算"瘦身，再按"硬上限"截断。
-  // 瘦身只动"附录型"小节的卡（梗/同类/称呼/技术问题/图/积压/改话术/姐姐对比/谁在拿手机），
-  // 一、你是谁 / 二、说话风格 / 三、性格 / 五、主人 / 九、说不说 / 十四、权限 一律不动。
-  const BUDGET = 11500
-  const CARD_DROP = /^## (四、梗|七、同类|八、称呼差别|十、技术问题|十一、图|十二、积压|十三、改自己|十六、姐姐|六、谁在拿手机)/
-  const stripOptionalCard = (s) => {
-    const blocks = String(s).split(/(?=^## )/m)
-    const kept = blocks.filter((b) => !CARD_DROP.test(b))
-    return kept.length === blocks.length ? s : kept.join('')
-  }
-  // 2026-10-31 自净：工作台是 1:1 跟老板说话，卡里「九、说不说」「十七、回复示例」是群里那套，
-  // 每轮白背近一千字。按场景裁——只裁这两节，persona 本体一个字不动。
-  const DESK_ONLY_DROP = /^## (九、说不说|十七、回复示例)/
-  const isDeskScene = ['desk', 'workbench', 'workspace'].includes(String(scene))
-  const stripDeskOnly = (s) => {
-    const blocks = String(s).split(/(?=^## )/m)
-    const kept = blocks.filter((b) => !DESK_ONLY_DROP.test(b))
-    return kept.length === blocks.length ? s : kept.join("")
-  }
-  if (isDeskScene) {
-    const idx0 = parts.indexOf(cardText)
-    if (idx0 >= 0) { const slim = stripOptionalCard(stripDeskOnly(cardText)); if (slim !== cardText) parts[idx0] = slim }
-    text = parts.join('\n\n')
-  }
-  if (text.length > BUDGET) {
-    const idx = parts.indexOf(cardText)
-    if (idx >= 0) {
-      const slim = stripOptionalCard(cardText)
-      if (slim.length < cardText.length) {
-        parts[idx] = `${slim}\n…（附录型小节本轮没带；完整原文在卡文件里）`
-        text = parts.join('\n\n')
-      }
-    }
-  }
-  if (text.length > MAX_CHARS) {
+  // 2026-11-03（老板批注：卡写进去却读不到）：原来这里有两道写死裁剪——
+  //   CARD_DROP（四、梗/七、同类/八、称呼/十、技术/十一、图/十二、积压/十三、改话术/十六、姐妹/六、谁在拿手机）
+  //   DESK_ONLY_DROP（九、说不说/十七、回复示例，工作台不读）
+  // 它们是"卡太长"的止痛药：卡一超预算就先砍这几节，连「姐姐 vs 妹妹」这种判断节也被砍。
+  // 现在三张卡都瘦到 4,000 字以内（大鱼 3,991 / 小鱼 2,108 / 照微 1,566），**整张卡都进注入**，
+  // 两道裁剪一并拆掉；只剩下面 MAX_CHARS 这道硬上限兜底（真超了会明说）。
+  const MAX_SAFE = MAX_CHARS
+  if (text.length > MAX_SAFE) {
     // 超了先压角色卡（最大的一块），保住后面的记忆、状态、通道段。
     // 上限是硬边界：不再靠临时抬高阈值让测试变绿，超了就在这里裁。
     const over = text.length - MAX_CHARS
@@ -435,11 +695,24 @@ export function buildSceneText(role = 'dayu', scene = 'desk', { task = '', userI
       text = parts.join('\n\n')
     }
   }
-  if (text.length > MAX_CHARS) text = `${text.slice(0, MAX_CHARS)}\n…（超出 ${MAX_CHARS} 字，已截断；完整原文在卡文件里）`
+  let segs = parts.segments()
+  if (text.length > MAX_CHARS) {
+    text = `${text.slice(0, MAX_CHARS)}\n…（超出 ${MAX_CHARS} 字，已截断；完整原文在卡文件里）`
+    // 截断之后段落边界跟原文对不上了：只留一段"被截断的全文"，别假装还能按段取。
+    segs = [seg('soul:overflow', text, { from: 'soul.js:超长截断' })].filter(Boolean)
+  }
   // 每拼一次注入＝她"在场"了一次。这是礼物一（时间）的写入端：
   // 回场简报靠它算"离开了多久"，只在翻收件箱时写会永远算不出来。
   try { markSeen(role, { channel: scene }) } catch { /* 记不上不影响说话 */ }
-  return text
+  return segs
+}
+
+/**
+ * 拼当前场景的注入全文。**行为与旧版逐字节一致**：段协议只给每段贴名字，不改内容/顺序/字数。
+ * 2026-11-11（段协议）：实现搬到 buildSceneSegments，这里只负责 join——分隔符仍是 '\n\n'。
+ */
+export function buildSceneText(role = 'dayu', scene = 'desk', opts = {}) {
+  return joinSegments(buildSceneSegments(role, scene, opts), '\n\n')
 }
 
 export function soulStatus(role = 'dayu') {

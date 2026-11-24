@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-recap
+ * kind: module
+ * summary: 本体 → 通道：把「她本体最近做了什么」放一份到桥能看见的地方
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: buildRecap / writeRecap（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 本体 → 通道：把「她本体最近做了什么」放一份到桥能看见的地方。
 //

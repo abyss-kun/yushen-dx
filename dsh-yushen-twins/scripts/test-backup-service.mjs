@@ -16,7 +16,7 @@ process.on('exit', () => { if (previous === undefined) delete process.env.DSH_HO
 test('portable defaults and strict config validation in isolated HOME', () => {
   const config = readBackupConfig()
   assert.equal(config.enabled, true)
-  assert.equal(config.intervalMs, 600000)
+  assert.equal(config.intervalMs, 1800000)
   assert.equal(config.maxFileBytes, 64 * 1024 * 1024)
   assert.equal(config.store, path.join(home, 'dayu', 'protection', 'store'))
   assert.equal(config.roots[0].id, 'plugin')

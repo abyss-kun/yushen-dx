@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-issue
+ * kind: module
+ * summary: 手册发放：她们是签发的人——发什么、发给谁、什么任务、到什么时候，都留底
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: staleCodeLine / issueHandbook / activeIssuanceFor / listIssued（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 手册发放：她们是签发的人——发什么、发给谁、什么任务、到什么时候，都留底。
 //

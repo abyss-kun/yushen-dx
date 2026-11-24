@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-detect-roles
+ * kind: module
+ * summary: 装之前先认人：这台机器上已经有哪些角色；只读，按名册→卡目录→旧 persona→别家插件的顺序判。
+ * tags: 角色识别, 只读, 装机前
+ * created: 2026-11-11 01:20:00
+ * changed: 2026-11-11 01:20:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 装新角色的人、维护者
+ * owner: 框架；**只读，不改任何文件**
+ * mutable: 可改判定顺序与来源；只许更准
+ * usage: detectRoles() → 已存在的角色与来源（可靠度排序）
+ * why: 装第二遍会覆盖别人已有的人设
+ * result: 一份只读的"这台机器上有谁"
+ */
 // 装之前先认人：这台机器上已经有哪些角色。
 // 只读，不改任何文件。判定按可靠性排序：名册 → 卡目录 → 旧版 persona → 别家插件。
 import fs from 'node:fs'

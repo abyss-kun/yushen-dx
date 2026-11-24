@@ -18,9 +18,11 @@ import { pathToFileURL, fileURLToPath } from 'node:url'
 
 const P = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
-const store = path.join(HOME, 'dayu', 'protection', 'store')
-const snapsDir = path.join(store, 'snapshots')
 const cfg = JSON.parse(fs.readFileSync(path.join(HOME, 'dayu', 'protection', 'config.json'), 'utf8').replace(/^\uFEFF/, ''))
+// 2026-11-08 修：以前把 store 写死在家目录，备份库搬到 D 盘后就「看不到任何快照」——
+// 现在跟配置走，配置没写才退回老位置。
+const store = cfg.store || path.join(HOME, 'dayu', 'protection', 'store')
+const snapsDir = path.join(store, 'snapshots')
 
 const arg = (name) => {
   const i = process.argv.indexOf(`--${name}`)

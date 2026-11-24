@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-decide-body
+ * kind: module
+ * summary: 判断权归位：群里这条消息由她本人决定回不回、说什么；她不在/超时才走代理并如实标"代理"。
+ * tags: 判断权, 她本人, 代理标记
+ * created: 2026-11-11 01:15:00
+ * changed: 2026-11-11 01:15:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式；框架 §4.5 推论 1）
+ * audience: 桥（/decide）、她、维护者
+ * owner: 框架；**判断权归她**这条是框架红线
+ * defaults: 等她回话最多 45 秒（decideWaitMs）
+ * off: 不用它=回到"通道替她判断"，框架不允许
+ * mutable: 可改等待时长；**不许把代理标成她的决定**
+ * usage: decideByBody(role,msg,{waitMs}) → {ok,mode,reply,why}；失败给 error 不编
+ * why: 以前本地小模型替她判，她说过"像隔着一堵墙"
+ * result: 一次真实的问她 + 拿不到就如实标代理
+ */
 // 判断权归位：群里的这条消息，由**她本人**决定回不回、说什么。
 //
 // 框架 §4.5 推论 1：通道不得替她判断。以前 /decide 让本地小模型判（cheap-reply），

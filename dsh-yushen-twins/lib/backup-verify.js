@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-backup-verify
+ * kind: module
+ * summary: 备份验证：五层备份还在不在、新不新、能不能解——一次查完，结论可落盘到 档案/备份验证。
+ * tags: 备份验证, 五层, 体检
+ * created: 2026-11-11 01:05:00
+ * changed: 2026-11-11 01:05:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 维护流程（脚本与 tick 共用）、面板、她
+ * owner: 框架；阈值与五层定义要老板点头
+ * mutable: 可改；**核心逻辑只许这一份**（脚本和 tick 都调它，不许再各写）
+ * usage: verify() → {ok, layers[], gaps}；脚本打印、tick 写档案
+ * why: 备份"看起来在"和"真能解"是两件事；两边各写一遍就会有一套先腐
+ * result: 一份验证逻辑 + 一处结论落盘
+ */
 // 备份验证：五层备份还在不在、新不新、能不能解——一次查完，结论还能落盘。
 //
 // 2026-10-31 从 scripts/verify-backup.mjs 抽出来的（原脚本原样搬，没改阈值）：
@@ -6,7 +22,7 @@
 //   核心逻辑只有这一份，两边都走它——不许再各写一遍。
 //
 // 查五样（阈值照 2026-10-31 定的口径）：
-//   1. 10 分钟快照：~/.dsh/dayu/protection/store/snapshots，超过 30 分钟报红
+//   1. 30 分钟快照：~/.dsh/dayu/protection/store/snapshots，超过 1.5 小时报红
 //   2. 小时档：<工作区盘>/鱼神备份/2026-10-31_123456，超过 3 小时报红
 //   3. 每天全盘：<工作区盘>/鱼神备份/FULL/…，超过 30 小时报红
 //   4. 第二块盘：<第二块盘>/鱼神备份/…，超过 30 小时报红
@@ -117,7 +133,17 @@ const newestSnapshot = (dir) => {
  *   ok      = 没红项（= 脚本退出码 0）
  */
 export function verifyBackup({ now = Date.now() } = {}) {
-  const snapshots = path.join(dayuHome(), 'protection', 'store', 'snapshots')
+  // 2026-11-08（照微）：快照库路径与节奏都不再写死——`protection/config.json` 里有 `store` 和
+  // `intervalMs`。今天 18:52 那份 config 把 store 移到 `D:\鱼神备份\内部快照\store`、节奏改成 1 小时，
+  // 写死的检查就报「目录不存在」，看着像丢了库——其实库好好的，是检查太旧。
+  const protCfg = (() => {
+    try { return JSON.parse(fs.readFileSync(path.join(dayuHome(), 'protection', 'config.json'), 'utf8').replace(/^\uFEFF/, '')) } catch { return {} }
+  })()
+  const storeRoot = protCfg.store ? path.resolve(String(protCfg.store)) : path.join(dayuHome(), 'protection', 'store')
+  const snapshots = path.join(storeRoot, 'snapshots')
+  const snapIntervalMin = Math.max(1, Math.round((Number(protCfg.intervalMs) || 600000) / 60000))
+  // 阈值给 3 个周期（错两轮不慌，错三轮才算断），但不少于 1.5 小时
+  const snapLimitH = Math.max(1.5, (3 * snapIntervalMin) / 60)
   const cloud = path.join(dayuHome(), '云备份')
   // 盘符一律从 paths.js 推，不写死（回归会红）。
   const hourly = offsiteDir()
@@ -138,16 +164,18 @@ export function verifyBackup({ now = Date.now() } = {}) {
     lines.push(`${mark} ${label}${detail ? '：' + detail : ''}`)
   }
 
-  // 1) 10 分钟快照：超过 30 分钟算断了
+  // 1) 30 分钟快照：超过 1.5 小时算断了（2026-11-03 老板把节奏从 10 分钟改成 30 分钟；
+  //    阈值放到 3 个周期：错两轮不慌，错三轮才算断）
   {
     const { ts, count } = newestSnapshot(snapshots)
+    const snapLabel = `每 ${snapIntervalMin} 分钟快照`
     if (!fs.existsSync(snapshots)) {
-      line(YELLOW, '10 分钟快照', `目录不存在（${snapshots}）`)
+      line(YELLOW, snapLabel, `目录不存在（${snapshots}）`)
     } else if (!ts) {
-      line(YELLOW, '10 分钟快照', `一份都没有（${snapshots}）`)
+      line(YELLOW, snapLabel, `一份都没有（${snapshots}）`)
     } else {
       const h = (now - ts) / HOUR
-      line(h > 0.5 ? RED : GREEN, '10 分钟快照', `${spread(ts)} 小时前（阈值 0.5 小时，共 ${count} 份）`)
+      line(h > snapLimitH ? RED : GREEN, snapLabel, `${spread(ts)} 小时前（阈值 ${snapLimitH} 小时，共 ${count} 份）`)
     }
   }
 
@@ -172,8 +200,19 @@ export function verifyBackup({ now = Date.now() } = {}) {
     } else if (!ts) {
       line(YELLOW, '每天全盘', `一份都没有（${full}）`)
     } else {
-      const h = (now - ts) / HOUR
-      line(h > 30 ? RED : GREEN, '每天全盘', `${spread(ts)} 小时前（阈值 30 小时，共 ${count} 份）`)
+      // 2026-11-05（照微）：maintenance 在「指纹没变」时只把 state 的 lastAt 往前推、**不落新目录**，
+      // 而这里只看目录年龄——内容明明没变也会一直报红（11-04 红了一轮，我手动补跑才好）。
+      // 判据改成「最近一次确认可用」：目录年龄 与 state.lastAt 取较新的那个，
+      // 前提是 state 指的那个目录真的还在（不然就是自欺）。
+      let eff = ts
+      try {
+        const st = JSON.parse(fs.readFileSync(path.join(dayuHome(), 'full-backup.json'), 'utf8'))
+        const at = Date.parse(st.lastAt || '') || 0
+        const dirOk = Boolean(st.dir) && fs.existsSync(st.dir) && fs.statSync(st.dir).isDirectory()
+        if (at > eff && dirOk) eff = at
+      } catch { /* 没有 state 就只按目录年龄 */ }
+      const h = (now - eff) / HOUR
+      line(h > 30 ? RED : GREEN, '每天全盘', `${spread(eff)} 小时前（阈值 30 小时，共 ${count} 份）`)
     }
   }
 
@@ -196,11 +235,21 @@ export function verifyBackup({ now = Date.now() } = {}) {
     if (!fs.existsSync(cloud)) {
       line(YELLOW, '云端镜像', `目录不存在（${cloud}）`)
     } else {
-      let files = []
-      try {
-        files = fs.readdirSync(cloud).filter((n) => /^记忆-.*\.tar\.enc$/.test(n))
-      } catch {
-        files = []
+      // 2026-11-05（照微）：云端镜像有两个可能的落点——老位置在 `dayu/云备份`，
+      // 而 `云备份.py` 按代码写的是 `<工作区>/云备份`。只认一个就会「明明有新的也说没有」
+      // （今天黄了 110 小时，就是只看了旧位置）。两边都看，取最新那份。
+      // 2026-11-09（照微）：又多了第二种名字——`scripts/backup-encrypted.mjs` 产的是
+      // `鱼神加密备份-YYYYMMDD-HHMM.tar.gz.enc`，落在 `<工作区>/备份/加密`。
+      // 只认 `记忆-*.tar.enc` 就会再一次「新的看不见」。名字和落点一起放宽。
+      const cloudDirs = [...new Set([cloud, path.join(workspace(), '云备份'), path.join(workspace(), '备份', '加密')])]
+        .filter((d) => { try { return fs.existsSync(d) } catch { return false } })
+      const found = []
+      for (const d of cloudDirs) {
+        try {
+          for (const n of fs.readdirSync(d)) {
+            if (/^(记忆-.*\.tar\.enc|鱼神加密备份-.*\.tar\.gz\.enc)$/.test(n)) found.push({ dir: d, name: n })
+          }
+        } catch { /* 读不动就跳过这个目录 */ }
       }
       // 名字里带 20261031-2235，能直接排出最新一份；排不出来退回 mtime
       const stampOf = (n) => {
@@ -210,30 +259,54 @@ export function verifyBackup({ now = Date.now() } = {}) {
         return new Date(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8), +hm.slice(0, 2), +hm.slice(2, 4)).getTime()
       }
       let newestName = ''
+      let newestFile = ''
       let newestTs = 0
-      for (const n of files) {
-        const t = stampOf(n) || fs.statSync(path.join(cloud, n)).mtimeMs
-        if (t > newestTs) { newestTs = t; newestName = n }
+      for (const { dir, name } of found) {
+        const t = stampOf(name) || fs.statSync(path.join(dir, name)).mtimeMs
+        if (t > newestTs) { newestTs = t; newestName = name; newestFile = path.join(dir, name) }
       }
 
-      if (!files.length) {
-        line(YELLOW, '云端镜像', `没有 记忆-*.tar.enc（${cloud}）`)
+      if (!found.length) {
+        line(YELLOW, '云端镜像', `没有 记忆-*.tar.enc（${cloudDirs.join(' | ') || cloud}）`)
       } else if (!newestTs) {
-        line(YELLOW, '云端镜像', `有 ${files.length} 份但时间读不出来`)
+        line(YELLOW, '云端镜像', `有 ${found.length} 份但时间读不出来`)
       } else {
         const h = (now - newestTs) / HOUR
         const stale = h > 30
-        const head = readHead(path.join(cloud, newestName), 8)
+        // 2026-11-09（照微）：两种包两个头——openssl 的 `Salted__`，和 `backup-encrypted.mjs`
+        // 自己封装的 `YSBK1`（scrypt + AES-256-GCM）。拿一个头去套两种包，必有一个假红。
+        const expectHead = /\.tar\.gz\.enc$/i.test(newestName) ? 'YSBK1' : CIPHER_HEAD
+        const head = readHead(newestFile, 8)
         const bytes = head ? head.toString('latin1') : ''
-        if (!head || head.length < 8) {
+        if (!head || head.length < 5) {
           line(RED, '云端镜像', `${newestName} 读不了文件头，没法确认能解（${spread(newestTs)} 小时前）`)
-        } else if (bytes !== CIPHER_HEAD) {
-          line(RED, '云端镜像', `${newestName} 文件头不是 ${CIPHER_HEAD}（读到 ${JSON.stringify(bytes)}），不是 openssl 加密（${spread(newestTs)} 小时前）`)
+        } else if (!bytes.startsWith(expectHead)) {
+          line(RED, '云端镜像', `${newestName} 文件头不是 ${expectHead}（读到 ${JSON.stringify(bytes.slice(0, 8))}），格式对不上（${spread(newestTs)} 小时前）`)
         } else {
-          line(stale ? YELLOW : GREEN, '云端镜像', `${newestName}，文件头 ${CIPHER_HEAD} 正常，${spread(newestTs)} 小时前（阈值 30 小时，共 ${files.length} 份）`)
+          line(stale ? YELLOW : GREEN, '云端镜像', `${newestName}，文件头 ${expectHead} 正常，${spread(newestTs)} 小时前（阈值 30 小时，共 ${found.length} 份）`)
         }
       }
     }
+  }
+
+  // 2026-11-09（照微）：老板 11-08 23:17 把自动备份关了（`backup-switch.json`: auto=false，写着
+  // 「重启不要自动备份」）。那之后这几层还按 3 小时报红，等于把「他关的」当成「坏了」——
+  // 红被当噪音看久了，真的坏了也没人信。自动备份关着时，这四项一律降成黄，并在详情里写明。
+  const autoOff = (() => {
+    try {
+      const sw = JSON.parse(fs.readFileSync(path.join(dayuHome(), 'backup-switch.json'), 'utf8').replace(/^\uFEFF/, ''))
+      return Boolean(sw && sw.auto === false)
+    } catch { return false }
+  })()
+  if (autoOff) {
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].startsWith(RED)) continue
+      if (!/快照|小时档|每天全盘|第二块盘/.test(lines[i])) continue
+      lines[i] = `${YELLOW}${lines[i].slice(RED.length)}（自动备份已关：backup-switch.json）`
+    }
+    tally.green = lines.filter((l) => l.startsWith(GREEN)).length
+    tally.yellow = lines.filter((l) => l.startsWith(YELLOW)).length
+    tally.red = lines.filter((l) => l.startsWith(RED)).length
   }
 
   const reds = lines.filter((l) => l.startsWith(RED))

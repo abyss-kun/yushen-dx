@@ -70,12 +70,26 @@ await check('upgrade: points the shortcut at the new version and archives the ol
   assert.ok(archived.some((n) => n.startsWith(oldHash)), 'old version should be under .old');
 
   const backups = (await fs.readdir(desktop)).filter((n) => n.includes('.lnk.bak-'));
-  assert.equal(backups.length >= 1, true, 'old shortcut should be backed up');
+  assert.equal(backups.length, 1, 'old shortcut should be backed up exactly once');
+  assert.equal(result.shortcutBackupsPruned, 0, 'nothing to prune on the first upgrade');
 });
 
 await check('upgrade: already up to date only repairs the shortcut', async () => {
   const result = await installer.autoUpgradeIfInstalled();
   assert.equal(result.skipped, 'up-to-date');
+  // 反复升级不许把 .lnk.bak-* 越堆越多（2026-11-02 桌面堆到 29 个）
+  const backups = (await fs.readdir(desktop)).filter((n) => n.includes('.lnk.bak-'));
+  assert.equal(backups.length, 1, 'repeated upgrades must keep only one shortcut backup');
+});
+
+await check('housekeeping: stale .lnk.bak-* are pruned, newest one survives', async () => {
+  for (const stamp of [1001, 1002, 1003]) await fs.writeFile(path.join(desktop, `${linkName}.bak-${stamp}`), 'stale');
+  const result = await installer.autoUpgradeIfInstalled();
+  const backups = (await fs.readdir(desktop)).filter((n) => n.startsWith(`${linkName}.bak-`));
+  assert.equal(backups.length, 1, 'only one backup may survive');
+  assert.equal(result.shortcutBackupsPruned, 4, 'three stale + the previous one should be pruned');
+  const kept = Number(backups[0].slice(`${linkName}.bak-`.length));
+  assert.ok(kept > 1003, 'the survivor must be the fresh backup, not a stale one');
 });
 
 await check('safety: a shortcut pointing elsewhere is never overwritten', async () => {
@@ -96,6 +110,6 @@ await check('first install: nothing installed -> auto upgrade does nothing', asy
 });
 
 console.log('');
-console.log(`Upgrade tests: ${4 - failures}/4 passed`);
+console.log(`Upgrade tests: ${5 - failures}/5 passed`);
 console.log(`fixture: ${root}`);
 if (failures > 0) process.exit(1);

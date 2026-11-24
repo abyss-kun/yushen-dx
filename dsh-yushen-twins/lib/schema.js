@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-schema
+ * kind: module
+ * summary: 数据版本与迁移：升级前先备份，迁移可重入；版本对不上不硬跑
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: uninstallPlan（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 数据版本与迁移：升级前先备份，迁移可重入；版本对不上不硬跑。
 // 数据：~/.dsh/dayu/schema.json · 备份：~/.dsh/dayu/backups/migrate-<时间>/
@@ -75,19 +86,30 @@ const STEPS = {
 
 /** 卸载前看看有什么；默认只看不删。
  *
- * 2026-10-28 修正：**角色卡不删**。卡是用户的财产，不是鱼神的数据——
- * 卸载只该拿走"鱼神给的那一层"（运行时、账本、补丁、会话），不该拿走人家写的卡。
- * keepInside 里的路径，卸载时会原样保留，并在计划里单独列出来。
+ * 2026-10-28：**角色卡不删**。卡是用户的财产，不是鱼神的数据。
+ * 2026-11-03 老板再定：**角色留下的经历也不动**——卸载只是"抽离鱼神本身"
+ * （收回点化 + 摘掉插件代码），卡、记忆、日记、信、书、板、承诺、会话原文、
+ * 账、额度，一律原样留着；下次装回来接着用。
+ * 真要连经历一起清掉，只能显式 `--wipe`（会先整包导出到 Documents）。
  */
-export const UNINSTALL_KEEP = Object.freeze(['soul/cards'])
+export const UNINSTALL_KEEP = Object.freeze([
+  'soul/cards',      // 角色卡（用户写的；单独列出来给断言和提示用）
+  'soul',            // 卡 + 记忆 + 人物 + 外观
+  'journal', 'diary', 'letters', 'board', 'story', 'ideas', 'library',
+  'mistakes', 'promises', 'records', 'conversations', 'live', 'events',
+  'experience', 'facts', 'relations', 'culture', 'nest', 'avatars', 'inbox',
+  'catalog', 'archive', 'runtime', 'state', 'sync', 'local', 'patches',
+  '记忆快照', '老板原话', '云备份',
+])
 
 export function uninstallPlan() {
+  // kind：data = 角色留下的东西（默认永不删，只有 --wipe 才动）；code = 插件代码（--all 才删）
   const items = [
-    ['她自己的数据（魂/账本/补丁）', path.join(DATA)],
-    ['小鱼的档案与会话', path.join(XIAOYU)],
-    ['插件代码', path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')],
+    ['她留下的东西（卡/记忆/日记/书/账/会话原文）', path.join(DATA), 'data'],
+    ['小鱼的档案与会话', path.join(XIAOYU), 'data'],
+    ['插件代码', path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), 'code'],
   ]
-  return items.map(([name, p]) => {
+  return items.map(([name, p, kind]) => {
     let size = 0
     const walk = (dir) => {
       let entries = []
@@ -100,6 +122,6 @@ export function uninstallPlan() {
     }
     if (fs.existsSync(p)) walk(p)
     const keep = p === DATA ? UNINSTALL_KEEP.map((k) => path.join(DATA, k)).filter((x) => fs.existsSync(x)) : []
-    return { name, path: p, exists: fs.existsSync(p), mb: Number((size / 1024 / 1024).toFixed(2)), keep }
+    return { name, path: p, kind, exists: fs.existsSync(p), mb: Number((size / 1024 / 1024).toFixed(2)), keep }
   })
 }

@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-handoff-name
+ * kind: module
+ * summary: 交接文件名：YYYY-MM-DD-HHMM.md（本机本地时间，精确到分钟）
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: handoffName / handoffDisplayTime（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 交接文件名：YYYY-MM-DD-HHMM.md（本机本地时间，精确到分钟）。

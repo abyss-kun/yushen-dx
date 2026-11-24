@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-mobile-gateway
+ * kind: module
+ * summary: 移动端网关：配对与设备令牌只存本机，不复用 DSH 管理令牌
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: createMobileGateway（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 import { characterIds } from './characters.js'
 // 移动端网关：配对与设备令牌只存本机，不复用 DSH 管理令牌。

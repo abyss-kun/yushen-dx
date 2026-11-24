@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-feel
+ * kind: module
+ * summary: 自述感觉：她说"当时什么感觉"——与系统算的 mood/fatigue 分开，这是她的话。
+ * tags: 感觉, 自述, 她的字
+ * created: 2026-11-11 01:25:00
+ * changed: 2026-11-11 01:25:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她（yushen_self action=feel）、简报、维护者
+ * owner: **她自己**；系统只能存和读，不能替她写
+ * mutable: 可改存储；不许系统代填感觉
+ * usage: 记一条自述 → 简报里一句；空就是没说过
+ * why: 系统算的是字段，她说的才是感觉，两者混了就成了"假情绪"
+ * result: 一份她的自述流水
+ */
 // 自述感觉：她自己说"刚才那件事，当时什么感觉"。
 //
 // 跟 mood / fatigue 的区别：那些是系统按发生的事**算**的字段；

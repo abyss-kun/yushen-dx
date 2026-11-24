@@ -1,3 +1,13 @@
+/* 标签
+ * id: lib-paths
+ * kind: module
+ * summary: 路径总入口：所有外部目录都从这里取，别在别处写死盘符。
+ * audience: 框架（全部）；换机器/换用户名的第一道关
+ * owner: 框架；有硬编码路径一律删
+ * mutable: 可改（加候选路径可以，别删已有的）
+ * usage: dshHome/dayuHome/workspace/qqBridgeRoot/pythonPath 等；一律先看环境变量再回退候选
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 路径总入口：所有外部目录都从这里来，别再往代码里写死盘符。
 //

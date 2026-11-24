@@ -1,4 +1,21 @@
+/* 标签
+ * id: lib-safe-delete
+ * kind: module
+ * tags: 删除, 闸门, 底片, 登记表
+ * created: 未标注（补标签前的历史）
+ * changed: 2026-11-11 00:47:31
+ * author: 照微·工作台
+ * authority: 老板（2026-11-03：不管什么只要改动/新增都要有标签）
+ * why: 统一给对象加标签，方便按需提取与对账
+ * result: 有标签块；审计能取到
+ * mutable: 可改
+ * audience: 框架（删家目录数据的唯一口）、维护
+ * owner: 框架；规则只许更严
+ * usage: safeDelete(path,{why}) 删前查四道；canDelete 只问不删；registryIntegrity 查登记表
+ * summary: 删除收口：删家目录只能走这里，四道闸（范围 / 登记 / 副本 / 引用）。
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 16:12｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜lib/safe-delete.js:100｜删除日志的时间与日期改走 clock｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
 // 删除收口：删 ~/.dsh/dayu 下的东西，一律走这里。
 // 2026-10-31 照微会审第三条：guard-delete 只是命令，没人必须经过它 = 等于没有闸门。
 //
@@ -18,6 +35,7 @@ import os from 'node:os'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { snapshot, isProtected } from './takeover.js'
+import { fmtFull, today } from './clock.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DAYU = path.join(HOME, 'dayu')
@@ -45,6 +63,7 @@ const readRegistry = () => {
  * 边界：挡不住"改完重跑 build-registry"——那会留下生成时间与人工改判依据，可追溯。
  * @returns {{known:boolean, ok:boolean, why:string}}
  */
+// 标签：登记表指纹 · 防手改 · 照微 2026-11-01 补
 export function registryIntegrity() {
   try {
     const side = path.join(DAYU, '登记.jsonl.sha256')
@@ -95,8 +114,8 @@ const usedBy = (name) => {
 const logDelete = (target, reason, backup = '') => {
   try {
     fs.mkdirSync(OPLOG, { recursive: true })
-    const local = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 19).replace('T', ' ')
-    const date = local.slice(0, 10)
+    const local = fmtFull()
+    const date = today()
     const file = path.join(OPLOG, `${date}.md`)
     const head = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : `# 操作日志 · ${date}\n\n`
     fs.writeFileSync(file, head + [
@@ -111,6 +130,7 @@ const logDelete = (target, reason, backup = '') => {
 }
 
 /** 判断能不能删；返回 { ok, why: [] } */
+// 标签：删除闸门 · 三道检查（登记/唯一/引用） · 照微 2026-11-01 立
 export function canDelete(target) {
   const abs = path.resolve(String(target || ''))
   const why = []
@@ -201,6 +221,7 @@ function filesForSnapshot(abs) {
 }
 
 /** 删。不在受管目录里、或没过闸、或没写理由，一律拒绝。 */
+// 标签：删除动作 · 按重要性拍底片 · force 要留名 · 照微 2026-11-03 补
 export function safeDelete(target, { reason = '', force = false, approvedBy = '' } = {}) {
   const abs = path.resolve(String(target || ''))
   if (!reason && !force) throw new Error('safe-delete：必须写 reason（为什么删）')

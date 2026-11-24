@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-dsh-internals
+ * kind: module
+ * summary: 轻读 DSH：只抽六个关键模块的 package.json + 入口前 120 行落到本地；只读发行包不改安装目录。
+ * tags: DSH, 只读, 升级对比
+ * created: 2026-11-11 01:20:00
+ * changed: 2026-11-11 01:20:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 维护者（升级后对比）、维护流程
+ * owner: 框架；**只读发行包**
+ * defaults: 每模块入口只读前 120 行
+ * off: 不读就不知道宿主接口变没变
+ * mutable: 可改抽取范围；不许写安装目录
+ * usage: 跑一次 → 本地落一份快照；升级后重跑对比
+ * why: DSH 一升级，插件按旧接口写就会静默坏
+ * result: 一份可对比的接口快照
+ */
 // 轻读 DSH：只抽六个关键模块的 package.json + 入口文件前 120 行，落到本地。
 // 只读发行包，不改安装目录；升级后重跑对比版本即可。
 

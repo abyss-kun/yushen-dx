@@ -1,4 +1,5 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 16:12｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜scripts/index-media.mjs:77｜媒体索引的时间改走 clock（时区标签跟着系统）｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
 // 媒体索引：图片、视频、音频、文档，谁、什么时候、在哪、是什么。
 // 2026-11-01 主人：以前没有的不管，从今天起做对。
 //
@@ -12,6 +13,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
+import { fmtFull, zone } from '../lib/clock.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DIR = path.join(HOME, 'dayu', 'library')
@@ -72,7 +74,7 @@ const walk = (dir, depth = 0) => {
     const title = e.name.replace(ext, '')
     const row = {
       path: p, 类型: kindOf(ext), 标题: title, size: st.size, mtime: Math.round(st.mtimeMs),
-      时间: new Date(st.mtimeMs + 8 * 3600e3).toISOString().slice(0, 19).replace('T', ' ') + '（Asia/Shanghai）',
+      时间: `${fmtFull(new Date(st.mtimeMs))}（${zone()}）`,
       目录: path.dirname(p).replace(/\\/g, '/'), sha,
       // 谁做的：目录名里带 成片/大鱼/小鱼/照微 就记下来，猜不到就写「不知道」
       谁: /成片|大鱼/.test(p) ? '大鱼' : /小鱼/.test(p) ? '小鱼' : /照微|dragon/.test(p) ? '照微' : '不知道',

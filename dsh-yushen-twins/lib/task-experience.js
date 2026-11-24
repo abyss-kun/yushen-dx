@@ -1,3 +1,15 @@
+/* 标签
+ * id: lib-task-experience
+ * kind: module
+ * summary: 任务经验：这类活以前怎么干的、成没成、为什么；success 必须 verified=true 才收。
+ * audience: 她（派活前的参考数据）、升阶（promotion）、新角色
+ * owner: 框架；判据（什么算成功）老板点头才能改
+ * mutable: 可改（经验只作参考，不是指令、不授权）
+ * defaults: 连续 failed ≥2 → 存疑（不造分数）
+ * usage: recordExperience 写入（dispatch 在调）；queryExperience 按 tag/文本找；summarize 给"做过几次/成几次/存疑"
+ * off: 不接 summarize/query 就等于不用；文件留在 experience/<role>.jsonl
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 任务经验（纯本地、按角色分开）
 // 记的是“这类活儿以前怎么干的、成没成、为什么”，只作**参考数据**：
@@ -243,6 +255,88 @@ export function listExperience(role, { limit = 50 } = {}) {
   return entries.slice(-n).reverse()
 }
 
+const SUSPICIOUS_STREAK = 2
+
+/** 尾部连续 failed 的长度：成功 / 部分完成都会打断它（partial 至少做了点事，不算砸了）。 */
+function trailingFails(entries) {
+  let n = 0
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    if (entries[i].outcome === 'failed') n += 1
+    else break
+  }
+  return n
+}
+
+/**
+ * 熟练度汇总：做过几次 / 成几次 / 最近连续几次没成（存疑）。
+ * 只是视图，不新造字段——数据还是 recordExperience 写的那套 { outcome, verified, tags }。
+ * 「存疑」不是判决：连续至少 2 次 failed 才提醒一句；下次成了就自动消失，不需要谁去改它。
+ * 大老板 2026-11-10 定：先只做两档（正常 / 存疑），**不要** 0–100 的连续分——等有数据再说。
+ * @param {{tags?:string[], now?:number, byTag?:boolean}} [opts]
+ */
+export function summarize(role, { tags = [], now = Date.now(), byTag = false } = {}) {
+  const r = assertRole(role)
+  void now // 目前不按时间窗过滤：这视图回答的是「这类活干过几回」，不是「最近一个月」
+  const queryTags = normalizeTags(tags)
+  const { entries: all } = readEntries(r)
+  const entries = queryTags.length
+    ? all.filter((e) => e.tags.some((t) => queryTags.some((q) => q.toLowerCase() === t.toLowerCase())))
+    : all
+  const counts = { success: 0, failed: 0, partial: 0 }
+  let verified = 0
+  for (const entry of entries) {
+    counts[entry.outcome] += 1
+    if (entry.outcome === 'success' && entry.verified) verified += 1
+  }
+  const used = entries.length
+  const streakFail = trailingFails(entries)
+  // 兼容旧字段：streak / suspicious（原来按"连续非 success"算）
+  let streak = { outcome: '', count: 0 }
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const outcome = entries[i].outcome
+    if (!streak.outcome) streak = { outcome, count: 1 }
+    else if (streak.outcome === outcome) streak.count += 1
+    else break
+  }
+  const state = streakFail >= SUSPICIOUS_STREAK ? '存疑' : '正常'
+  const last = used ? entries[used - 1] : null
+  const tagStats = {}
+  if (byTag) {
+    for (const entry of entries) {
+      for (const tag of entry.tags) {
+        const key = tag.toLowerCase()
+        if (!tagStats[key]) tagStats[key] = { n: 0, success: 0, failed: 0, partial: 0 }
+        tagStats[key].n += 1
+        tagStats[key][entry.outcome] += 1
+      }
+    }
+  }
+  return {
+    ok: true,
+    role: r,
+    // ── 熟练度视图（新口径）──
+    used,
+    wins: verified,
+    fails: counts.failed,
+    partials: counts.partial,
+    lastOutcome: last ? last.outcome : '',
+    lastAt: last ? last.at : '',
+    lastReason: last ? last.reason : '',
+    streakFail,
+    state,
+    tags: queryTags,
+    // ── 旧字段（别删：面板/测试还在读）──
+    total: used,
+    counts,
+    successRate: used ? Number((counts.success / used).toFixed(3)) : 0,
+    verified,
+    streak,
+    suspicious: state === '存疑',
+    ...(byTag ? { byTag: tagStats } : {}),
+    note: POLICY_NOTE,
+  }
+}
+
 /** 只读体检：文件、行数、合法/坏行、容量。 */
 export function inspectExperience(role) {
   const r = assertRole(role)
@@ -329,22 +423,37 @@ export function queryExperience(role, { text = '', tags = [], limit = MAX_RESULT
       skipped,
       note: POLICY_NOTE,
       reason: '没有检索词（text / tags 至少给一个）',
+      summary: summarize(r),
     }
   }
 
   const lowerTags = queryTags.map((tag) => tag.toLowerCase())
   const scored = []
-  for (const entry of entries) {
+  // 2026-11-10：熟练度进排序——同样命中时，成过、验证过的先出来；没成过的往后退。
+  // 只调顺序，不改条目的 score 字段（score 仍是"文本像不像"的原值）。
+  const OUTCOME_BOOST = { success: 0.2, partial: 0.1, failed: 0 }
+  // 「存疑」只标在"尾部连续没成"的那几条上：它说的是"最近这类活不顺"，
+  // 不是给历史上每一次失败都盖个章。
+  const streakFail = trailingFails(entries)
+  const streakFrom = entries.length - streakFail
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i]
     const matchedTags = entry.tags.filter((tag) => lowerTags.includes(tag.toLowerCase()))
     const candidateText = `${entry.brief} ${entry.reason} ${entry.tags.join(' ')}`
     const sText = textScore(queryText, candidateText)
     const score = matchedTags.length * 3 + sText
     if (score <= 0 || (matchedTags.length === 0 && sText < TEXT_THRESHOLD)) continue
-    scored.push({ entry, score, matchedTags, matchedText: sText >= TEXT_THRESHOLD })
+    const state = entry.outcome === 'failed' && i >= streakFrom ? '存疑' : '正常'
+    const rank = score + (entry.verified ? 0.3 : 0) + (OUTCOME_BOOST[entry.outcome] || 0)
+    scored.push({ entry, score, rank, matchedTags, matchedText: sText >= TEXT_THRESHOLD, state })
   }
 
+  // 先按 state（正常的在前、存疑的在后），再按 rank，最后按时间。
+  const STATE_ORDER = { '正常': 0, '存疑': 1 }
   scored.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score
+    const byState = (STATE_ORDER[a.state] || 0) - (STATE_ORDER[b.state] || 0)
+    if (byState) return byState
+    if (Math.abs(b.rank - a.rank) > 1e-9) return b.rank - a.rank
     return String(b.entry.at).localeCompare(String(a.entry.at))
   })
 
@@ -359,11 +468,12 @@ export function queryExperience(role, { text = '', tags = [], limit = MAX_RESULT
     verified: row.entry.verified,
     at: row.entry.at,
     score: Number(row.score.toFixed(4)),
+    state: row.state,
     matchedTags: row.matchedTags,
     matchedText: row.matchedText,
   }))
 
-  return { ok: true, role: r, items, count: items.length, skipped, note: POLICY_NOTE }
+  return { ok: true, role: r, items, count: items.length, skipped, note: POLICY_NOTE, summary: summarize(r) }
 }
 
 // 简报转义：< > [ ] ` 全部换成全角/替代字符，换行压平，防止标签逃逸。
@@ -391,6 +501,15 @@ export function buildExperienceBrief(role, { text = '', tags = [], limit = MAX_R
   if (!result.items.length) return ''
 
   const lines = [HEADER]
+  // 2026-11-10 老板：先给一句"这类活到底靠不靠得住"——做过几次、成几次、最近一次怎么样。
+  // 一行、≤60 字；说不清就说没做过，不编。
+  const agg = summarize(r, { tags })
+  if (agg.used > 0) {
+    const tail = agg.lastOutcome === 'failed'
+      ? `最近一次没成（${sanitizeForBrief(agg.lastReason || '没写原因', 20)}）`
+      : agg.lastOutcome === 'partial' ? '最近一次只做了一半' : '最近一次成了'
+    lines.push(sanitizeForBrief(`- 这类活以前做过 ${agg.used} 次，成 ${agg.wins} 次，${tail}`, 60))
+  }
   for (const item of result.items) {
     const verified = item.verified ? '（已验证）' : ''
     const tags = item.tags.length ? `｜标签：${item.tags.map((tag) => sanitizeForBrief(tag, MAX_TAG)).join('、')}` : ''

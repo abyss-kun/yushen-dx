@@ -1,3 +1,15 @@
+/* 标签
+ * id: lib-bottomline
+ * kind: module
+ * summary: 底线：她自己写的那几条，和她说过的不；插件只存、只带、只记。
+ * audience: 她本人（写/看）、身份层（buildIdentityText 会带）
+ * owner: 她自己（内容归她，改不用问谁）
+ * mutable: 只读插件这边；内容她随便改（旧版留 .bak）
+ * defaults: 模板只建一次；一个字没写就如实报"还没接过"
+ * usage: readBottomline/writeBottomline；recordRefusal 记一次"不"；bottomlineBrief 给注入
+ * off: 不写就是空——不写也是她的选择
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 底线：她自己写的那几条，和她说过的不。
 //

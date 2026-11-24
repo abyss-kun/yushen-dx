@@ -1,13 +1,32 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-backup-judge
+ * kind: module
+ * summary: 该不该现在备份：重要信号（写了文件/谈成决定/输出长）→ 值得备；是参与判断，不是查表。
+ * tags: 备份, 判断, 重要信号
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:00:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 维护流程、她、面板
+ * owner: 框架；信号清单可加，判据要能解释
+ * mutable: 可改；**别退化成纯定时**（纯定时救不回"刚改完"那一份）
+ * usage: shouldBackup({turns,files,decisions,...}) → {yes, why}
+ * why: 最可惜的是刚改完的一段代码、刚谈定的一个决定，崩了就没了
+ * result: 一组重要信号 → 值得/不值得 + 理由
+ */
 // 该不该现在备份：她自己的判断。
 //
 // 为什么不是纯定时：定时只会"到点看一眼"，而真正可惜的是——刚改完的一段代码、刚谈定的一个决定，
 // 崩了就没了的那些。所以除了定时，她还要能在"值得"的时候立刻备一次。
 //
 // 判断是"参与判断"，不是查表（§4.6 推论四）：
-//   重要信号（任一）→ 立刻备：这一轮写了文件 / 谈成了决定 / 输出很长（信息量大）
-//   普通信号       → 按冷却：距上次 5 分钟以上才备
-//   每小时上限 8 次，超过就先不备（防止把备份本身变成负担）
+//   重要信号（任一）→ 值得备：这一轮写了文件 / 谈成了决定 / 输出很长（信息量大）
+//   普通信号       → 按冷却
+//   2026-11-03 老板：10 分钟一次机器吃不消 → 回合末这条也收到半小时量级。
+//   现在：不管多重要都至少隔 30 分钟，每小时最多 2 次（原来普通 5 分钟 / 重要 1 分钟 / 8 次）。
+//   定时那层（lib/backup-service.js）本来就是 30 分钟，两层合起来就是半小时一份快照；
+//   没变的那几趟走到指纹就停（lib/fingerprint.js），不复制、不新建快照。
 //
 // 不花 token：全是本地判断。备份本身是本地 IO，未变不会新建快照。
 // 账：~/.dsh/dayu/backup-judgments.jsonl（每次判断一行：为什么、结果）
@@ -19,9 +38,9 @@ const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DATA = path.join(HOME, 'dayu')
 const LOG = path.join(DATA, 'backup-judgments.jsonl')
 
-const COOLDOWN_MS = 5 * 60 * 1000
-const URGENT_COOLDOWN_MS = 60 * 1000
-const MAX_PER_HOUR = 8
+const COOLDOWN_MS = 30 * 60 * 1000
+const URGENT_COOLDOWN_MS = 30 * 60 * 1000   // 2026-11-03：重要的也至少隔 30 分钟——定时那层本来就是半小时，快不出来了
+const MAX_PER_HOUR = 2
 
 const IMPORTANT_RE = /(决定|定了|就这样|以后就|结论是|拍板|改完了|修好了|上线|发出去|删掉了)/
 
@@ -72,7 +91,7 @@ export function judge({ reason = 'turn-end', text = '', wroteFiles = false, now 
   if (sinceLast !== Infinity && sinceLast < wait) {
     return {
       go: false,
-      why: `距离上次备份才 ${sinceLastMin} 分钟（${urgent ? '重要的事也至少隔 1 分钟' : '普通改动隔 5 分钟'}）`,
+      why: `距离上次备份才 ${sinceLastMin} 分钟（不管多重要都至少隔 30 分钟）`,
       urgent, sinceLastMin, lastHour, signals,
     }
   }

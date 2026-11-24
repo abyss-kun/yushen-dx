@@ -1,5 +1,12 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 16:24｜大鱼·子会话（工作台）｜授权：主人（本次任务书：体检报告 §3「一诺千金指错门」）｜scripts/judgment.mjs:1-10｜文件头写明：这里就是判断账本（~/.dsh/dayu/soul/自我笔记.jsonl，kind=judgment），不是 runtime/<role>/judgments/｜为什么：两处都叫 judgments，注入的口令「违了查判断档」把她指到了回复门槛的自动评分流水上——查了等于没查｜验证：本文件无逻辑改动（只加注释）；regression「一诺千金指向真实文件」绿；node scripts/judgment.mjs list 仍能读账本｜可改：可改；账本位置由 lib/self-note.js 定，搬家要同时改这里和 lib/motto.js
 // 判断账本：记一条“当时怎么想的 → 后来对不对”。
+//
+// **这就是「一诺千金｜重要判断写依据」说的那个账本**——写在
+// `~/.dsh/dayu/soul/自我笔记.jsonl`（`kind=judgment`，append-only，人只能读）。
+// 注意别走错门：`~/.dsh/dayu/runtime/<role>/judgments/` 是**回复门槛的自动评分流水**
+// （系统给她打分），不是她自己写过的判断依据；同名两物，2026-11-02 体检把这条指错了，已改。
+//
 // 用法：
 //   node scripts/judgment.mjs add "我判断这版封面不行，因为缩略图看不清" --basis "看的是 320px 缩略图" --about 封面
 //   node scripts/judgment.mjs add "..." --check-after 3      # 3 天后回看

@@ -1,4 +1,22 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-auth
+ * kind: module
+ * summary: 本地接口的门锁：浏览器走 DSH 登录 Cookie 验签，脚本走 x-yushen-token / ?token=；都没有就 401。
+ * tags: 鉴权, 令牌, 门锁, 安全
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:00:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 宿主路由、外部脚本、维护者
+ * owner: 框架；**安全边界，放宽要老板点头**
+ * defaults: 令牌文件 ~/.dsh/dayu/api-token（本机密钥验 Cookie）
+ * off: 没有关掉的开关；关掉等于本地接口全裸
+ * mutable: 可改；**只许更严**（多一条校验可以，少一条不行）
+ * usage: 路由入口调它 → 放行或 401；令牌只读文件，不写日志
+ * why: 本地端口不只她一个人能连；B站/手机/脚本都要门
+ * result: 两条入口（浏览器 Cookie / 令牌头），失败一律 401
+ */
 // 鱼神双子星 · 本地接口的门锁
 // 两条路能进来：
 //   1) 浏览器：DSH 自己的登录 Cookie（dsh-auth-*），用本机密钥验签——浏览器天然带着；

@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-bili-observation
+ * kind: module
+ * summary: B站来源适配边界：把看到的东西记成观察（interest/question），必须显式指定角色。
+ * tags: B站, 观察, 心念, 角色显式
+ * created: 2026-11-11 01:05:00
+ * changed: 2026-11-11 01:05:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: B站 工具、她、维护者
+ * owner: 框架；"什么算观察"的边界归老板
+ * mutable: 可改；**不许默认替某个角色记**（角色必须显式给）
+ * usage: recordObservation({role,kind,text}) → 写进 mind-store 的观察
+ * why: 通道不能替她判断，也不能替她认领"这是我想到的"
+ * result: 一个显式角色的写入边界
+ */
 // B站 source adapter boundary. It stores no mind item by itself and requires explicit role choice.
 import { recordObservedMind } from './mind-store.js'
 // 角色从名册读（2026-10-27）

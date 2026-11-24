@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-crash
+ * kind: module
+ * summary: 崩溃留痕：插件崩了/路由抛了/启动没挂上，都往 crash.jsonl 追一条，别让下次靠猜。
+ * tags: 崩溃, 留痕, 排障
+ * created: 2026-11-11 01:15:00
+ * changed: 2026-11-11 01:15:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 维护者、面板、事故复盘
+ * owner: 框架；只追加
+ * mutable: 可改格式只许加字段
+ * usage: noteCrash({where,err}) → 追加；写失败静默
+ * why: 崩一次没痕迹，下一次只能凭记忆猜
+ * result: 一份只追加的崩溃流水
+ */
 // 崩溃留痕：插件崩了、路由抛了、启动没挂上，都要留一条，别让下一次靠猜。
 // 数据：~/.dsh/dayu/crash.jsonl（只追加，不覆盖）。
 

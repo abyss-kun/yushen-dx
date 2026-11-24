@@ -1,3 +1,15 @@
+/* 标签
+ * id: lib-selfcheck
+ * kind: module
+ * summary: 自省：不等老板喊，自己跑一遍"能不能站住"；全进程内，不 spawn、不发请求、不花 token。
+ * audience: 她（自省/体检）、维护、面板
+ * owner: 框架；检查项加容易、删要说明
+ * mutable: 可改（只许加检查项；判据不许放宽）
+ * defaults: 30 分钟一轮（跟心跳同拍）
+ * usage: selfCheck() 跑一轮；inProcessCheck 进程内体检；discoverHostFromOS/syncBaseUrl 修 base-url
+ * off: 关掉自省定时器即停；体检项不能删
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 自省：不等老板喊，自己跑一遍「能不能站住」。
 //
@@ -96,7 +108,9 @@ export function inProcessCheck() {
   }
 
   try {
-    const st = fs.statfsSync(path.parse(DATA).root)
+    // 2026-11-04 手机端：安卓的"/"是只读 rootfs（statfs 报 0GB），家目录所在的 /data 才是真盘。
+    // 所以先量数据目录自己；量不到（比如 Windows 不支持 statfs）再退回盘根。
+    const st = (() => { try { return fs.statfsSync(DATA) } catch { return fs.statfsSync(path.parse(DATA).root) } })()
     const freeGB = (st.bavail * st.bsize) / 1073741824
     checks.push({ name: '磁盘', ok: freeGB >= 2, detail: `${freeGB.toFixed(0)}GB` })
     if (freeGB < 2) fails.push(`磁盘只剩 ${freeGB.toFixed(1)}GB`)
@@ -110,7 +124,7 @@ export function inProcessCheck() {
   try {
     const tmpName = path.join(DATA, `.__probe_${process.pid}.txt`)
     const probeText = `probe-${Date.now()}`
-    const run = spawnSync(process.execPath, ['-e', `process.stdout.write('${probeText}')`], { encoding: 'utf8', timeout: 15000, windowsHide: true })
+    const run = spawnSync(process.execPath, ['-e', `process.stdout.write('${probeText}')`], { encoding: 'utf8', windowsHide: true, timeout: 15000, windowsHide: true })
     const runOk = run.status === 0 && String(run.stdout || '').includes(probeText)
     let ioOk = false
     let ioDetail = ''

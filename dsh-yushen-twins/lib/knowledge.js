@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-knowledge
+ * kind: module
+ * summary: 鱼神双子星 · 自主学习（本地知识条目）
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；记忆内容归角色本人
+ * mutable: 可改
+ * usage: knowledgeRoles / classifySource / knowledgeFile / recordKnowledge（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 自主学习（本地知识条目）
 // 只把“学到的东西”当**待复核资料**存着：

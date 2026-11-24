@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-incidents
+ * kind: module
+ * summary: 事故单：谁出错、在哪、什么错、什么时候；小鱼示警与善后都挂在这上面
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: setIncidentNotifier / noteIncident / listIncidents / openCount（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // 鱼神双子星 · AGPL-3.0-or-later · © 2026 从零开始（保留本行）
 // 鱼神双子星 · Copyright (c) 2026 从零开始. All rights reserved.
 // 事故单：谁出错、在哪、什么错、什么时候；小鱼示警与善后都挂在这上面。
@@ -81,10 +92,12 @@ export function noteIncident({ sessionId, title, source, text, at } = {}) {
   const now = new Date(at || Date.now())
   const list = readAll()
   const body = String(text || '').slice(0, 400)
+  // 2026-11-06（照微）：同一面墙**还开着**的时候，不该因为「过了 6 小时」再开一张。
+  // 实测：job-mvxoor77-0e9 一个派活超时，从 11-01 到今天一共开了 8 张单，其中两张还自动升到 high——
+  // 那个 high 是同一件事被数了三遍，不是三个问题。时间窗只该用来判「关掉之后又复发」。
   const dup = list.find((row) => row.sessionId === sid
     && !DEDUPE_SKIP_STATUS.has(String(row.status || ''))
-    && row.text === body
-    && now.getTime() - new Date(row.lastAt || row.at).getTime() < DEDUPE_MS)
+    && row.text === body)
   if (dup) {
     dup.count = Number(dup.count || 1) + 1
     dup.lastAt = now.toISOString()

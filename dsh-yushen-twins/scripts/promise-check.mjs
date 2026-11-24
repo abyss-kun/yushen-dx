@@ -1,4 +1,5 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 16:12｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜scripts/promise-check.mjs:21｜诺言检查的今天与作废记录时间改走 clock｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
 // 债单：每次醒来比对「诺言本 vs 日程」，逾期就出债。
 // 用法：node scripts/promise-check.mjs [--json]
 // 规则（2026-11-01 主人定）：
@@ -12,11 +13,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { localISO, today as localDay } from '../lib/clock.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const BOOK = path.join(HOME, 'dayu', 'promises', '诺言.jsonl')
 const MISTAKES = path.join(HOME, 'dayu', 'mistakes', '错题本.jsonl')
-const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)
+const today = localDay()
 
 const read = () => {
   const rows = []
@@ -55,7 +57,7 @@ if (toVoid.length) {
     if (row) { row.status = 'missed'; row.doneAt = today; row.evidence = `逾期 ${d.late} 天未做，作废` }
     try {
       fs.appendFileSync(MISTAKES, JSON.stringify({
-        at: new Date(Date.now() + 8 * 3600e3).toISOString().replace('Z', '+08:00'),
+        at: localISO(),
         who: '大鱼', what: `答应的「${d.what}」逾期 ${d.late} 天没做`,
         why: d.why || '（没写当时怎么想）', how: '说了就登记；到点先做它，不许接新活',
         where: '诺言本', scope: '全体',

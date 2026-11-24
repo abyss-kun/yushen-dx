@@ -1,4 +1,17 @@
+/* 标签
+ * id: lib-body-loop
+ * kind: module
+ * summary: 身体循环：心跳、摸脉、议程本地一步、状态灯、记忆降档——不调大模型，只维持"她还在"。
+ * audience: 她（通过 vital.json/面板）、新角色、维护脚本
+ * owner: 框架；间隔与阈值改之前先问老板
+ * mutable: 可改（这里不花 token；想加调模型的活，先想清楚谁付钱）
+ * defaults: 心跳 30 分钟一拍（跟自省同拍）；判活 40 分钟
+ * usage: bodyTick(role) 跑一跳；bodyStatus(role) 给她/面板看；pulseOf(role) 摸自己的脉
+ * off: 关掉 freeTime/自省即停；状态灯另有关 sleepLight（默认关）
+ */
+
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-10 19:44｜大鱼·子会话（② 心跳日志）｜授权：老板（本次任务书：修两处会露在面板上的噪音）｜lib/body-loop.js:181-187,207-222｜改了：① 记忆降档那行从普通字符串修成模板串（`{dd.changed}`→`${dd.changed}`，catch 里那句同样缺 $）；② 「活着」判据 10 分钟→40 分钟（实际 30 分钟一跳，10 分钟会一天里三分之二时间假报「没心跳」）｜为什么：面板和 vital.jsonl 会原样露出这两处——一行打出花括号、一条假警报｜验证：node --check lib/body-loop.js；node scripts/test-heartbeat-journal.mjs（含降档记账与做旧审计两段）｜可改：可改（40 分钟这条跟着心跳节奏走；节奏再变就一起改）
 // 身体循环：维持「她还在」。不调大模型。
 //
 // 为什么要有：她的记忆、卡、账本、约定都存在磁盘上，但**磁盘不会自己动**。
@@ -12,9 +25,9 @@
 //   · 定期检查她自己的接口通不通（断电也能发现）
 //   · 记下心跳：在场时间、今天跑了多少次
 //
-// 边界：**这里不花 API token**——调大模型的事一律留给她醒了以后自己决定。
-// 唯一碰模型的只有状态灯（lib/sleep-mind.js）：本地 llama-server + gguf，不联网不计费，
-// 写一句话描述"此刻在等什么"，且不署名、不写记忆、不发通道。那句话不是她说的。
+// 边界：**这里不花 API token，也完全不调模型**——调大模型的事一律留给她醒了以后自己决定。
+// 状态灯（lib/sleep-mind.js）2026-11-10 起改成规则拼的：不叫本地引擎，只把已知事实压成一句话，
+// 不署名、不写记忆、不发通道。那句话不是她说的。
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -26,7 +39,10 @@ import { sleepOnce, lastSleepText } from './sleep-mind.js'
 import { writeRecap } from './recap.js'
 import { releaseLocalServer } from './translator.js'
 import { applyDailyDecay } from './memory.js'
+// 改｜2026-11-11 19:0x｜大鱼·本班（接手交接 2026-11-11-0255）｜授权：主人（交接 §二 图书馆定稿：降级通道一个月接上）｜lib/body-loop.js:41,210-220｜心跳里接一天一次的闭架降级（demoteDaily），搬了就写进 did｜为什么：定稿要求"一个月不用→闭架"自己发生；插件里没有日任务调度，心跳是现成的日节拍；不接上这条就永远等不到人手动跑｜验证：node scripts/test-library-closed.mjs 9/9；node scripts/regression.mjs 全绿；真家今天没有超过 30 天的条目，首次心跳为空操作｜可改：可改；一天一次与"只搬不删"不许破
+import { demoteDaily } from './library-shelf.js'
 import { getCharacter } from './characters.js'
+import { device as deviceKind } from './platform.js'
 import { checkDrift } from './memory-audit.js'
 import os from 'node:os'
 
@@ -91,7 +107,9 @@ export function pulseOf(role) {
   })()
   checks.push({ name: '能写', ok: writable })
   const base = (() => { try { return fs.readFileSync(path.join(DATA, 'base-url'), 'utf8').trim() } catch { return '' } })()
-  checks.push({ name: '自己的地址', ok: Boolean(base), detail: base })
+  // 2026-11-04 手机端：安卓宿主没有 webServer 服务，她本来就没有 HTTP 地址——这不是故障。
+  const mobileHost = (() => { try { return deviceKind() === 'phone' } catch { return false } })()
+  checks.push({ name: '自己的地址', ok: mobileHost ? true : Boolean(base), detail: mobileHost ? '手机宿主没有 HTTP 服务（不适用）' : base })
   const bad = checks.filter((c) => !c.ok)
   return { ok: bad.length === 0, checks, bad: bad.map((c) => c.name), base }
 }
@@ -143,13 +161,27 @@ export async function bodyTick(role, { now = Date.now(), pulseCheck = null } = {
   // 5) 议程现状（给她醒来看见"手上还有几件"）
   try { doc.active = readAgenda(id).items.filter((i) => ['want', 'doing', 'blocked', 'waiting'].includes(i.state)).length } catch { /* 忽略 */ }
 
-  // 5) 状态灯：本地小模型写一句屋里此刻的情形（不署名、不写记忆、不发通道）。
-  //    那是屋里的一行字，不是她睡着时想的事——别让她或别人当成她的心声。
+  // 5) 本地引擎闲着就关掉：用完就退，不常驻（它一占就是 7 GB）。
+  //    2026-11-10：挪到点灯之前——原来点灯先 touchLocalUse()，这里再判「最近 10 分钟用过」，
+  //    永远判成刚用过，引擎从没被关过。现在点灯不碰引擎：先关旧的，再点新的。
   try {
-    const sm = await sleepOnce(id, { now })
-    if (sm.ok) { doc.sleep = { at: new Date(now).toISOString(), text: sm.text, ms: sm.ms }; rep.did.push(`状态灯：${sm.text}`) }
-    else if (sm.skipped) { /* 刚亮过/她刚醒，正常跳过，不记 */ }
-    else if (sm.why) { rep.notable.push(`状态灯没亮：${sm.why}`) }
+    const rel = await releaseLocalServer()
+    if (rel.killed) { rep.did.push('本地引擎闲着，已关掉') }
+  } catch { /* 关不掉不挡心跳 */ }
+
+  // 5) 状态灯：规则拼一句屋里此刻的情形（不署名、不写记忆、不发通道）。
+  //    那是屋里的一行字，不是她睡着时想的事——别让她或别人当成她的心声。
+  //
+  // 2026-11-10 老板：「小模型灯没什么用，想关掉」→ 加开关 sleepLight（默认关）。
+  // 关掉以后：不拉本地 llama-server、不写 sleep.jsonl、简报里不再有「屋里留的一行」。
+  // 代码留着不删（一句开关就能开回来），但**默认不占那 7 GB**。
+  try {
+    if (readJson(path.join(DATA, 'switches.json'), {})?.sleepLight === true) {
+      const sm = await sleepOnce(id, { now })
+      if (sm.ok) { doc.sleep = { at: new Date(now).toISOString(), text: sm.text, ms: sm.ms }; rep.did.push(`状态灯：${sm.text}`) }
+      else if (sm.skipped) { /* 刚亮过/她刚醒，正常跳过，不记 */ }
+      else if (sm.why) { rep.notable.push(`状态灯没亮：${sm.why}`) }
+    }
   } catch (e) { rep.errors.push(`状态灯：${e?.message || e}`) }
 
   // 6) 记忆对账：文件大小和最后一条审计对不上 = 有人绕过插件改了。
@@ -169,17 +201,20 @@ export async function bodyTick(role, { now = Date.now(), pulseCheck = null } = {
     if (rc.ok && !rc.empty) rep.did.push(`本体近况已更新（${rc.lines} 行）`)
   } catch (e) { rep.errors.push(`近况：${e?.message || e}`) }
 
-  // 本地引擎闲着就关掉：用完就退，不常驻（它一占就是 7 GB）。
-  try {
-    const rel = await releaseLocalServer()
-    if (rel.killed) { rep.did.push('本地引擎闲着，已关掉') }
-  } catch { /* 关不掉不挡心跳 */ }
-
   // 记忆一天降一档（只降清晰度，不删原文；pinned 不动）。
   try {
     const dd = applyDailyDecay(id, { now })
-    if (dd.changed) rep.did.push(`记忆降档 {dd.changed} 条`)
-  } catch (e) { rep.errors.push(`降档：{e?.message || e}`) }
+    // 2026-11-10（② 心跳日志）：这两行原来是普通字符串（少了 $），会原样打出「记忆降档 {dd.changed} 条」。
+    // 面板和 vital.jsonl 都会露这行，所以按模板串修。
+    if (dd.changed) rep.did.push(`记忆降档 ${dd.changed} 条`)
+  } catch (e) { rep.errors.push(`降档：${e?.message || e}`) }
+
+  // 闭架：一天搬一次——条目一个月不用就进 library/闭架/<年-月>/（只搬不删；搬了什么记 meta/closed-log.jsonl）。
+  // 2026-11-11（图书馆定稿）：这是"降级通道"的落点；一次只搬整份都过期的，混着新条的整份留着。
+  try {
+    const cd = demoteDaily({ now })
+    if (!cd.skipped && cd.moved.length) rep.did.push(`闭架：搬走 ${cd.moved.length} 份旧条目（${cd.month}）`)
+  } catch (e) { rep.errors.push(`闭架：${e?.message || e}`) }
 
   doc.lastReport = { did: rep.did, notable: rep.notable }
   try { writeJson(bodyFile(id), doc) } catch (e) { rep.errors.push(`记心跳：${e?.message || e}`) }
@@ -202,7 +237,9 @@ export function bodyStatus(role, { now = Date.now() } = {}) {
   return {
     ok: true,
     role: id,
-    alive: gapMin !== null && gapMin <= 10,
+    // 2026-11-10（② 心跳日志）：判据从 10 分钟改成 40 分钟——跟实际节奏对齐。
+    // 心跳并进自省之后是 30 分钟一跳，旧阈值 10 分钟会让它一天里有三分之二时间显示「没心跳」（假警报）。
+    alive: gapMin !== null && gapMin <= 40,
     lastTickAt: doc.lastTickAt,
     gapMinutes: gapMin,
     ticks: doc.ticks || 0,
@@ -211,7 +248,7 @@ export function bodyStatus(role, { now = Date.now() } = {}) {
     unreadQQ: doc.unreadQQ || 0,
     pulse: doc.pulse || null,
     lastReport: doc.lastReport || { did: [], notable: [] },
-    note: gapMin !== null && gapMin > 10 ? `身体循环 ${gapMin} 分钟没跳了（宿主停了？）` : '心跳正常',
+    note: gapMin !== null && gapMin > 40 ? `身体循环 ${gapMin} 分钟没跳了（宿主停了？）` : '心跳正常',
   }
 }
 

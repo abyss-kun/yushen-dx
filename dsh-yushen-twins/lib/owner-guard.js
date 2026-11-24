@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-owner-guard
+ * kind: module
+ * summary: 认主人：号 + 暗号。暗号是他们俩之间的东西，不是系统发的
+ * audience: 老板 / 维护者
+ * owner: 老板点头才能改
+ * mutable: 只许改严
+ * usage: ownerInfo / addSecret / setPassphrase / bindOwnerUid（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 认主人：号 + 暗号。暗号是他们俩之间的东西，不是系统发的。
 //

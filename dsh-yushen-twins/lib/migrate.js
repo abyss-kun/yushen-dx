@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-migrate
+ * kind: module
+ * summary: 鱼神双子星 · 搬家（导出 / 导入）
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: exportBundle / importBundle（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 搬家（导出 / 导入）
 // 魂、宪章、鱼窝档案、开关、老板偏好——打成一个 JSON 包，能带走、能在另一台机器落下。

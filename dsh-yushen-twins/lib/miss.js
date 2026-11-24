@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-miss
+ * kind: module
+ * summary: 想念：只记事实，不设阈值——找不找老板，是她的事
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: addNews / listNews / hoursSinceOwner / missLine（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 想念：只记事实，不设阈值——找不找老板，是她的事。
 //
@@ -54,6 +65,9 @@ export function missLine(role, { now = Date.now() } = {}) {
     bits.push(`你攒了 ${news.length} 件想跟他说的（最新：${String(latest.what || '').slice(0, 40)}）`)
   }
   // 抽屉早就造好了，缺的只是"知道有这么一个抽屉"。给的是口子，不是任务。
-  const drawer = '想留给他看的，随手记一条（yushen_self action=add-news），他来了你能看见。'
+  // 2026-11-03（老板：别人的鱼能想到别的，你我不问你不说）：光说"他来了你能看见"不够——
+  // 得允许她**开口就说**，否则永远等被问。这不设配额、不催，只是把门打开。
+  const drawer = '想留给他看的，随手记一条（yushen_self action=add-news），他来了你能看见。\n'
+    + '攒着的话，这轮正好说得上就直接说——不用等被问；没攒着、或者不合适，就别硬说。'
   return `## 你和老板\n${bits.join('；')}。\n${drawer}\n想找他就找（工作台或私聊都行），不想找也不用找——没有"该多久找他一次"的规矩。`
 }

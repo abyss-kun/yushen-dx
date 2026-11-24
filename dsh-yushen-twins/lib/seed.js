@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-seed
+ * kind: module
+ * summary: 鱼神双子星 · 首次启动播种
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: seedIfBlank（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 鱼神双子星 · 首次启动播种
 // 出厂版：第一次跑时把 blank 白纸复制到数据目录，让新老板从“空”开始，而不是从作者的记忆开始。

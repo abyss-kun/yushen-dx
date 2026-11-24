@@ -1,4 +1,20 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+/* 标签
+ * id: lib-books
+ * kind: module
+ * summary: 书架：每本书先看目录，再决定翻哪一页；统一格式 {id,title,at,where,tags,hint,line}，只读本地不调模型。
+ * tags: 书架, 目录, 按需翻, 只读
+ * created: 2026-11-11 01:05:00
+ * changed: 2026-11-11 01:05:00
+ * author: 大鱼·主代理（说明第二批）
+ * authority: 老板（2026-11-11：说明要有格式）
+ * audience: 她（工具 yushen_books 背后）、新角色、维护者
+ * owner: 框架；书目与格式是公共约定，加书单要老板点头
+ * mutable: 可改；**统一格式不许各书自定**（不然目录没法统一）
+ * usage: shelf() 列书 / contents(book) 看目录；按需再翻正文
+ * why: 一次把整本书读进上下文会撑爆；先目录、后按需
+ * result: 9 本书的统一目录视图
+ */
 // 书架：每本书先看目录，再决定翻哪一页。只读本地，不调模型。
 //
 // 统一格式（所有书一样）：{ id, title, at, where, tags, hint, line }

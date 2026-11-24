@@ -1,4 +1,5 @@
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
+// 改｜2026-11-02 16:12｜大鱼·子会话（工作台）｜授权：主人（本次任务书：统一时间观念，用系统时间）｜scripts/should-speak.mjs:31｜开口判断的今天改走 clock.dayKey｜为什么：手写偏移不是系统时间：换机器或换时区就全错，各处口径还不一致｜验证：node --check 通过；node scripts/regression.mjs 全绿；全仓扫描无手写偏移｜可改：可改（只许换成 lib/clock.js 的其他封装）
 // 「有没有值得说的一句」——主动开口的第一半：判断，不发送。
 // 用法：node scripts/should-speak.mjs [--json]
 // 原则（2026-11-02 改进清单 1.1）：一天 1–3 次，宁少勿多；没有值得说的就不说。
@@ -10,6 +11,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { dayKey } from '../lib/clock.js'
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const D = path.join(HOME, 'dayu')
@@ -26,7 +28,7 @@ const reasons = []
 
 // 1) 逾期诺言
 const promises = readJsonl(path.join(D, 'promises', '诺言.jsonl')).filter((r) => r.status === 'open')
-const today = new Date(now + 8 * 3600e3).toISOString().slice(0, 10)
+const today = dayKey(now)
 const overdue = promises.filter((r) => /^\d{4}-\d{2}-\d{2}/.test(String(r.when || '')) && String(r.when).slice(0, 10) < today)
 if (overdue.length) reasons.push({ kind: 'overdue', weight: 3, why: `${overdue.length} 条诺言逾期`, line: `我欠你 ${overdue.length} 件事没做：${overdue[0].what.slice(0, 40)}` })
 

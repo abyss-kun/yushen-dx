@@ -1,3 +1,14 @@
+﻿/* 标签
+ * id: lib-patch
+ * kind: module
+ * summary: 半自主补丁：她可以写、可以自测，落地必须老板点头（按钮）
+ * audience: 她 / 新角色 / 维护者
+ * owner: 框架；改它要跑回归
+ * mutable: 可改
+ * usage: createPatch / listPatches / applyPatch（详见文件内注释）
+ * created: 2026-11-11 01:00:00
+ * changed: 2026-11-11 01:04:49
+ */
 // Copyright (c) 2026 从零开始 · 鱼神双子星 · AGPL-3.0-or-later（保留本行）
 // 半自主补丁：她可以写、可以自测，落地必须老板点头（按钮）。
 // 数据：~/.dsh/dayu/patches/<id>/{meta.json,new/<file>}

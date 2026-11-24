@@ -12,9 +12,11 @@ import { buildCatalog } from '../lib/catalog.js'
 import { withCreativeMemory } from '../lib/creative-memory.js'
 import { buildSceneText } from '../lib/soul.js'
 import { markBody } from '../lib/residence.js'
+import { device as deviceKind } from '../lib/platform.js'
 
 export const name = 'dsh-yushen-twins'
-export const inject = ['webServer']
+// 2026-11-04：安卓宿主没有 webServer 服务；手机上不注入它，HTTP 路由整段跳过。
+export const inject = deviceKind() === 'phone' ? [] : ['webServer']
 
 const HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const DATA = path.join(HOME, 'dayu')
@@ -77,7 +79,8 @@ function alerts() {
 }
 
 export function apply(ctx) {
-  ctx.effect(() => ctx.webServer.register({
+  const _web = (() => { try { return ctx.webServer } catch { return null } })()
+  if (_web) ctx.effect(() => _web.register({
     kind: 'prefix',
     path: '/api/xiaoyu',
     handler: async (req, res) => {
