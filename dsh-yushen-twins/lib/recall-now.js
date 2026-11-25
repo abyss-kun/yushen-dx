@@ -1,3 +1,4 @@
+// 改｜2026-11-25 21:40｜大鱼·子会话（LOCOMO 检索）｜授权：主人（2026-11-25：把 LOCOMO 检索数字拉起来）｜lib/recall-now.js:63-80｜score()：正文与关键词统一小写再比；长词（≥6 字母）权重 1→3，中文二元组权重不变（仍 1 分）｜为什么：词表小写而正文带大写专名（"Caroline"/"Where"），原来专名根本匹配不上，分数全被 the/did 这类虚词占满；配套 lib/inverted.js 的英文停用词+词干+缩写归一｜验证：node scripts/eval-locomo.mjs 全量 1982 题，hit@1 20.9%→见报告、hit@5 39.1%→见报告｜可改：可改；改权重要同时看中文检索（二元组必须仍是 1 分）
 // 改｜2026-11-24 23:50｜大鱼·工作台｜授权：主人（2026-11-24：还有什么没做的一起）｜lib/recall-now.js:1｜本轮整理提交：该文件在本轮之前已有改动，补留痕｜为什么：改动要能查到谁/何时/怎么验｜验证：回归 325/0（整体）｜可改：可改
 /* 标签
  * id: lib-recall-now
@@ -61,9 +62,14 @@ export function keywords(text) {
 const TRIGGER_WORDS = new Set(['记得', '还记', '上次', '上回', '那次', '之前', '好像', '忘了'])
 
 const score = (text, kws) => {
-  const s = String(text || '')
+  // 2026-11-25：两侧统一小写再比（词表是小写的，正文有 "Caroline"/"Hey Mel!" 这类大写，原来是漏的）；
+  // 长词给更高权重（≥6 字母 3 分），中文二元组仍是 1 分，行为和以前一致。
+  const s = String(text || '').toLowerCase()
   let n = 0
-  for (const k of kws) if (!TRIGGER_WORDS.has(k) && s.includes(k)) n += k.length > 2 ? 2 : 1
+  for (const k of kws) {
+    if (TRIGGER_WORDS.has(k) || !s.includes(k)) continue
+    n += k.length >= 6 ? 3 : k.length > 2 ? 2 : 1
+  }
   // 2026-11-21 磨 hit@1：关键词挨在一起（80 字窗口里命中两个以上）比散落全文更像答案。
   let best = 0
   for (let i = 0; i < s.length; i += 40) {

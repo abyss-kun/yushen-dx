@@ -1,4 +1,5 @@
-﻿/* 标签
+// 改｜2026-11-25 21:40｜大鱼·子会话（LOCOMO 检索）｜授权：主人（2026-11-25：把 LOCOMO 检索数字拉起来）｜lib/inverted.js:26-85｜tokenize()：加英文停用词表 EN_STOP、常见缩写展开（I'm→i am 等）、轻量词干 stemEn（复数 -s/-ies、-ing、-ed、词尾 e）；中文二元组规则一字未动｜为什么：LOCOMO 全英文，虚词占满分数、复数/时态不同形对不上｜验证：node scripts/eval-locomo.mjs 全量 1982 题，hit@1 20.9%→见报告｜可改：可改；EN_STOP 只增常用虚词，别加实词
+/* 标签
  * id: lib-inverted
  * kind: module
  * summary: 倒排索引（2026-11-02）：把 live 原文与冷档切成「行级文档」，建成 token → 行号
@@ -25,6 +26,36 @@ import path from 'node:path'
 
 const STOP = new Set(['什么', '怎么', '为什', '那个', '这个', '我们', '你们', '他们', '一个', '就是', '不是', '可以', '现在', '上次', '那次', '之前', '还是', '没有'])
 
+// 2026-11-25 英文归一（LOCOMO 验证）：英文停用词 + 常见缩写 + 轻量词干。中文二元组一字未动。
+// 为什么：LOCOMO 全是英文，旧 token 规则把 the/and/did 之类虚词和 "Caroline"/"caroline" 当两回事，
+// 分数被虚词占满；停用词+小写匹配+词干归一后 hit@1 20.9%→35.1%（同一份 1982 题）。
+const EN_STOP = new Set(('a an the and or but if then than so to of in on at by for from with about into over after before up down out off again very just too also as is are was were be been being am do does did have has had i you he she it we they me him her them us my your his its our their what when where who whom why how which that this these those there here not no yes s t m re ve ll d don didn doesn isn wasn aren couldn wouldn shouldn can could will would shall should may might must one two some any all more most other such only own same now').split(/\s+/))
+
+// 缩写先展开成普通词，再切词（"I'm"→"i am"、"don't"→"do not"、"Caroline's"→"caroline"）。
+const ABBREV = [
+  [/\bi['’]m\b/gi, 'i am'],
+  [/\bcan['’]t\b/gi, 'can not'],
+  [/\bwon['’]t\b/gi, 'will not'],
+  [/\bn['’]t\b/gi, ' not'],
+  [/\b['’]s\b/gi, ''],
+  [/\b['’]re\b/gi, ' are'],
+  [/\b['’]ve\b/gi, ' have'],
+  [/\b['’]ll\b/gi, ' will'],
+  [/\b['’]d\b/gi, ' would'],
+]
+
+/** 轻量词干：只处理复数/ed/ing 和词尾 e，够用且不会把词根切没（匹配是子串匹配，切短一点仍能对上）。 */
+function stemEn(w) {
+  let s = w
+  if (s.length > 4 && s.endsWith('ies')) return `${s.slice(0, -3)}y`
+  if (s.length > 4 && (s.endsWith('ches') || s.endsWith('shes') || s.endsWith('sses') || s.endsWith('xes'))) return s.slice(0, -2)
+  if (s.length > 3 && s.endsWith('s') && !s.endsWith('ss') && !s.endsWith('us') && !s.endsWith('is')) s = s.slice(0, -1)
+  if (s.length > 5 && s.endsWith('ing')) s = s.slice(0, -3)
+  if (s.length > 4 && s.endsWith('ed')) s = s.slice(0, -2)
+  if (s.length > 3 && s.endsWith('e')) s = s.slice(0, -1)
+  return s
+}
+
 // 2026-11-02：二元组里混进「你还」「还记」这种没意义的碎片，结果被拖偏。
 // 含虚词字的二元组一律不要，只留名词性的片段。
 const WEAK = /[你我他她它的了吗呢吧啊是在有这那个上次就都也还怎什哪谁记]/
@@ -44,10 +75,18 @@ export function indexPath(home) {
   return path.join(home || homeDir(), 'dayu', 'runtime', INDEX_NAME)
 }
 
-/** token 规则（和 recall-now 的 keywords() 同源）：ASCII 词转小写 + 中文二元组，去虚词与停止词。 */
+/** token 规则（和 recall-now 的 keywords() 同源）：ASCII 词转小写+去英文虚词+轻量词干，中文二元组，去虚词与停止词。 */
 export function tokenize(text) {
-  const s = String(text || '')
-  const ascii = (s.match(/[A-Za-z0-9_]{2,}/g) || []).map((x) => x.toLowerCase())
+  let s = String(text || '')
+  for (const [re, rep] of ABBREV) s = s.replace(re, rep)
+  const ascii = []
+  for (const raw of (s.match(/[A-Za-z0-9_]{2,}/g) || [])) {
+    const w = raw.toLowerCase()
+    if (EN_STOP.has(w)) continue
+    const t = stemEn(w)
+    if (!t || EN_STOP.has(t)) continue
+    ascii.push(t)
+  }
   const cn = []
   const han = s.replace(/[^\u4e00-\u9fa5]/g, '')
   for (let i = 0; i < han.length - 1; i++) {
