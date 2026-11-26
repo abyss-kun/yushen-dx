@@ -5024,6 +5024,15 @@ ok('内部群：常驻时叫醒对方，没有就只留言', () => {
   return '常驻才叫 / 否则异步'
 })
 
+// 2026-11-26：心跳也能看见“兄弟找我、还没回”，不靠对方发消息那一下。
+ok('心跳：内部群未回 / 兄弟迟早也能看见', () => {
+  has('lib/body-loop.js', 'export function groupNotices')
+  has('lib/body-loop.js', 'export function siblingNotices')
+  has('lib/body-loop.js', '内部群有 ${fresh.length} 条没回')
+  runTestScript('scripts/test-body-loop-group.mjs')
+  return '未回报数 / handled 不报 / 空群不报 / 兄弟迟滞'
+})
+
 // 2026-11-24：常驻“压缩后还接得上”的硬证据——记忆在盘上，每轮重拼。
 ok('常驻连续性：压缩后现在/决定/自我还在', () => {
   has('scripts/check-resident-continuity.mjs', 'check-resident-continuity')

@@ -35,6 +35,8 @@ import { runtimeDir, ensureRuntime } from './runtime.js'
 import { stepOnce as stepAgenda, readAgenda } from './agenda.js'
 import { listWaiting } from './waiting.js'
 import { unreadFor } from './inbox.js'
+import { readGroup } from './groups.js'
+import { postMessage } from './groups.js'
 import { sleepOnce, lastSleepText } from './sleep-mind.js'
 import { writeRecap } from './recap.js'
 import { releaseLocalServer } from './translator.js'
@@ -118,6 +120,68 @@ export function pulseOf(role) {
  * 心跳一次。全本地、全同步以外只有一次可选的自检请求。
  * 任何一步失败都不影响别的步骤，也不会抛。
  */
+/** 兄弟角色最近动没动（心跳用；只读 vital.json，不写别人）。 */
+export function siblingNotices(role, { now = Date.now(), staleMs = 2 * 3600 * 1000 } = {}) {
+  const out = []
+  try {
+    const c = JSON.parse(fs.readFileSync(path.join(DATA, 'characters.json'), 'utf8').replace(/^\uFEFF/, ''))
+    for (const x of (c.characters || [])) {
+      const id = String(x?.id || '')
+      if (!id || id === role) continue
+      let v = null
+      try { v = readJson(path.join(runtimeDir(id), 'vital.json'), null) } catch { v = null }
+      const t = Date.parse(String(v?.lastTickAt || ''))
+      if (!Number.isFinite(t) || now - t > staleMs) out.push({ role: id, stale: true, lastTickAt: v?.lastTickAt || '' })
+    }
+  } catch { /* 名册读不到就不报 */ }
+  return out
+}
+
+/** 我现在在做什么/卡在哪，一句话（没在做就空）。 */
+export function statusText(role) {
+  try {
+    const items = readAgenda(role).items || []
+    const blocked = items.find((i) => i.state === 'blocked' && i.what)
+    if (blocked) return `我卡在：${String(blocked.what).slice(0, 100)}`
+    const doing = items.find((i) => i.state === 'doing' && i.what)
+    if (doing) return `我在做：${String(doing.what).slice(0, 100)}`
+    return ''
+  } catch { return '' }
+}
+
+/**
+ * 主动把自己的状态播报给兄弟：只发内部群（kind=say，不算“要回复”），
+ * 默认 6 小时一次、且状态变了才发；不叫醒任何人、不刷屏。
+ */
+export function maybeBroadcastStatus(role, doc = null, { now = Date.now(), gapMs = 6 * 3600 * 1000 } = {}) {
+  const d = doc || readJson(bodyFile(role), {})
+  const text = statusText(role)
+  if (!text) return { posted: false, text: '' }
+  const last = Date.parse(String(d.lastStatusAt || ''))
+  if (Number.isFinite(last) && now - last < gapMs) return { posted: false, text }
+  if (String(d.lastStatusText || '') === text) return { posted: false, text }
+  const r = postMessage({ from: role, to: 'all', kind: 'say', text, channel: 'all' })
+  if (!r?.ok) return { posted: false, text }
+  d.lastStatusAt = new Date(now).toISOString()
+  d.lastStatusText = text
+  if (!doc) writeJson(bodyFile(role), d)
+  return { posted: true, text }
+}
+
+/** 内部群有没有兄弟找我、还没回（心跳用；只读，不写群）。 */
+export function groupNotices(role, { now = Date.now(), windowMs = 3 * 24 * 3600 * 1000 } = {}) {
+  try {
+    const g = readGroup({ role, level: 'low' })
+    const pend = Array.isArray(g?.pending) ? g.pending : []
+    const fresh = pend.filter((m) => {
+      const t = Date.parse(String(m?.at || ''))
+      return Number.isFinite(t) && now - t < windowMs
+    })
+    const from = [...new Set(fresh.map((m) => String(m?.from || m?.sender || '有人')))].slice(0, 3)
+    return { count: fresh.length, from, text: fresh.length ? `内部群有 ${fresh.length} 条没回：${from.join('、')} 找你` : '' }
+  } catch { return { count: 0, from: [], text: '' } }
+}
+
 export async function bodyTick(role, { now = Date.now(), pulseCheck = null } = {}) {
   const id = String(role || '').trim()
   const rep = { ok: true, role: id, at: new Date(now).toISOString(), did: [], notable: [], errors: [] }
@@ -146,6 +210,27 @@ export async function bodyTick(role, { now = Date.now(), pulseCheck = null } = {
     doc.unreadQQ = count
     if (count > 0) rep.notable.push(`收件箱还有 ${count} 条没看`)
   } catch (e) { rep.errors.push(`收件箱：${e?.message || e}`) }
+
+  // 3b) 内部群：兄弟有没有找我、还没回。这一步让心跳也能主动发现，
+  //     不用等到“对方发消息那一下”才知道（2026-11-26 老板：心跳实时互通）。
+  try {
+    const gn = groupNotices(id, { now })
+    doc.groupPending = gn.count
+    if (gn.text) rep.notable.push(gn.text)
+  } catch (e) { rep.errors.push(`内部群：${e?.message || e}`) }
+
+  // 3c) 兄弟角色最近动没动：谁很久没心跳了，我能看见（不是替它做，是知道它可能卡了）。
+  try {
+    const sib = siblingNotices(id, { now })
+    doc.siblings = sib
+    if (sib.length) rep.notable.push(`兄弟很久没动：${sib.map((x) => x.role).join('、')}`)
+  } catch (e) { rep.errors.push(`兄弟：${e?.message || e}`) }
+
+  // 3d) 自己的状态：在做什么/卡在哪，变了才播报到内部群（6 小时一次，不叫醒人）。
+  try {
+    const sb = maybeBroadcastStatus(id, doc, { now })
+    if (sb.posted) rep.did.push(`状态已播报：${sb.text}`)
+  } catch (e) { rep.errors.push(`状态播报：${e?.message || e}`) }
 
   // 4) 自己的脉，隔一阵摸一次
   const wantPulse = pulseCheck === null ? doc.ticks % CHECK_ENDPOINT_EVERY_TICKS === 0 : Boolean(pulseCheck)
@@ -221,43 +306,4 @@ export async function bodyTick(role, { now = Date.now(), pulseCheck = null } = {
   if (rep.notable.length) {
     try {
       fs.mkdirSync(path.dirname(bodyLog(id)), { recursive: true })
-      fs.appendFileSync(bodyLog(id), `${JSON.stringify({ at: rep.at, notable: rep.notable })}\n`, 'utf8')
-    } catch { /* 记不上就算了 */ }
-  }
-  return rep
-}
-
-/** 身体现在什么状态（她醒来看一眼，或老板查）。 */
-export function bodyStatus(role, { now = Date.now() } = {}) {
-  const id = String(role || '').trim()
-  const doc = readJson(bodyFile(id), null)
-  if (!doc) return { ok: true, role: id, alive: false, note: '身体循环还没跑过' }
-  const last = Date.parse(doc.lastTickAt || '')
-  const gapMin = Number.isFinite(last) ? Math.round((now - last) / 60000) : null
-  return {
-    ok: true,
-    role: id,
-    // 2026-11-10（② 心跳日志）：判据从 10 分钟改成 40 分钟——跟实际节奏对齐。
-    // 心跳并进自省之后是 30 分钟一跳，旧阈值 10 分钟会让它一天里有三分之二时间显示「没心跳」（假警报）。
-    alive: gapMin !== null && gapMin <= 40,
-    lastTickAt: doc.lastTickAt,
-    gapMinutes: gapMin,
-    ticks: doc.ticks || 0,
-    todayTicks: doc.day === dayOf(now) ? doc.dayTicks : 0,
-    activeItems: doc.active || 0,
-    unreadQQ: doc.unreadQQ || 0,
-    pulse: doc.pulse || null,
-    lastReport: doc.lastReport || { did: [], notable: [] },
-    note: gapMin !== null && gapMin > 40 ? `身体循环 ${gapMin} 分钟没跳了（宿主停了？）` : '心跳正常',
-  }
-}
-
-/** 身体最近替他做过/记下的事（她醒来能看，不用猜）。 */
-export function bodyRecent(role, { limit = 10 } = {}) {
-  try {
-    return fs.readFileSync(bodyLog(role), 'utf8').trim().split(/\r?\n/).slice(-Math.max(1, limit))
-      .map((l) => { try { return JSON.parse(l) } catch { return null } }).filter(Boolean).reverse()
-  } catch { return [] }
-}
-
-export const BODY = Object.freeze({ HEARTBEAT_EVERY_MS, CHECK_ENDPOINT_EVERY_TICKS })
+      fs.appendFileSync(bodyLog(id), `${JSON.stringify

@@ -1,6 +1,6 @@
-{
+﻿{
     "name":  "dsh-memory",
-    "version":  "0.1.2",
+    "version":  "0.2.0",
     "description":  "通用记忆插件壳：记一条 / 按线索想 / 看家底；和鱼神双子星同格式，不含人格。",
     "type":  "module",
     "main":  "./index.js",
@@ -43,3 +43,4 @@
                 },
     "license":  "AGPL-3.0-or-later"
 }
+

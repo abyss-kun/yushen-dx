@@ -215,5 +215,6 @@
   "test-dsh-memory-generic.mjs": "独立包通用工具自测：只删 mkdtemp(yushen-dshmem-generic-) 在系统 temp 下的临时家，不碰真 ~/.dsh",
   "check-resident-continuity.mjs": "常驻连续性验收：只删 mkdtemp(yushen-resident-cont-) 在系统 temp 下的临时家，不碰真 ~/.dsh",
   "eval-locomo.mjs": "LOCOMO 评测：只删 mkdtemp(yushen-locomo-) 在系统 temp 下的临时家，不碰真 ~/.dsh",
-  "eval-longmemeval.mjs": "LongMemEval 评测：只删 mkdtemp(yushen-lme-) 在系统 temp 下的那份临时家（每题的 haystack_sessions 事件只写在这里），不碰真 ~/.dsh"
+  "eval-longmemeval.mjs": "LongMemEval 评测：只删 mkdtemp(yushen-lme-) 在系统 temp 下的那份临时家（每题的 haystack_sessions 事件只写在这里），不碰真 ~/.dsh",
+  "test-body-loop-group.mjs": "心跳内部群自测：只删 mkdtemp(yushen-heart-group-) 在系统 temp 下的临时家，不碰真 ~/.dsh"
 }

@@ -94,6 +94,12 @@ export function pack({ out = HERE } = {}) {
       if (!fs.existsSync(from)) throw new Error(`壳缺文件 ${name}：${HERE}`)
       const to = path.join(dest, name)
       fs.copyFileSync(from, to)
+      // 2026-11-26：装到别的机器/手机时，壳里不能再用 ../memory-core（会指到安装目录外）；
+      // 打包副本统一改成 ./memory-core，仓里那份保持 ../ 不变。
+      if (/\.(js|mjs)$/.test(name)) {
+        const body = fs.readFileSync(to, 'utf8').replaceAll('../memory-core/', './memory-core/')
+        fs.writeFileSync(to, body, 'utf8')
+      }
       written.push(to)
     }
     for (const dir of SHELL_DIRS) {
